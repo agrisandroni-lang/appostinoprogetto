@@ -121,7 +121,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig =  {
@@ -382,7 +382,17 @@
 
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
-            signInWithRedirect(auth, provider);
+            // Imposta la persistenza per rendere l'accesso più robusto tra le sessioni
+            // e risolvere problemi con i popup/redirect su alcuni browser.
+            setPersistence(auth, browserLocalPersistence)
+                .then(() => {
+                    // Una volta impostata la persistenza, avvia il redirect per l'accesso
+                    return signInWithRedirect(auth, provider);
+                })
+                .catch((error) => {
+                    console.error("Errore nell'impostare la persistenza:", error);
+                    authStatus.textContent = "Impossibile avviare l'accesso. Riprova.";
+                });
         };
         buttons.signOut.onclick = () => signOut(auth);
         buttons.goToCreate.onclick = () => openMapEditor('create');
@@ -435,6 +445,7 @@
     </script>
 </body>
 </html>
+
 
 
 
