@@ -13,53 +13,45 @@
         .screen.active { display: flex; flex-direction: column; height: 100vh; }
         #map-container { flex-grow: 1; position: relative; background-color: #e0e0e0; }
         
-        /* Stile Segnaposto Nuova Versione */
         .custom-marker-label {
-            color: white;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-weight: bold;
-            font-size: 14px;
-            text-align: center;
-            white-space: nowrap;
-            border: 2px solid white;
+            color: white; padding: 3px 8px; border-radius: 12px;
+            font-weight: bold; font-size: 14px; text-align: center;
+            white-space: nowrap; border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            transition: all 0.2s ease-in-out;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 0;
+            transition: all 0.2s ease-in-out; position: absolute;
+            left: 50%; transform: translateX(-50%); bottom: 0;
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
-            border-color: #FFD700; /* Bordo Oro */
-            transform: translateX(-50%) scale(1.4);
-            transform-origin: bottom;
-            z-index: 1000;
+            border-color: #FFD700; transform: translateX(-50%) scale(1.4);
+            transform-origin: bottom; z-index: 1000;
         }
         
         #nearby-list-container, #all-markers-list {
-            max-height: 30vh;
-            overflow-y: auto;
+            max-height: 30vh; overflow-y: auto;
             background-color: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            border-top: 1px solid #ddd;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1); border-top: 1px solid #ddd;
         }
         #all-markers-list-screen #all-markers-list {
-             max-height: none;
-             flex-grow: 1;
+             max-height: none; flex-grow: 1;
         }
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border-left-color: #09f;
+            border: 4px solid rgba(0, 0, 0, 0.1); width: 36px;
+            height: 36px; border-radius: 50%; border-left-color: #09f;
             animation: spin 1s ease infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        #wake-lock-status {
+            position: absolute; top: 10px; right: 10px; z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%; padding: 8px; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        }
+        /* Stile per forzare il maiuscolo solo visivamente, il JS lo forza nel dato */
+        #city-input, #street-input {
+            text-transform: uppercase;
         }
     </style>
 </head>
@@ -120,13 +112,16 @@
     <div id="map-editor-screen" class="screen">
         <div id="map-container">
             <button id="back-to-home-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700">&lt; Menu</button>
+            <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
+                <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
+            </div>
         </div>
         <div id="nearby-list-container" class="hidden p-2"></div>
         <div id="form-container" class="p-3 bg-white shadow-lg">
              <button id="back-to-list-from-editor" class="text-blue-600 font-semibold mb-2">&lt; Elenco Mappe</button>
             <input type="text" id="map-name-input" placeholder="Nome Mappa (es. Giro Centro)" class="w-full p-2 border rounded mb-2">
-            <input type="text" id="city-input" placeholder="Città" class="w-full p-2 border rounded mb-2">
-            <input type="text" id="street-input" placeholder="Via" class="w-full p-2 border rounded mb-2">
+            <input type="text" id="city-input" list="cities-list" placeholder="Città" class="w-full p-2 border rounded mb-2">
+            <input type="text" id="street-input" list="streets-list" placeholder="Via" class="w-full p-2 border rounded mb-2">
             <div class="flex items-center gap-2">
                 <input type="text" id="house-number-input" placeholder="N° Civico" class="w-1/3 p-2 border rounded">
                 <input type="text" id="notes-input" placeholder="Note (es. cane, interno 5)" class="flex-grow p-2 border rounded">
@@ -168,6 +163,9 @@
             </div>
         </div>
     </div>
+    
+    <datalist id="cities-list"></datalist>
+    <datalist id="streets-list"></datalist>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -195,7 +193,8 @@
         let unsubscribeMapsListListener = null;
         let repositioningState = { active: false, markerId: null };
         let locationWatcher = null;
-        let allMarkersForList = []; // Per la schermata "Mostra Tutti"
+        let allMarkersForList = [];
+        let wakeLock = null;
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen') };
         const buttons = {
@@ -214,6 +213,7 @@
         const loadingView = document.getElementById('loading-view');
         const loggedInView = document.getElementById('logged-in-view');
         const loggedOutView = document.getElementById('logged-out-view');
+        const wakeLockStatus = document.getElementById('wake-lock-status');
 
         const showScreen = (screenName) => {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
@@ -228,6 +228,24 @@
             document.getElementById('confirm-action').onclick = () => { onConfirmCallback(); modal.style.display = 'none'; };
             document.getElementById('cancel-confirm').onclick = () => { modal.style.display = 'none'; };
         }
+
+        const toggleWakeLock = async (enable) => {
+            if (enable) {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        wakeLockStatus.classList.remove('hidden');
+                        wakeLock.addEventListener('release', () => {
+                            wakeLock = null;
+                            wakeLockStatus.classList.add('hidden');
+                        });
+                    } catch (err) { console.error(`${err.name}, ${err.message}`); }
+                }
+            } else {
+                if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+                wakeLockStatus.classList.add('hidden');
+            }
+        };
 
         const stringToHslColor = (str, s, l) => {
             let hash = 0;
@@ -361,6 +379,23 @@
                 containers.nearbyList.appendChild(list);
             }
         };
+        
+        const populateDatalists = (markers = []) => {
+            const citiesDatalist = document.getElementById('cities-list');
+            const streetsDatalist = document.getElementById('streets-list');
+            citiesDatalist.innerHTML = '';
+            streetsDatalist.innerHTML = '';
+
+            const uniqueCities = [...new Set(markers.map(m => m.city))];
+            uniqueCities.forEach(city => {
+                citiesDatalist.innerHTML += `<option value="${city}">`;
+            });
+
+            const uniqueStreets = [...new Set(markers.map(m => m.street))];
+            uniqueStreets.forEach(street => {
+                streetsDatalist.innerHTML += `<option value="${street}">`;
+            });
+        };
 
         const attachMapListener = (mapId) => {
             const userId = auth.currentUser?.uid; if (!userId) return;
@@ -371,6 +406,7 @@
                     const data = docSnap.data();
                     currentMapData = { ...currentMapData, ...data };
                     renderMarkers(data.markers || []);
+                    populateDatalists(data.markers || []); // Popola i suggerimenti
                     if (currentMapData.mode !== 'create' && data.markers?.length > 0) {
                         const lastMarker = data.markers[data.markers.length - 1];
                         inputs.city.value = lastMarker.city; inputs.street.value = lastMarker.street;
@@ -403,13 +439,19 @@
             if (unsubscribeMapListener) unsubscribeMapListener();
             if (!map) initMap({ latitude: 43.464, longitude: 13.074 }); // Rosora
             
+            toggleWakeLock(mode === 'view');
+            
             inputs.mapName.style.display = (mode === 'create') ? 'block' : 'none';
             document.getElementById('form-container').style.display = (mode === 'view') ? 'none' : 'block';
             buttons.backToHomeFromView.style.display = (mode === 'view') ? 'block' : 'none';
             containers.nearbyList.style.display = (mode === 'view') ? 'block' : 'none';
 
-            if (mode === 'create') renderMarkers([]);
-            else attachMapListener(mapId);
+            if (mode === 'create') {
+                renderMarkers([]);
+                populateDatalists(); // Pulisce i suggerimenti
+            } else {
+                attachMapListener(mapId);
+            }
             
             showScreen('mapEditor');
             setTimeout(() => { if (map) map.invalidateSize(); }, 100);
@@ -433,11 +475,13 @@
              list.className = 'divide-y divide-gray-200';
              markers.forEach(marker => {
                  const li = document.createElement('li');
-                 li.className = 'p-3';
+                 const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
                  li.innerHTML = `
-                    <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
-                    <p class="text-sm text-gray-600">${marker.city}</p>
-                    ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
+                    <a href="${navLink}" target="_blank" class="block p-3 hover:bg-gray-100">
+                        <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
+                        <p class="text-sm text-gray-600">${marker.city}</p>
+                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
+                    </a>
                  `;
                  list.appendChild(li);
              });
@@ -466,7 +510,9 @@
             const userId = auth.currentUser.uid;
             const newMarker = { 
                 id: Date.now().toString(), latitude: temporaryMarker.getLatLng().lat, longitude: temporaryMarker.getLatLng().lng, 
-                city: inputs.city.value, street: inputs.street.value, houseNumber: inputs.houseNumber.value,
+                city: inputs.city.value.trim().toUpperCase(), 
+                street: inputs.street.value.trim().toUpperCase(), 
+                houseNumber: inputs.houseNumber.value,
                 notes: inputs.notes.value.trim()
             };
             const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
@@ -558,6 +604,12 @@
             }
         };
 
+        const handleBackAction = () => {
+            toggleWakeLock(false);
+            if(unsubscribeMapListener) unsubscribeMapListener();
+            currentMapData = null;
+        };
+
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider).catch((error) => {
@@ -569,12 +621,14 @@
         buttons.goToCreate.onclick = () => openMapEditor('create');
         buttons.goToList.onclick = () => showScreen('mapList');
         buttons.backToHomeFromList.onclick = () => showScreen('home');
-        buttons.backToHomeFromView.onclick = () => showScreen('home');
-        buttons.backToListFromEditor.onclick = () => { if(unsubscribeMapListener) unsubscribeMapListener(); currentMapData = null; showScreen('mapList'); };
+        buttons.backToHomeFromView.onclick = () => { handleBackAction(); showScreen('home'); };
+        buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen('mapList'); };
         buttons.backToMapListFromAll.onclick = () => showScreen('mapList');
         buttons.saveMarker.onclick = handleSaveMarker;
         containers.mapList.addEventListener('click', (e) => {
-            const target = e.target;
+            const target = e.target.closest('button'); // Trova il pulsante più vicino
+            if (!target) return;
+
             const mapId = target.dataset.id;
             const mapDataString = target.dataset.map;
             
@@ -589,6 +643,10 @@
             }
         });
         
+        const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
+        inputs.city.addEventListener('input', forceUppercase);
+        inputs.street.addEventListener('input', forceUppercase);
+
         onAuthStateChanged(auth, (user) => {
             loadingView.classList.add('hidden');
             if (user && !user.isAnonymous) {
@@ -607,6 +665,12 @@
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
                 showScreen('home');
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentMapData?.mode === 'view') {
+                toggleWakeLock(true);
             }
         });
     </script>
