@@ -121,22 +121,17 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =====================================================================================
-        // --- CONFIGURAZIONE FIREBASE ---
-        // Controlla che queste chiavi siano ESATTAMENTE quelle prese dalla tua console Firebase
         const firebaseConfig = {
           apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
           authDomain: "mappapostino.firebaseapp.com",
           projectId: "mappapostino",
-          storageBucket: "mappapostino.firebasestorage.app", // <<< --- CORREZIONE ESEGUITA QUI
+          storageBucket: "mappapostino.appspot.com",
           messagingSenderId: "944815179156",
           appId: "1:944815179156:web:0cd86ba2be9eb0f909fb81"
         };
-        // --- FINE CONFIGURAZIONE FIREBASE ---
-        // =====================================================================================
             
         const appId = firebaseConfig.appId;
         const app = initializeApp(firebaseConfig);
@@ -387,14 +382,16 @@
 
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
-            setPersistence(auth, browserLocalPersistence)
-                .then(() => {
-                    return signInWithRedirect(auth, provider);
-                })
-                .catch((error) => {
-                    console.error("Errore nell'impostare la persistenza:", error);
-                    authStatus.textContent = "Impossibile avviare l'accesso. Riprova.";
-                });
+            signInWithPopup(auth, provider).catch((error) => {
+                console.error("Errore con l'accesso popup:", error);
+                if (error.code === 'auth/popup-closed-by-user') {
+                    authStatus.textContent = "Finestra di accesso chiusa. Riprova.";
+                } else if (error.code === 'auth/popup-blocked') {
+                    authStatus.textContent = "Il popup è stato bloccato. Abilita i popup per questo sito e riprova.";
+                } else {
+                    authStatus.textContent = "Errore durante l'accesso. Riprova.";
+                }
+            });
         };
         buttons.signOut.onclick = () => signOut(auth);
         buttons.goToCreate.onclick = () => openMapEditor('create');
@@ -414,15 +411,6 @@
                 showConfirm(`Eliminare la mappa "${target.dataset.name}"?`, 'I dati andranno persi per sempre.', async () => { await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId)); });
             }
         });
-
-        // Controlla se l'utente sta tornando da un redirect di accesso
-        getRedirectResult(auth)
-            .catch((error) => {
-                console.error("Errore nel processo di redirect:", error);
-                authStatus.textContent = "Si è verificato un errore durante l'accesso.";
-                loadingView.classList.add('hidden');
-                loggedOutView.classList.remove('hidden');
-            });
         
         onAuthStateChanged(auth, (user) => {
             loadingView.classList.add('hidden');
