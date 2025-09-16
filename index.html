@@ -121,7 +121,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig =  {
@@ -403,6 +403,15 @@
             }
         });
 
+        // Controlla se l'utente sta tornando da un redirect di accesso
+        getRedirectResult(auth)
+            .catch((error) => {
+                console.error("Errore nel processo di redirect:", error);
+                authStatus.textContent = "Si è verificato un errore durante l'accesso.";
+                loadingView.classList.add('hidden');
+                loggedOutView.classList.remove('hidden');
+            });
+        
         onAuthStateChanged(auth, (user) => {
             loadingView.classList.add('hidden');
             if (user && !user.isAnonymous) {
@@ -426,6 +435,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
