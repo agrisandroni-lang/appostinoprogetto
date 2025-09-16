@@ -195,6 +195,7 @@
         let locationWatcher = null;
         let allMarkersForList = [];
         let wakeLock = null;
+        let mapsListData = new Map(); // Cache per i dati delle mappe
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen') };
         const buttons = {
@@ -307,7 +308,7 @@
                      className: 'custom-marker-container', 
                      html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${markerData.houseNumber}</div>`,
                      iconSize: [null, null],
-                     iconAnchor: [0, 15]
+                     iconAnchor: [0, 14] // Corretto per la precisione
                  });
 
                  let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
@@ -406,7 +407,7 @@
                     const data = docSnap.data();
                     currentMapData = { ...currentMapData, ...data };
                     renderMarkers(data.markers || []);
-                    populateDatalists(data.markers || []); // Popola i suggerimenti
+                    populateDatalists(data.markers || []); 
                     if (currentMapData.mode !== 'create' && data.markers?.length > 0) {
                         const lastMarker = data.markers[data.markers.length - 1];
                         inputs.city.value = lastMarker.city; inputs.street.value = lastMarker.street;
@@ -420,12 +421,19 @@
             containers.mapList.innerHTML = '<p class="text-center text-gray-500">Caricamento mappe...</p>';
             const q = query(collection(db, `artifacts/${appId}/users/${userId}/maps`), orderBy("name"));
             unsubscribeMapsListListener = onSnapshot(q, (snapshot) => {
+                mapsListData.clear();
                 containers.mapList.innerHTML = snapshot.empty ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
                 snapshot.forEach(doc => {
                     const map = { id: doc.id, ...doc.data() };
+                    mapsListData.set(map.id, map); // Salva i dati della mappa in cache
                     const mapDiv = document.createElement('div');
                     mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
-                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2"><button data-id="${map.id}" class="view-btn bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Visualizza</button><button data-id="${map.id}" class="edit-btn bg-yellow-400 text-white font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button><button data-map='${JSON.stringify(map)}' class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Mostra Tutti</button><button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button></div>`;
+                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2">
+                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Visualizza</button>
+                        <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-white font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
+                        <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Mostra Tutti</button>
+                        <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
+                    </div>`;
                     containers.mapList.appendChild(mapDiv);
                 });
             }, (error) => { console.error("Errore Firestore:", error); containers.mapList.innerHTML = '<p class="text-center text-red-500">Errore caricamento mappe.</p>'; });
@@ -448,7 +456,7 @@
 
             if (mode === 'create') {
                 renderMarkers([]);
-                populateDatalists(); // Pulisce i suggerimenti
+                populateDatalists(); 
             } else {
                 attachMapListener(mapId);
             }
@@ -626,11 +634,10 @@
         buttons.backToMapListFromAll.onclick = () => showScreen('mapList');
         buttons.saveMarker.onclick = handleSaveMarker;
         containers.mapList.addEventListener('click', (e) => {
-            const target = e.target.closest('button'); // Trova il pulsante più vicino
+            const target = e.target.closest('button');
             if (!target) return;
 
             const mapId = target.dataset.id;
-            const mapDataString = target.dataset.map;
             
             if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
             if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
@@ -638,8 +645,8 @@
                 showConfirm(`Eliminare la mappa "${target.dataset.name}"?`, 'I dati andranno persi per sempre.', async () => { await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId)); });
             }
             if(target.classList.contains('show-all-btn')) {
-                const mapData = JSON.parse(mapDataString);
-                showAllMarkersList(mapData);
+                const mapData = mapsListData.get(mapId);
+                if (mapData) showAllMarkersList(mapData);
             }
         });
         
