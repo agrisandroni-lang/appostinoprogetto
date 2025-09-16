@@ -126,17 +126,15 @@
 
         // =====================================================================================
         // --- CONFIGURAZIONE FIREBASE ---
-        // 1. Vai alla console di Firebase -> Impostazioni Progetto -> Generale -> SDK setup and configuration -> Config
-        // 2. Copia l'intero oggetto "firebaseConfig"
-        // 3. Incolla l'oggetto qui sotto, SOSTITUENDO questo blocco di esempio.
+        // Controlla che queste chiavi siano ESATTAMENTE quelle prese dalla tua console Firebase
         const firebaseConfig = {
-  apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
-  authDomain: "mappapostino.firebaseapp.com",
-  projectId: "mappapostino",
-  storageBucket: "mappapostino.firebasestorage.app",
-  messagingSenderId: "944815179156",
-  appId: "1:944815179156:web:0cd86ba2be9eb0f909fb81"
-};
+          apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
+          authDomain: "mappapostino.firebaseapp.com",
+          projectId: "mappapostino",
+          storageBucket: "mappapostino.appspot.com", // <<< --- CORREZIONE ESEGUITA QUI
+          messagingSenderId: "944815179156",
+          appId: "1:944815179156:web:0cd86ba2be9eb0f909fb81"
+        };
         // --- FINE CONFIGURAZIONE FIREBASE ---
         // =====================================================================================
             
@@ -389,11 +387,8 @@
 
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
-            // Imposta la persistenza per rendere l'accesso più robusto tra le sessioni
-            // e risolvere problemi con i popup/redirect su alcuni browser.
             setPersistence(auth, browserLocalPersistence)
                 .then(() => {
-                    // Una volta impostata la persistenza, avvia il redirect per l'accesso
                     return signInWithRedirect(auth, provider);
                 })
                 .catch((error) => {
