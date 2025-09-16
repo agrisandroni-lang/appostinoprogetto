@@ -19,11 +19,14 @@
             white-space: nowrap; border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             transition: all 0.2s ease-in-out; position: absolute;
-            left: 50%; transform: translateX(-50%); bottom: 0;
+            /* Correzione per il centraggio perfetto */
+            left: 50%;
+            top: 0;
+            transform: translate(-50%, -100%);
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
-            border-color: #FFD700; transform: translateX(-50%) scale(1.4);
+            border-color: #FFD700; transform: translate(-50%, -100%) scale(1.4);
             transform-origin: bottom; z-index: 1000;
         }
         
@@ -195,7 +198,6 @@
         let locationWatcher = null;
         let allMarkersForList = [];
         let wakeLock = null;
-        let mapsListData = new Map(); // Cache per i dati delle mappe
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen') };
         const buttons = {
@@ -307,8 +309,8 @@
                  const customIcon = L.divIcon({ 
                      className: 'custom-marker-container', 
                      html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${markerData.houseNumber}</div>`,
-                     iconSize: [null, null],
-                     iconAnchor: [0, 14] // Corretto per la precisione
+                     iconSize: [0, 0], // Dimensioni gestite dal contenuto
+                     iconAnchor: [0, 0] // L'ancoraggio è gestito dal transform CSS
                  });
 
                  let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
@@ -425,7 +427,7 @@
                 containers.mapList.innerHTML = snapshot.empty ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
                 snapshot.forEach(doc => {
                     const map = { id: doc.id, ...doc.data() };
-                    mapsListData.set(map.id, map); // Salva i dati della mappa in cache
+                    mapsListData.set(map.id, map);
                     const mapDiv = document.createElement('div');
                     mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
                     mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2">
