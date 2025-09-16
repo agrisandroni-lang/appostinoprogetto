@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ApPostino</title>
-    <!-- Tailwind CSS per lo stile -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Leaflet.js per le mappe interattive -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
@@ -34,6 +32,18 @@
             background-color: rgba(255, 255, 255, 0.9);
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
         }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -43,7 +53,10 @@
         <div class="text-center">
             <h1 class="text-5xl font-bold text-blue-600 mb-2">ApPostino</h1>
             <p class="text-xl text-gray-600 mb-10">La tua mappa personale per le consegne</p>
-            <div id="logged-out-view">
+            <div id="loading-view" class="flex justify-center items-center h-24">
+                 <div class="spinner"></div>
+            </div>
+            <div id="logged-out-view" class="hidden">
                 <button id="sign-in-google" class="w-full bg-white text-gray-700 text-lg font-bold py-3 px-4 rounded-lg shadow-md mb-4 hover:bg-gray-100 transition-colors flex items-center justify-center gap-3">
                     <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.42-4.55H24v8.51h12.8c-.57 3.02-2.31 5.45-4.92 7.18l7.98 6.19c4.63-4.28 7.35-10.42 7.35-17.33z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.98-6.19c-2.11 1.45-4.82 2.3-7.91 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path><path fill="none" d="M0 0h48v48H0z"></path></svg>
                     Accedi con Google
@@ -57,6 +70,7 @@
                 <button id="go-to-list" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
                     Visualizza le tue mappe
                 </button>
+                <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
             <div id="auth-status" class="mt-8 text-gray-500 text-sm"></div>
         </div>
@@ -107,8 +121,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig =  {
           apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
@@ -130,10 +144,11 @@
         let unsubscribeMapListener = null;
         let unsubscribeMapsListListener = null;
         let repositioningState = { active: false, markerId: null };
+        let locationWatcher = null;
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen') };
         const buttons = {
-            signInGoogle: document.getElementById('sign-in-google'),
+            signInGoogle: document.getElementById('sign-in-google'), signOut: document.getElementById('sign-out-button'),
             goToCreate: document.getElementById('go-to-create'), goToList: document.getElementById('go-to-list'),
             backToHomeFromList: document.getElementById('back-to-home-from-list'),
             backToHomeFromView: document.getElementById('back-to-home-from-view'),
@@ -144,6 +159,7 @@
         const containers = { mapList: document.getElementById('maps-list-container'), nearbyList: document.getElementById('nearby-list-container') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
+        const loadingView = document.getElementById('loading-view');
         const loggedInView = document.getElementById('logged-in-view');
         const loggedOutView = document.getElementById('logged-out-view');
 
@@ -264,7 +280,7 @@
         const loadMapsList = (userId) => {
             if (unsubscribeMapsListListener) unsubscribeMapsListListener();
             containers.mapList.innerHTML = '<p class="text-center text-gray-500">Caricamento mappe...</p>';
-            const q = query(collection(db, `artifacts/${appId}/users/${userId}/maps`));
+            const q = query(collection(db, `artifacts/${appId}/users/${userId}/maps`), orderBy("name"));
             unsubscribeMapsListListener = onSnapshot(q, (snapshot) => {
                 containers.mapList.innerHTML = snapshot.empty ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
                 snapshot.forEach(doc => {
@@ -346,12 +362,29 @@
             infoText.textContent = 'Segnaposto riposizionato!';
             document.getElementById('map-container').style.cursor = '';
         };
-
-        buttons.signInGoogle.onclick = async () => {
-            const provider = new GoogleAuthProvider();
-            try { await signInWithPopup(auth, provider); } 
-            catch (error) { console.error("Errore accesso Google:", error); }
+        
+        const startWatchingLocation = () => {
+            if (navigator.geolocation && !locationWatcher) {
+                locationWatcher = navigator.geolocation.watchPosition(
+                    (position) => updateUserLocation(position.coords),
+                    (error) => console.error("Errore geolocalizzazione:", error.code, error.message),
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }
         };
+
+        const stopWatchingLocation = () => {
+            if (navigator.geolocation && locationWatcher) {
+                navigator.geolocation.clearWatch(locationWatcher);
+                locationWatcher = null;
+            }
+        };
+
+        buttons.signInGoogle.onclick = () => {
+            const provider = new GoogleAuthProvider();
+            signInWithRedirect(auth, provider);
+        };
+        buttons.signOut.onclick = () => signOut(auth);
         buttons.goToCreate.onclick = () => openMapEditor('create');
         buttons.goToList.onclick = () => showScreen('mapList');
         buttons.backToHomeFromList.onclick = () => showScreen('home');
@@ -371,23 +404,29 @@
         });
 
         onAuthStateChanged(auth, (user) => {
+            loadingView.classList.add('hidden');
             if (user && !user.isAnonymous) {
-                authStatus.textContent = `Connesso come: ${user.displayName}`;
+                authStatus.textContent = `Ciao, ${user.displayName}!`;
                 authStatus.classList.add('text-green-600');
                 loggedInView.classList.remove('hidden');
                 loggedOutView.classList.add('hidden');
                 loadMapsList(user.uid);
                 startWatchingLocation();
             } else {
-                authStatus.textContent = "Accedi per salvare e vedere le tue mappe.";
+                authStatus.textContent = "";
                 authStatus.classList.remove('text-green-600');
                 loggedInView.classList.add('hidden');
                 loggedOutView.classList.remove('hidden');
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
+                stopWatchingLocation();
+                showScreen('home');
             }
         });
     </script>
 </body>
 </html>
+
+
+
 
