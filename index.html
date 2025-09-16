@@ -97,11 +97,11 @@
                 <p class="text-sm text-gray-500 my-4">Per avere le tue mappe su tutti i dispositivi</p>
             </div>
             <div id="logged-in-view" class="hidden">
-                 <button id="go-to-create" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md mb-4 hover:bg-blue-700 transition-colors">
-                    Crea una Mappa
-                </button>
-                <button id="go-to-list" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
+                <button id="go-to-list" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md mb-4 hover:bg-blue-700 transition-colors">
                     Visualizza le tue mappe
+                </button>
+                 <button id="go-to-create" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
+                    Crea una Mappa
                 </button>
                 <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
@@ -452,10 +452,10 @@
                     mapsListData.set(map.id, map);
                     const mapDiv = document.createElement('div');
                     mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
-                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2">
-                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Visualizza</button>
+                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
+                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                         <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-white font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
-                        <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Mostra Tutti</button>
+                        <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
                         <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
                     </div>`;
                     containers.mapList.appendChild(mapDiv);
