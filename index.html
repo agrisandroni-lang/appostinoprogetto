@@ -15,23 +15,28 @@
         
         /* Stile Segnaposto Nuova Versione */
         .custom-marker-label {
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.75);
             color: white;
             padding: 3px 8px;
             border-radius: 12px;
             font-weight: bold;
             font-size: 14px;
             text-align: center;
-            white-space: nowrap;
+            white-space: nowrap; /* Non manda a capo il testo */
             border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             transition: all 0.2s ease-in-out;
+            /* Centratura perfetta */
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 0;
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
             background-color: #FFD700; /* Oro */
             color: black;
-            transform: scale(1.4);
+            transform: translateX(-50%) scale(1.4);
             transform-origin: bottom;
         }
         
@@ -109,7 +114,7 @@
             <input type="text" id="street-input" placeholder="Via" class="w-full p-2 border rounded mb-2">
             <div class="flex items-center gap-2">
                 <input type="text" id="house-number-input" placeholder="N° Civico" class="w-1/3 p-2 border rounded">
-                <input type="text" id="notes-input" placeholder="Note (facoltativo)" class="flex-grow p-2 border rounded">
+                <input type="text" id="notes-input" placeholder="Note (es. cane, interno 5)" class="flex-grow p-2 border rounded">
                 <button id="save-marker-button" class="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">
                     +
                 </button>
@@ -126,6 +131,25 @@
             <div class="flex justify-center gap-4">
                 <button id="cancel-confirm" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
                 <button id="confirm-action" class="bg-red-600 text-white font-bold py-2 px-6 rounded hover:bg-red-700">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Modifica Segnaposto -->
+    <div id="edit-marker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <h3 class="text-lg font-bold mb-4">Modifica Segnaposto</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">N° Civico</label>
+                <input type="text" id="edit-house-number-input" class="w-full p-2 border rounded">
+            </div>
+            <div class="mb-6">
+                 <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                <input type="text" id="edit-notes-input" placeholder="Aggiungi una nota..." class="w-full p-2 border rounded">
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-edit" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
+                <button id="confirm-edit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700">Salva</button>
             </div>
         </div>
     </div>
@@ -192,9 +216,8 @@
             if (map) return map.setView([coords.latitude, coords.longitude], 16);
             map = L.map('map-container').setView([coords.latitude, coords.longitude], 16);
             
-            // Crea un "livello" personalizzato per l'indicatore utente con uno z-index alto
             map.createPane('userPane');
-            map.getPane('userPane').style.zIndex = 650; // I marker di default sono a 600
+            map.getPane('userPane').style.zIndex = 650; 
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
             map.on('click', async (e) => {
@@ -210,6 +233,8 @@
                 if (deleteBtn) deleteBtn.onclick = () => showConfirm('Eliminare questo segnaposto?', "L'azione è irreversibile.", () => handleDeleteMarker(deleteBtn.dataset.markerId));
                 const moveBtn = popupNode.querySelector('.move-marker-btn');
                 if (moveBtn) moveBtn.onclick = () => startRepositioning(moveBtn.dataset.markerId);
+                const editBtn = popupNode.querySelector('.edit-marker-btn');
+                if (editBtn) editBtn.onclick = () => openEditModal(editBtn.dataset.markerId);
             });
         };
 
@@ -217,7 +242,6 @@
              if (!map) return;
              const latLng = [coords.latitude, coords.longitude];
              if (!userMarker) {
-                 // Assegna il marker al "livello" utente per essere sempre in primo piano
                  userMarker = L.circleMarker(latLng, { radius: 8, color: 'blue', fillColor: '#3498db', fillOpacity: 1, pane: 'userPane' }).addTo(map);
              } else {
                  userMarker.setLatLng(latLng);
@@ -235,10 +259,10 @@
             currentMarkers = [];
             markers.forEach(markerData => {
                  const customIcon = L.divIcon({ 
-                     className: '', // Classe vuota perché lo stile è sull'elemento figlio
+                     className: 'custom-marker-container', 
                      html: `<div class="custom-marker-label">${markerData.houseNumber}</div>`,
-                     iconSize: [30, 30],
-                     iconAnchor: [15, 35] // Ancoraggio alla base del segnaposto
+                     iconSize: [null, null], // Permette al CSS di definire la dimensione
+                     iconAnchor: [0, 15] // Ancoraggio spostato per compensare la centratura
                  });
 
                  let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
@@ -247,7 +271,11 @@
                  }
                  
                  if(currentMapData?.mode !== 'view') {
-                    popupContent += `<div class="flex justify-around gap-2 mt-2"><button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button><button class="move-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button></div>`;
+                    popupContent += `<div class="flex justify-around gap-2 mt-2">
+                        <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
+                        <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
+                        <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
+                    </div>`;
                  }
 
                  const marker = L.marker([markerData.latitude, markerData.longitude], { icon: customIcon }).addTo(map).bindPopup(popupContent);
@@ -279,7 +307,6 @@
             currentMarkers.forEach(marker => {
                 const markerIconEl = marker.getElement();
                 if (markerIconEl) {
-                    // Evidenzia solo se è il più vicino E se è nel raggio di 50m
                     markerIconEl.classList.toggle('closest', marker === closest.marker && closest.distance < 50);
                 }
             });
@@ -394,6 +421,43 @@
                 infoText.textContent = 'Segnaposto salvato!';
             } catch(error) { console.error("Errore salvataggio: ", error); alert("Impossibile salvare il segnaposto."); }
         };
+        
+        const openEditModal = (markerId) => {
+            const markerToEdit = currentMapData.markers.find(m => m.id === markerId);
+            if (!markerToEdit) return;
+
+            const modal = document.getElementById('edit-marker-modal');
+            const houseNumberInput = document.getElementById('edit-house-number-input');
+            const notesInput = document.getElementById('edit-notes-input');
+            
+            houseNumberInput.value = markerToEdit.houseNumber;
+            notesInput.value = markerToEdit.notes || '';
+            
+            modal.style.display = 'flex';
+
+            document.getElementById('confirm-edit').onclick = () => handleUpdateMarker(markerId);
+            document.getElementById('cancel-edit').onclick = () => modal.style.display = 'none';
+        };
+
+        const handleUpdateMarker = async (markerId) => {
+            const userId = auth.currentUser.uid;
+            const houseNumberInput = document.getElementById('edit-house-number-input');
+            const notesInput = document.getElementById('edit-notes-input');
+            
+            const updatedData = {
+                houseNumber: houseNumberInput.value,
+                notes: notesInput.value.trim()
+            };
+
+            const updatedMarkers = currentMapData.markers.map(m => 
+                m.id === markerId ? { ...m, ...updatedData } : m
+            );
+
+            await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
+            document.getElementById('edit-marker-modal').style.display = 'none';
+            map.closePopup();
+        };
+
 
         const handleDeleteMarker = async (markerId) => {
             const userId = auth.currentUser.uid;
