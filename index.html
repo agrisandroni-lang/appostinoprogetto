@@ -124,14 +124,21 @@
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig =  {
-          apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
-          authDomain: "mappapostino.firebaseapp.com",
-          projectId: "mappapostino",
-          storageBucket: "mappapostino.appspot.com",
-          messagingSenderId: "944815179156",
-          appId: "1:944815179156:web:0cd86ba2be9eb0f909fb81"
-        };
+        // =====================================================================================
+        // --- CONFIGURAZIONE FIREBASE ---
+        // 1. Vai alla console di Firebase -> Impostazioni Progetto -> Generale -> SDK setup and configuration -> Config
+        // 2. Copia l'intero oggetto "firebaseConfig"
+        // 3. Incolla l'oggetto qui sotto, SOSTITUENDO questo blocco di esempio.
+        const firebaseConfig = {
+  apiKey: "AIzaSyCAs_kSKTe2NQ2-ZEXEQY_B6w6WYWIghWw",
+  authDomain: "mappapostino-e4f11.firebaseapp.com",
+  projectId: "mappapostino-e4f11",
+  storageBucket: "mappapostino-e4f11.firebasestorage.app",
+  messagingSenderId: "860117569884",
+  appId: "1:860117569884:web:b47bb5247dace2f595b199"
+};
+        // --- FINE CONFIGURAZIONE FIREBASE ---
+        // =====================================================================================
             
         const appId = firebaseConfig.appId;
         const app = initializeApp(firebaseConfig);
@@ -445,8 +452,4 @@
     </script>
 </body>
 </html>
-
-
-
-
 
