@@ -15,18 +15,16 @@
         
         /* Stile Segnaposto Nuova Versione */
         .custom-marker-label {
-            background-color: rgba(0, 0, 0, 0.75);
             color: white;
             padding: 3px 8px;
             border-radius: 12px;
             font-weight: bold;
             font-size: 14px;
             text-align: center;
-            white-space: nowrap; /* Non manda a capo il testo */
+            white-space: nowrap;
             border: 2px solid white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             transition: all 0.2s ease-in-out;
-            /* Centratura perfetta */
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
@@ -34,18 +32,22 @@
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
-            background-color: #FFD700; /* Oro */
-            color: black;
+            border-color: #FFD700; /* Bordo Oro */
             transform: translateX(-50%) scale(1.4);
             transform-origin: bottom;
+            z-index: 1000;
         }
         
-        #nearby-list-container {
+        #nearby-list-container, #all-markers-list {
             max-height: 30vh;
             overflow-y: auto;
             background-color: rgba(255, 255, 255, 0.95);
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             border-top: 1px solid #ddd;
+        }
+        #all-markers-list-screen #all-markers-list {
+             max-height: none;
+             flex-grow: 1;
         }
         .spinner {
             border: 4px solid rgba(0, 0, 0, 0.1);
@@ -99,6 +101,19 @@
             <div></div> <!-- Spacer -->
         </div>
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
+    </div>
+    
+    <!-- Schermata 4: Elenco di tutti i civici -->
+    <div id="all-markers-list-screen" class="screen">
+        <div class="p-4 bg-white shadow-md">
+            <div class="flex justify-between items-center mb-4">
+                <button id="back-to-map-list-from-all" class="text-blue-600 font-semibold">&lt; Le mie Mappe</button>
+                <h2 id="all-markers-map-name" class="text-xl font-bold text-gray-800"></h2>
+                <div></div>
+            </div>
+            <input type="search" id="search-markers-input" placeholder="Cerca via, civico o note..." class="w-full p-2 border rounded">
+        </div>
+        <div id="all-markers-list" class="overflow-y-auto"></div>
     </div>
 
     <!-- Schermata 3: Editor Mappa -->
@@ -157,7 +172,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
@@ -180,18 +195,20 @@
         let unsubscribeMapsListListener = null;
         let repositioningState = { active: false, markerId: null };
         let locationWatcher = null;
+        let allMarkersForList = []; // Per la schermata "Mostra Tutti"
 
-        const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen') };
+        const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen') };
         const buttons = {
             signInGoogle: document.getElementById('sign-in-google'), signOut: document.getElementById('sign-out-button'),
             goToCreate: document.getElementById('go-to-create'), goToList: document.getElementById('go-to-list'),
             backToHomeFromList: document.getElementById('back-to-home-from-list'),
             backToHomeFromView: document.getElementById('back-to-home-from-view'),
             backToListFromEditor: document.getElementById('back-to-list-from-editor'),
+            backToMapListFromAll: document.getElementById('back-to-map-list-from-all'),
             saveMarker: document.getElementById('save-marker-button'),
         };
-        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input') };
-        const containers = { mapList: document.getElementById('maps-list-container'), nearbyList: document.getElementById('nearby-list-container') };
+        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
+        const containers = { mapList: document.getElementById('maps-list-container'), nearbyList: document.getElementById('nearby-list-container'), allMarkersList: document.getElementById('all-markers-list') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
         const loadingView = document.getElementById('loading-view');
@@ -211,6 +228,15 @@
             document.getElementById('confirm-action').onclick = () => { onConfirmCallback(); modal.style.display = 'none'; };
             document.getElementById('cancel-confirm').onclick = () => { modal.style.display = 'none'; };
         }
+
+        const stringToHslColor = (str, s, l) => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = hash % 360;
+            return `hsl(${hue}, ${s}%, ${l}%)`;
+        };
 
         const initMap = (coords) => {
             if (map) return map.setView([coords.latitude, coords.longitude], 16);
@@ -258,11 +284,12 @@
             currentMarkers.forEach(m => map.removeLayer(m));
             currentMarkers = [];
             markers.forEach(markerData => {
+                 const streetColor = stringToHslColor(markerData.street || 'default', 60, 50);
                  const customIcon = L.divIcon({ 
                      className: 'custom-marker-container', 
-                     html: `<div class="custom-marker-label">${markerData.houseNumber}</div>`,
-                     iconSize: [null, null], // Permette al CSS di definire la dimensione
-                     iconAnchor: [0, 15] // Ancoraggio spostato per compensare la centratura
+                     html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${markerData.houseNumber}</div>`,
+                     iconSize: [null, null],
+                     iconAnchor: [0, 15]
                  });
 
                  let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
@@ -270,13 +297,17 @@
                     popupContent += `<br><small class="text-gray-600 italic">${markerData.notes}</small>`
                  }
                  
+                 const navLink = `https://www.google.com/maps/dir/?api=1&destination=${markerData.latitude},${markerData.longitude}`;
+
+                 popupContent += `<div class="flex justify-around items-center gap-2 mt-2">`;
                  if(currentMapData?.mode !== 'view') {
-                    popupContent += `<div class="flex justify-around gap-2 mt-2">
+                    popupContent += `
                         <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
                         <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
                         <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
-                    </div>`;
+                    `;
                  }
+                 popupContent += `<a href="${navLink}" target="_blank" class="bg-green-500 text-white text-xs py-1 px-2 rounded">Naviga</a></div>`;
 
                  const marker = L.marker([markerData.latitude, markerData.longitude], { icon: customIcon }).addTo(map).bindPopup(popupContent);
                  marker.markerData = markerData;
@@ -295,28 +326,21 @@
 
         const highlightClosestMarker = (userCoords) => {
             if (currentMarkers.length === 0) return;
-
             let closest = { marker: null, distance: Infinity };
             currentMarkers.forEach(marker => {
                 const distance = getDistance(userCoords, marker.markerData);
-                if (distance < closest.distance) {
-                    closest = { marker, distance };
-                }
+                if (distance < closest.distance) closest = { marker, distance };
             });
 
             currentMarkers.forEach(marker => {
-                const markerIconEl = marker.getElement();
-                if (markerIconEl) {
-                    markerIconEl.classList.toggle('closest', marker === closest.marker && closest.distance < 50);
-                }
+                marker.getElement()?.classList.toggle('closest', marker === closest.marker && closest.distance < 50);
             });
         };
 
         const updateNearbyList = (userCoords) => {
             if (!currentMapData || !currentMapData.markers) return;
             const nearby = currentMapData.markers.map(marker => ({
-                ...marker,
-                distance: getDistance(userCoords, marker)
+                ...marker, distance: getDistance(userCoords, marker)
             })).sort((a, b) => a.distance - b.distance).slice(0, 15);
             
             containers.nearbyList.innerHTML = `<h3 class="font-bold text-center text-gray-700 p-2 border-b">Civici più vicini</h3>`;
@@ -328,7 +352,10 @@
                 nearby.forEach(marker => {
                     const li = document.createElement('li');
                     li.className = 'p-2 text-sm';
-                    li.innerHTML = `<b>${marker.houseNumber}</b>, ${marker.street} <span class="text-xs text-gray-500 float-right mt-1">${Math.round(marker.distance)}m</span>`;
+                    li.innerHTML = `<div><b>${marker.houseNumber}</b>, ${marker.street} <span class="text-xs text-gray-500 float-right mt-1">${Math.round(marker.distance)}m</span></div>`;
+                    if (marker.notes) {
+                        li.innerHTML += `<div class="text-xs text-blue-600 italic pl-1">${marker.notes}</div>`;
+                    }
                     list.appendChild(li);
                 });
                 containers.nearbyList.appendChild(list);
@@ -362,7 +389,7 @@
                     const map = { id: doc.id, ...doc.data() };
                     const mapDiv = document.createElement('div');
                     mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
-                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around"><button data-id="${map.id}" class="view-btn bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Visualizza</button><button data-id="${map.id}" class="edit-btn bg-yellow-400 text-white font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button><button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button></div>`;
+                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2"><button data-id="${map.id}" class="view-btn bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Visualizza</button><button data-id="${map.id}" class="edit-btn bg-yellow-400 text-white font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button><button data-map='${JSON.stringify(map)}' class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Mostra Tutti</button><button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button></div>`;
                     containers.mapList.appendChild(mapDiv);
                 });
             }, (error) => { console.error("Errore Firestore:", error); containers.mapList.innerHTML = '<p class="text-center text-red-500">Errore caricamento mappe.</p>'; });
@@ -370,7 +397,7 @@
         
         const openMapEditor = (mode, mapId = null) => {
             currentMapData = { mode, mapId };
-            Object.values(inputs).forEach(i => i.value = '');
+            Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
             if (temporaryMarker && map) { map.removeLayer(temporaryMarker); temporaryMarker = null; }
             if (unsubscribeMapListener) unsubscribeMapListener();
@@ -387,6 +414,49 @@
             showScreen('mapEditor');
             setTimeout(() => { if (map) map.invalidateSize(); }, 100);
         };
+        
+        const showAllMarkersList = (mapData) => {
+            allMarkersForList = mapData.markers || [];
+            document.getElementById('all-markers-map-name').textContent = mapData.name;
+            inputs.searchMarkers.value = '';
+            renderAllMarkersList(allMarkersForList);
+            showScreen('allMarkers');
+        };
+
+        const renderAllMarkersList = (markers) => {
+             containers.allMarkersList.innerHTML = '';
+             if(markers.length === 0) {
+                 containers.allMarkersList.innerHTML = '<p class="text-center text-gray-500 p-8">Nessun civico in questa mappa.</p>';
+                 return;
+             }
+             const list = document.createElement('ul');
+             list.className = 'divide-y divide-gray-200';
+             markers.forEach(marker => {
+                 const li = document.createElement('li');
+                 li.className = 'p-3';
+                 li.innerHTML = `
+                    <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
+                    <p class="text-sm text-gray-600">${marker.city}</p>
+                    ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
+                 `;
+                 list.appendChild(li);
+             });
+             containers.allMarkersList.appendChild(list);
+        };
+        
+        inputs.searchMarkers.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            if (!searchTerm) {
+                renderAllMarkersList(allMarkersForList);
+                return;
+            }
+            const filteredMarkers = allMarkersForList.filter(m => 
+                m.street.toLowerCase().includes(searchTerm) ||
+                m.houseNumber.toLowerCase().includes(searchTerm) ||
+                (m.notes && m.notes.toLowerCase().includes(searchTerm))
+            );
+            renderAllMarkersList(filteredMarkers);
+        });
 
         const handleSaveMarker = async () => {
              if (!temporaryMarker) return alert("Prima posiziona un segnaposto sulla mappa.");
@@ -395,12 +465,8 @@
 
             const userId = auth.currentUser.uid;
             const newMarker = { 
-                id: Date.now().toString(), 
-                latitude: temporaryMarker.getLatLng().lat, 
-                longitude: temporaryMarker.getLatLng().lng, 
-                city: inputs.city.value, 
-                street: inputs.street.value, 
-                houseNumber: inputs.houseNumber.value,
+                id: Date.now().toString(), latitude: temporaryMarker.getLatLng().lat, longitude: temporaryMarker.getLatLng().lng, 
+                city: inputs.city.value, street: inputs.street.value, houseNumber: inputs.houseNumber.value,
                 notes: inputs.notes.value.trim()
             };
             const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
@@ -414,8 +480,7 @@
                     inputs.mapName.style.display = 'none';
                     attachMapListener(docRef.id);
                 }
-                inputs.houseNumber.value = '';
-                inputs.notes.value = '';
+                inputs.houseNumber.value = ''; inputs.notes.value = '';
                 map.removeLayer(temporaryMarker);
                 temporaryMarker = null;
                 infoText.textContent = 'Segnaposto salvato!';
@@ -444,26 +509,18 @@
             const houseNumberInput = document.getElementById('edit-house-number-input');
             const notesInput = document.getElementById('edit-notes-input');
             
-            const updatedData = {
-                houseNumber: houseNumberInput.value,
-                notes: notesInput.value.trim()
-            };
-
-            const updatedMarkers = currentMapData.markers.map(m => 
-                m.id === markerId ? { ...m, ...updatedData } : m
-            );
+            const updatedData = { houseNumber: houseNumberInput.value, notes: notesInput.value.trim() };
+            const updatedMarkers = currentMapData.markers.map(m => m.id === markerId ? { ...m, ...updatedData } : m);
 
             await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
             document.getElementById('edit-marker-modal').style.display = 'none';
             map.closePopup();
         };
 
-
         const handleDeleteMarker = async (markerId) => {
             const userId = auth.currentUser.uid;
-            const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
             const updatedMarkers = currentMapData.markers.filter(m => m.id !== markerId);
-            await setDoc(doc(db, mapsCollectionPath, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
+            await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
             map.closePopup();
         };
         
@@ -505,13 +562,7 @@
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider).catch((error) => {
                 console.error("Errore con l'accesso popup:", error);
-                if (error.code === 'auth/popup-closed-by-user') {
-                    authStatus.textContent = "Finestra di accesso chiusa. Riprova.";
-                } else if (error.code === 'auth/popup-blocked') {
-                    authStatus.textContent = "Il popup è stato bloccato. Abilita i popup per questo sito e riprova.";
-                } else {
-                    authStatus.textContent = "Errore durante l'accesso. Riprova.";
-                }
+                authStatus.textContent = "Errore durante l'accesso. Riprova.";
             });
         };
         buttons.signOut.onclick = () => signOut(auth);
@@ -520,16 +571,21 @@
         buttons.backToHomeFromList.onclick = () => showScreen('home');
         buttons.backToHomeFromView.onclick = () => showScreen('home');
         buttons.backToListFromEditor.onclick = () => { if(unsubscribeMapListener) unsubscribeMapListener(); currentMapData = null; showScreen('mapList'); };
+        buttons.backToMapListFromAll.onclick = () => showScreen('mapList');
         buttons.saveMarker.onclick = handleSaveMarker;
         containers.mapList.addEventListener('click', (e) => {
             const target = e.target;
             const mapId = target.dataset.id;
-            const userId = auth.currentUser?.uid;
-            if (!mapId || !userId) return;
+            const mapDataString = target.dataset.map;
+            
             if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
             if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
             if (target.classList.contains('delete-btn')) {
-                showConfirm(`Eliminare la mappa "${target.dataset.name}"?`, 'I dati andranno persi per sempre.', async () => { await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId)); });
+                showConfirm(`Eliminare la mappa "${target.dataset.name}"?`, 'I dati andranno persi per sempre.', async () => { await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId)); });
+            }
+            if(target.classList.contains('show-all-btn')) {
+                const mapData = JSON.parse(mapDataString);
+                showAllMarkersList(mapData);
             }
         });
         
