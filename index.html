@@ -114,7 +114,7 @@
     <!-- Schermata 3: Editor Mappa -->
     <div id="map-editor-screen" class="screen">
         <div id="map-container">
-            <button id="back-to-home-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700">&lt; Menu</button>
+            <button id="back-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700">&lt; Le mie Mappe</button>
             <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
                 <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
             </div>
@@ -144,6 +144,18 @@
             <div class="flex justify-center gap-4">
                 <button id="cancel-confirm" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
                 <button id="confirm-action" class="bg-red-600 text-white font-bold py-2 px-6 rounded hover:bg-red-700">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Azioni Lista Civici -->
+    <div id="list-action-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <h3 id="list-action-title" class="text-lg font-bold mb-6 text-center"></h3>
+            <div class="flex flex-col gap-4">
+                <button id="list-action-nav-btn" class="w-full bg-green-500 text-white font-bold py-3 rounded hover:bg-green-600">Naviga</button>
+                <button id="list-action-edit-btn" class="w-full bg-blue-500 text-white font-bold py-3 rounded hover:bg-blue-600">Modifica</button>
+                <button id="list-action-cancel-btn" class="w-full bg-gray-300 text-gray-800 font-bold py-2 rounded hover:bg-gray-400 mt-4">Annulla</button>
             </div>
         </div>
     </div>
@@ -190,7 +202,6 @@
         const auth = getAuth(app);
 
         let map, userMarker, temporaryMarker;
-        let currentMarkers = [];
         let currentMapData = null;
         let unsubscribeMapListener = null;
         let unsubscribeMapsListListener = null;
@@ -205,7 +216,7 @@
             signInGoogle: document.getElementById('sign-in-google'), signOut: document.getElementById('sign-out-button'),
             goToCreate: document.getElementById('go-to-create'), goToList: document.getElementById('go-to-list'),
             backToHomeFromList: document.getElementById('back-to-home-from-list'),
-            backToHomeFromView: document.getElementById('back-to-home-from-view'),
+            backFromView: document.getElementById('back-from-view'),
             backToListFromEditor: document.getElementById('back-to-list-from-editor'),
             backToMapListFromAll: document.getElementById('back-to-map-list-from-all'),
             saveMarker: document.getElementById('save-marker-button'),
@@ -303,7 +314,6 @@
         
         const renderMarkers = (markers) => {
             if (!map) return;
-            currentMarkers.forEach(m => map.removeLayer(m));
             currentMarkers = [];
             markers.forEach(markerData => {
                  const streetColor = stringToHslColor(markerData.street || 'default', 60, 50);
@@ -390,7 +400,8 @@
             }
             
             containers.nearbyList.querySelector('#go-to-all-from-nearby').onclick = () => {
-                if(currentMapData) showAllMarkersList(currentMapData);
+                const mapData = mapsListData.get(currentMapData.mapId);
+                if(mapData) showAllMarkersList(mapData);
             };
         };
         
@@ -453,7 +464,7 @@
         };
         
         const openMapEditor = (mode, mapId = null) => {
-            currentMapData = { mode, mapId };
+            currentMapData = { mode, mapId, name: mapsListData.get(mapId)?.name };
             Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
             if (temporaryMarker && map) { map.removeLayer(temporaryMarker); temporaryMarker = null; }
@@ -464,7 +475,7 @@
             
             inputs.mapName.style.display = (mode === 'create') ? 'block' : 'none';
             document.getElementById('form-container').style.display = (mode === 'view') ? 'none' : 'block';
-            buttons.backToHomeFromView.style.display = (mode === 'view') ? 'block' : 'none';
+            buttons.backFromView.style.display = (mode === 'view') ? 'block' : 'none';
             containers.nearbyList.style.display = (mode === 'view') ? 'block' : 'none';
 
             if (mode === 'create') {
@@ -479,6 +490,7 @@
         };
         
         const showAllMarkersList = (mapData) => {
+            currentMapData = mapData; // Imposta la mappa corrente per la modifica
             allMarkersForList = mapData.markers || [];
             document.getElementById('all-markers-map-name').textContent = mapData.name;
             inputs.searchMarkers.value = '';
@@ -496,19 +508,53 @@
              list.className = 'divide-y divide-gray-200';
              markers.forEach(marker => {
                  const li = document.createElement('li');
-                 const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
+                 li.className = 'p-3 hover:bg-gray-50 cursor-pointer';
+                 li.dataset.markerId = marker.id;
                  li.innerHTML = `
-                    <a href="${navLink}" target="_blank" class="block p-3 hover:bg-gray-100">
-                        <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
-                        <p class="text-sm text-gray-600">${marker.city}</p>
-                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
-                    </a>
+                    <p class="font-bold pointer-events-none">${marker.street}, ${marker.houseNumber}</p>
+                    <p class="text-sm text-gray-600 pointer-events-none">${marker.city}</p>
+                    ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
                  `;
                  list.appendChild(li);
              });
              containers.allMarkersList.appendChild(list);
         };
         
+        const openListActionModal = (markerId) => {
+            const marker = allMarkersForList.find(m => m.id === markerId);
+            if (!marker) return;
+
+            const modal = document.getElementById('list-action-modal');
+            document.getElementById('list-action-title').textContent = `${marker.street}, ${marker.houseNumber}`;
+            
+            const navBtn = document.getElementById('list-action-nav-btn');
+            const editBtn = document.getElementById('list-action-edit-btn');
+            
+            navBtn.onclick = () => {
+                const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
+                window.open(navLink, '_blank');
+                modal.style.display = 'none';
+            };
+            
+            editBtn.onclick = () => {
+                modal.style.display = 'none';
+                openEditModal(markerId);
+            };
+
+            document.getElementById('list-action-cancel-btn').onclick = () => {
+                 modal.style.display = 'none';
+            };
+
+            modal.style.display = 'flex';
+        };
+        
+        containers.allMarkersList.addEventListener('click', (e) => {
+            const target = e.target.closest('li');
+            if (target && target.dataset.markerId) {
+                openListActionModal(target.dataset.markerId);
+            }
+        });
+
         inputs.searchMarkers.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase();
             if (!searchTerm) {
@@ -555,7 +601,9 @@
         };
         
         const openEditModal = (markerId) => {
-            const markerToEdit = currentMapData.markers.find(m => m.id === markerId);
+            // Unifica la fonte dei dati: usa currentMapData se disponibile, altrimenti allMarkersForList
+            const sourceMarkers = currentMapData?.markers || allMarkersForList;
+            const markerToEdit = sourceMarkers.find(m => m.id === markerId);
             if (!markerToEdit) return;
 
             const modal = document.getElementById('edit-marker-modal');
@@ -577,11 +625,14 @@
             const notesInput = document.getElementById('edit-notes-input');
             
             const updatedData = { houseNumber: houseNumberInput.value, notes: notesInput.value.trim() };
-            const updatedMarkers = currentMapData.markers.map(m => m.id === markerId ? { ...m, ...updatedData } : m);
+            // Assicurati che currentMapData sia la mappa giusta
+            const sourceMarkers = currentMapData.markers;
+            
+            const updatedMarkers = sourceMarkers.map(m => m.id === markerId ? { ...m, ...updatedData } : m);
 
             await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
             document.getElementById('edit-marker-modal').style.display = 'none';
-            map.closePopup();
+            if (map && map.closePopup) map.closePopup();
         };
 
         const handleDeleteMarker = async (markerId) => {
@@ -642,7 +693,7 @@
         buttons.goToCreate.onclick = () => openMapEditor('create');
         buttons.goToList.onclick = () => showScreen('mapList');
         buttons.backToHomeFromList.onclick = () => showScreen('home');
-        buttons.backToHomeFromView.onclick = () => { handleBackAction(); showScreen('home'); };
+        buttons.backFromView.onclick = () => { handleBackAction(); showScreen('mapList'); };
         buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen('mapList'); };
         buttons.backToMapListFromAll.onclick = () => showScreen('mapList');
         buttons.saveMarker.onclick = handleSaveMarker;
