@@ -436,6 +436,20 @@
                         const lastMarker = markers[markers.length - 1];
                         inputs.city.value = lastMarker.city; inputs.street.value = lastMarker.street;
                     }
+                     if (screens.allMarkers.classList.contains('active')) {
+                        allMarkersForList = markers;
+                        const searchTerm = inputs.searchMarkers.value.toLowerCase();
+                        if (!searchTerm) {
+                            renderAllMarkersList(allMarkersForList);
+                        } else {
+                            const filteredMarkers = allMarkersForList.filter(m => 
+                                m.street.toLowerCase().includes(searchTerm) ||
+                                m.houseNumber.toLowerCase().includes(searchTerm) ||
+                                (m.notes && m.notes.toLowerCase().includes(searchTerm))
+                            );
+                            renderAllMarkersList(filteredMarkers);
+                        }
+                    }
                 }
             });
         };
@@ -505,6 +519,7 @@
         };
         
         const showAllMarkersList = (mapData) => {
+            attachMapListener(currentMapData.mapId);
             allMarkersForList = mapData.markers || [];
             document.getElementById('all-markers-map-name').textContent = mapData.name;
             inputs.searchMarkers.value = '';
@@ -522,13 +537,20 @@
             list.className = 'divide-y divide-gray-200';
             markers.forEach(marker => {
                 const li = document.createElement('li');
+                li.className = 'p-3';
                 const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
                 li.innerHTML = `
-                    <a href="${navLink}" target="_blank" class="block p-3 hover:bg-gray-100">
-                        <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
-                        <p class="text-sm text-gray-600">${marker.city}</p>
-                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
-                    </a>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
+                            <p class="text-sm text-gray-600">${marker.city}</p>
+                            ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <a href="${navLink}" target="_blank" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Naviga</a>
+                            <button class="edit-marker-btn-list bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600" data-marker-id="${marker.id}">Modifica</button>
+                        </div>
+                    </div>
                 `;
                 list.appendChild(li);
             });
@@ -813,6 +835,7 @@
                 cameFromGita = false;
                 showScreen('mapEditor'); 
             } else {
+                if (unsubscribeMapListener) unsubscribeMapListener();
                 showScreen('mapList');
             }
         };
@@ -846,6 +869,14 @@
                     cameFromGita = true;
                     showAllMarkersList(currentMapData);
                 }
+            }
+        });
+        
+        containers.allMarkersList.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.classList.contains('edit-marker-btn-list')) {
+                const markerId = target.dataset.markerId;
+                openEditModal(markerId);
             }
         });
 
