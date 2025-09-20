@@ -332,21 +332,37 @@
             });
         };
 
-        const updateUserLocation = (coords) => {
-                if (!map) return;
-                const latLng = [coords.latitude, coords.longitude];
-                if (!userMarker) {
-                    userMarker = L.circleMarker(latLng, { radius: 8, color: 'blue', fillColor: '#3498db', fillOpacity: 1, pane: 'userPane' }).addTo(map);
-                } else {
-                    userMarker.setLatLng(latLng);
-                }
-                if (!userMarker.isPopupOpen()) userMarker.bringToFront();
+        const adjustGitaMapView = () => {
+            if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !currentMapData.markers || currentMapData.markers.length === 0) return;
 
-                if(currentMapData?.mode !== 'view') {
-                    map.panTo(latLng);
-                }
-                
-                highlightClosestMarker({ latitude: coords.latitude, longitude: coords.longitude });
+            const currentDelivery = currentMapData.markers[currentGitaIndex];
+            const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+            
+            if (leafletMarker && userMarker) {
+                const bounds = L.latLngBounds([leafletMarker.getLatLng(), userMarker.getLatLng()]);
+                map.fitBounds(bounds, { padding: [50, 50] }); 
+            } else if (leafletMarker) {
+                map.setView(leafletMarker.getLatLng(), 18);
+            }
+        };
+
+        const updateUserLocation = (coords) => {
+            if (!map) return;
+            const latLng = [coords.latitude, coords.longitude];
+            if (!userMarker) {
+                userMarker = L.circleMarker(latLng, { radius: 8, color: 'blue', fillColor: '#3498db', fillOpacity: 1, pane: 'userPane' }).addTo(map);
+            } else {
+                userMarker.setLatLng(latLng);
+            }
+            if (!userMarker.isPopupOpen()) userMarker.bringToFront();
+
+            if (currentMapData?.mode !== 'view') {
+                map.panTo(latLng);
+            } else {
+                adjustGitaMapView();
+            }
+            
+            highlightClosestMarker({ latitude: coords.latitude, longitude: coords.longitude });
         };
         
         const renderMarkers = (markers) => {
@@ -415,7 +431,7 @@
             });
 
             if (closest.marker && closest.distance < 70) { // Increased range for street name
-                currentLocationStreetDiv.textContent = closest.marker.markerData.street;
+                currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closest.marker.markerData.street}`;
             } else {
                 currentLocationStreetDiv.textContent = '';
             }
@@ -683,8 +699,7 @@
                 m.getElement()?.classList.toggle('gita-active', m.markerData.id === currentDelivery.id);
             });
 
-            const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
-            if(leafletMarker) map.panTo(leafletMarker.getLatLng());
+            adjustGitaMapView();
             
             let currentDeliveryHtml = `<p class="text-lg font-bold text-gray-800 truncate">${currentDelivery.street}, ${currentDelivery.houseNumber}</p>`;
             if (currentDelivery.notes) {
