@@ -135,14 +135,14 @@
             <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
                 <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
             </div>
-             <!-- Pulsanti di navigazione Gita Mode -->
-            <div id="gita-nav-buttons" class="hidden absolute bottom-[28vh] left-0 right-0 z-[1000] flex justify-between items-center px-4 pointer-events-none">
-                 <button id="prev-gita-btn" class="bg-gray-600/80 text-white font-bold p-3 rounded-full shadow-lg pointer-events-auto text-xl disabled:bg-gray-400/80 aspect-square">&lt;</button>
-                 <button id="next-gita-btn" class="bg-blue-600/80 text-white font-bold py-3 px-6 rounded-full shadow-lg pointer-events-auto text-lg disabled:bg-gray-400/80">SUCCESSIVO</button>
-            </div>
-             <!-- Riquadro Nome Via Corrente -->
-            <div id="current-location-street" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/60 text-white text-lg font-bold py-2 px-5 rounded-lg shadow-lg backdrop-blur-sm"></div>
         </div>
+        
+        <!-- Elementi posizionati assolutamente sopra la mappa, relativi allo schermo -->
+        <div id="gita-nav-buttons" class="hidden absolute bottom-20 left-0 right-0 z-[1000] flex justify-between items-center px-4 pointer-events-none">
+             <button id="prev-gita-btn" class="bg-gray-600/80 text-white font-bold p-3 rounded-full shadow-lg pointer-events-auto text-xl disabled:bg-gray-400/80 aspect-square">&lt;</button>
+             <button id="next-gita-btn" class="bg-blue-600/80 text-white font-bold py-3 px-6 rounded-full shadow-lg pointer-events-auto text-lg disabled:bg-gray-400/80">SUCCESSIVO</button>
+        </div>
+        <div id="current-location-street" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/60 text-white text-lg font-bold py-2 px-5 rounded-lg shadow-lg backdrop-blur-sm"></div>
         
         <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0">
@@ -150,7 +150,7 @@
                 <h3 id="current-street-name" class="text-lg font-bold text-gray-800 truncate px-2"></h3>
                 <button id="reset-gita-btn" class="text-sm bg-yellow-400 text-black font-semibold py-2 px-4 rounded hover:bg-yellow-500">Reset Giro</button>
              </div>
-             <div id="next-deliveries-list" class="bg-white p-1" style="max-height: 22vh; overflow-y: auto;">
+             <div id="next-deliveries-list" class="bg-white p-1" style="max-height: 30vh; overflow-y: auto;">
                 <!-- Lista prossime 10 consegne -->
              </div>
         </div>
@@ -900,4 +900,5 @@
     </script>
 </body>
 </html>
+
 
