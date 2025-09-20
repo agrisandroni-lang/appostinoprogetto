@@ -508,14 +508,23 @@
              }
              const list = document.createElement('ul');
              list.className = 'divide-y divide-gray-200';
-             markers.forEach(marker => {
+             markers.forEach((marker, index) => {
                  const li = document.createElement('li');
-                 li.className = 'p-3 hover:bg-gray-50 cursor-pointer';
-                 li.dataset.markerId = marker.id;
+                 li.className = 'p-3 flex justify-between items-center';
+                 
+                 const upDisabled = index === 0 ? 'disabled class="text-gray-300 cursor-not-allowed"' : 'class="hover:bg-gray-200"';
+                 const downDisabled = index === markers.length - 1 ? 'disabled class="text-gray-300 cursor-not-allowed"' : 'class="hover:bg-gray-200"';
+
                  li.innerHTML = `
-                    <p class="font-bold pointer-events-none">${marker.street}, ${marker.houseNumber}</p>
-                    <p class="text-sm text-gray-600 pointer-events-none">${marker.city}</p>
-                    ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
+                    <div class="flex-grow cursor-pointer list-item-content" data-marker-id="${marker.id}">
+                        <p class="font-bold pointer-events-none">${marker.street}, ${marker.houseNumber}</p>
+                        <p class="text-sm text-gray-600 pointer-events-none">${marker.city}</p>
+                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
+                    </div>
+                    <div class="flex flex-col gap-1 ml-4">
+                        <button ${upDisabled} data-index="${index}" class="move-marker-btn-up text-2xl leading-none px-2 rounded">↑</button>
+                        <button ${downDisabled} data-index="${index}" class="move-marker-btn-down text-2xl leading-none px-2 rounded">↓</button>
+                    </div>
                  `;
                  list.appendChild(li);
              });
@@ -551,11 +560,46 @@
         };
         
         containers.allMarkersList.addEventListener('click', (e) => {
-            const target = e.target.closest('li');
-            if (target && target.dataset.markerId) {
-                openListActionModal(target.dataset.markerId);
+            const target = e.target;
+
+            if (target.classList.contains('move-marker-btn-up')) {
+                const index = parseInt(target.dataset.index);
+                if (!isNaN(index)) moveMarkerInList(index, 'up');
+                return; 
+            }
+            if (target.classList.contains('move-marker-btn-down')) {
+                const index = parseInt(target.dataset.index);
+                if (!isNaN(index)) moveMarkerInList(index, 'down');
+                return; 
+            }
+
+            const contentDiv = target.closest('.list-item-content');
+            if (contentDiv && contentDiv.dataset.markerId) {
+                openListActionModal(contentDiv.dataset.markerId);
             }
         });
+        
+        const saveMarkerOrder = async () => {
+            if (!currentMapData || !auth.currentUser) return;
+            try {
+                const userId = auth.currentUser.uid;
+                const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.id);
+                await setDoc(mapRef, { markers: allMarkersForList }, { merge: true });
+            } catch (error) {
+                console.error("Errore nel salvataggio dell'ordine:", error);
+                alert("Impossibile salvare il nuovo ordine dei civici.");
+            }
+        };
+
+        const moveMarkerInList = (index, direction) => {
+            if (direction === 'up' && index > 0) {
+                [allMarkersForList[index - 1], allMarkersForList[index]] = [allMarkersForList[index], allMarkersForList[index - 1]];
+            } else if (direction === 'down' && index < allMarkersForList.length - 1) {
+                [allMarkersForList[index + 1], allMarkersForList[index]] = [allMarkersForList[index], allMarkersForList[index + 1]];
+            }
+            renderAllMarkersList(allMarkersForList);
+            saveMarkerOrder();
+        };
 
         inputs.searchMarkers.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase();
