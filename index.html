@@ -372,6 +372,8 @@
 
             if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
+            } else if (currentMapData?.mode !== 'edit' && currentMapData?.mode !== 'create') {
+                 map.panTo(latLng);
             }
             
             highlightClosestMarker({ latitude: coords.latitude, longitude: coords.longitude });
@@ -816,10 +818,12 @@
                     inputs.mapName.style.display = 'none';
                     attachMapListener(docRef.id);
                 }
+                const newMarkerCoords = temporaryMarker.getLatLng();
                 inputs.houseNumber.value = ''; inputs.notes.value = '';
                 map.removeLayer(temporaryMarker);
                 temporaryMarker = null;
                 infoText.textContent = 'Segnaposto salvato!';
+                map.panTo(newMarkerCoords);
             } catch(error) { console.error("Errore salvataggio: ", error); alert("Impossibile salvare il segnaposto."); }
         };
         
