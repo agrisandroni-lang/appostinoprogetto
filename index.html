@@ -242,6 +242,8 @@
 
         let map, userMarker, temporaryMarker;
         let currentMarkers = [];
+        let streetColorMap = new Map();
+        let currentHue = Math.random() * 360;
         let currentMapData = null;
         let unsubscribeMapListener = null;
         let unsubscribeMapsListListener = null;
@@ -311,13 +313,16 @@
             }
         };
 
-        const stringToHslColor = (str, s, l) => {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        const getStreetColor = (streetName) => {
+            if (streetColorMap.has(streetName)) {
+                return streetColorMap.get(streetName);
+            } else {
+                const goldenRatioConjugate = 0.618033988749895;
+                currentHue = (currentHue + 360 * goldenRatioConjugate) % 360;
+                const newColor = `hsl(${Math.round(currentHue)}, 80%, 45%)`; 
+                streetColorMap.set(streetName, newColor);
+                return newColor;
             }
-            const hue = hash % 360;
-            return `hsl(${hue}, ${s}%, ${l}%)`;
         };
 
         const initMap = (coords) => {
@@ -384,7 +389,7 @@
             currentMarkers.forEach(m => map.removeLayer(m));
             currentMarkers = [];
             markers.forEach(markerData => {
-                const streetColor = stringToHslColor(markerData.street || 'default', 60, 50);
+                const streetColor = getStreetColor(markerData.street || 'default');
                 const customIcon = L.divIcon({ 
                     className: 'custom-marker-container', 
                     html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${markerData.houseNumber}</div>`,
@@ -515,6 +520,8 @@
         };
         
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
+            streetColorMap.clear();
+            currentHue = Math.random() * 360;
             currentMapData = { mode, mapId };
             Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
