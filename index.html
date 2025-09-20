@@ -14,7 +14,7 @@
         #map-container { flex-grow: 1; position: relative; background-color: #e0e0e0; }
         
         .custom-marker-label {
-            color: black; /* Changed to black */
+            color: black;
             padding: 3px 8px; border-radius: 12px;
             font-weight: bold; font-size: 14px; text-align: center;
             white-space: nowrap; border: 2px solid white;
@@ -23,20 +23,18 @@
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            text-shadow: 0px 0px 3px #FFF, 0px 0px 3px #FFF; /* Added for readability */
+            text-shadow: 0px 0px 3px #FFF, 0px 0px 3px #FFF;
         }
 
-        /* Highlight for current stop in Gita Mode */
         .leaflet-marker-icon.gita-active .custom-marker-label {
             border-color: #FFD700; 
             transform-origin: center; 
             z-index: 1000;
-            animation: pulse 1.5s infinite; /* Pulsing animation added */
+            animation: pulse 1.5s infinite;
         }
 
-        /* Highlight for physically closest marker */
         .leaflet-marker-icon.closest .custom-marker-label {
-             background-color: #EF4444 !important; /* Red for proximity */
+             background-color: #EF4444 !important;
              color: white;
              text-shadow: none;
         }
@@ -54,7 +52,6 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* New animation for the active marker */
         @keyframes pulse {
             0% { transform: translate(-50%, -50%) scale(1.4); }
             50% { transform: translate(-50%, -50%) scale(1.6); }
@@ -68,6 +65,10 @@
         }
         #city-input, #street-input {
             text-transform: uppercase;
+        }
+        .business-selected {
+            background-color: #e0f2fe !important; /* Light blue background */
+            border-left: 4px solid #3b82f6; /* Blue left border */
         }
     </style>
 </head>
@@ -106,7 +107,7 @@
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
             <button id="back-to-home-from-list" class="text-blue-600 font-semibold">&lt; Menu</button>
             <h2 class="text-2xl font-bold text-gray-800">Le tue Mappe</h2>
-            <div></div> <!-- Spacer -->
+            <button id="clear-business-selection-btn" class="hidden text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota Business</button>
         </div>
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
     </div>
@@ -226,6 +227,12 @@
             <button id="cancel-actions" class="mt-6 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Chiudi</button>
         </div>
     </div>
+
+    <!-- NUOVO: Pulsante Flottante per Linea Business -->
+    <button id="business-fab" class="hidden fixed bottom-6 right-6 bg-orange-500 text-white rounded-full p-4 shadow-lg hover:bg-orange-600 z-[1500] flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v2"/><path d="m21 16-7-4-7 4"/><path d="m3 16 7 4 7-4"/><path d="M12 22V12"/></svg>
+        <span id="business-fab-count" class="ml-2 font-bold"></span>
+    </button>
     
     <datalist id="cities-list"></datalist>
     <datalist id="streets-list"></datalist>
@@ -264,6 +271,8 @@
         let currentMarkersToOrder = [];
         let currentGitaIndex = -1; 
         let cameFromGita = false; 
+        let businessSelection = [];
+        const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen') };
         const buttons = {
@@ -280,6 +289,8 @@
             prevGita: document.getElementById('prev-gita-btn'),
             nextGita: document.getElementById('next-gita-btn'),
             resetGita: document.getElementById('reset-gita-btn'),
+            businessFab: document.getElementById('business-fab'),
+            clearBusinessSelection: document.getElementById('clear-business-selection-btn')
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container') };
@@ -593,14 +604,21 @@
             list.className = 'divide-y divide-gray-200';
             markers.forEach(marker => {
                 const li = document.createElement('li');
-                li.className = 'p-3 hover:bg-gray-100 cursor-pointer';
+                li.className = 'p-3 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                const isSelected = businessSelection.some(item => item.mapId === currentMapData.mapId && item.markerId === marker.id);
+                if (isSelected) {
+                    li.classList.add('business-selected');
+                }
                 li.dataset.markerId = marker.id; // Add data attribute to the li
                 li.innerHTML = `
-                    <div>
-                        <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
-                        <p class="text-sm text-gray-600">${marker.city}</p>
-                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
+                    <div class="flex-grow">
+                        <p class="font-bold pointer-events-none">${marker.street}, ${marker.houseNumber}</p>
+                        <p class="text-sm text-gray-600 pointer-events-none">${marker.city}</p>
+                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
                     </div>
+                    <button class="business-toggle-btn p-2 rounded-full hover:bg-orange-200 flex-shrink-0" data-marker-id="${marker.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isSelected ? '#f97316' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none text-gray-500"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v2"/><path d="m21 16-7-4-7 4"/><path d="m3 16 7 4 7-4"/><path d="M12 22V12"/></svg>
+                    </button>
                 `;
                 list.appendChild(li);
             });
@@ -977,10 +995,14 @@
         });
         
         containers.allMarkersList.addEventListener('click', (e) => {
-            const target = e.target.closest('[data-marker-id]');
-            if(target) {
-                const markerId = target.dataset.markerId;
-                openMarkerActionsModal(markerId);
+            const markerLi = e.target.closest('[data-marker-id]');
+            if (!markerLi) return;
+            const markerId = markerLi.dataset.markerId;
+
+            if (e.target.closest('.business-toggle-btn')) {
+                 toggleBusinessSelection(markerId);
+            } else {
+                 openMarkerActionsModal(markerId);
             }
         });
 
@@ -1015,6 +1037,8 @@
                 loggedOutView.classList.add('hidden');
                 loadMapsList(user.uid);
                 startWatchingLocation();
+                loadSelectionFromStorage();
+                updateBusinessFab();
             } else {
                 authStatus.textContent = "";
                 authStatus.classList.remove('text-green-600');
@@ -1023,7 +1047,8 @@
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
-                showScreen('home');
+                businessSelection = [];
+                updateBusinessFab();
             }
         });
 
@@ -1032,6 +1057,110 @@
                 toggleWakeLock(true);
             }
         });
+
+        // --- FUNZIONI LINEA BUSINESS ---
+        const loadSelectionFromStorage = () => {
+            const stored = localStorage.getItem(SELECTION_STORAGE_KEY);
+            businessSelection = stored ? JSON.parse(stored) : [];
+        };
+
+        const saveSelectionToStorage = () => {
+            localStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(businessSelection));
+        };
+        
+        const updateBusinessFab = () => {
+            const count = businessSelection.length;
+            const fab = buttons.businessFab;
+            const countSpan = document.getElementById('business-fab-count');
+            const clearBtn = buttons.clearBusinessSelection;
+
+            if (count > 0) {
+                fab.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+                countSpan.textContent = count;
+            } else {
+                fab.classList.add('hidden');
+                clearBtn.classList.add('hidden');
+            }
+        };
+
+        const toggleBusinessSelection = (markerId) => {
+            const selectionIndex = businessSelection.findIndex(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
+
+            if (selectionIndex > -1) {
+                businessSelection.splice(selectionIndex, 1);
+            } else {
+                businessSelection.push({ mapId: currentMapData.mapId, markerId: markerId });
+            }
+            saveSelectionToStorage();
+            updateBusinessFab();
+            renderAllMarkersList(allMarkersForList); // Rerender to show selection highlight
+        };
+
+        const handleClearBusinessSelection = () => {
+            showConfirm(`Svuotare la selezione Business?`, `${businessSelection.length} civici verranno deselezionati.`, () => {
+                businessSelection = [];
+                saveSelectionToStorage();
+                updateBusinessFab();
+                if (screens.allMarkers.classList.contains('active')) {
+                    renderAllMarkersList(allMarkersForList);
+                }
+            });
+        };
+        buttons.clearBusinessSelection.onclick = handleClearBusinessSelection;
+
+        const handleCreateBusinessMap = async () => {
+            const selection = businessSelection;
+            if (selection.length === 0) return;
+
+            showConfirm(`Creare una mappa Business?`, `Verrà creata una nuova mappa con ${selection.length} civici e la selezione corrente verrà azzerata.`, async () => {
+                loadingView.classList.remove('hidden');
+                
+                const allSelectedMarkers = [];
+                const mapsToFetch = new Map();
+                selection.forEach(item => {
+                    if (!mapsToFetch.has(item.mapId)) {
+                        mapsToFetch.set(item.mapId, []);
+                    }
+                    mapsToFetch.get(item.mapId).push(item.markerId);
+                });
+
+                for (const [mapId, markerIds] of mapsToFetch.entries()) {
+                    const mapRef = doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId);
+                    const docSnap = await getDoc(mapRef);
+                    if (docSnap.exists()) {
+                        const mapData = docSnap.data();
+                        const foundMarkers = mapData.markers.filter(m => markerIds.includes(m.id));
+                        allSelectedMarkers.push(...foundMarkers);
+                    }
+                }
+
+                const today = new Date();
+                const mapName = `Business - ${today.toLocaleDateString('it-IT')}`;
+                
+                try {
+                    await addDoc(collection(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`), {
+                        name: mapName,
+                        createdAt: new Date(),
+                        markers: allSelectedMarkers,
+                        isBusiness: true
+                    });
+                    
+                    businessSelection = [];
+                    saveSelectionToStorage();
+                    updateBusinessFab();
+                    alert("Mappa Business creata con successo!");
+                    showScreen('mapList');
+                } catch(error) {
+                    console.error("Errore creazione mappa business:", error);
+                    alert("Impossibile creare la mappa.");
+                } finally {
+                    loadingView.classList.add('hidden');
+                }
+            });
+        };
+        buttons.businessFab.onclick = handleCreateBusinessMap;
+
     </script>
 </body>
 </html>
