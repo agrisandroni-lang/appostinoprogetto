@@ -140,6 +140,8 @@
                  <button id="prev-gita-btn" class="bg-gray-600/80 text-white font-bold p-3 rounded-full shadow-lg pointer-events-auto text-xl disabled:bg-gray-400/80 aspect-square">&lt;</button>
                  <button id="next-gita-btn" class="bg-blue-600/80 text-white font-bold py-3 px-6 rounded-full shadow-lg pointer-events-auto text-lg disabled:bg-gray-400/80">SUCCESSIVO</button>
             </div>
+             <!-- Riquadro Nome Via Corrente -->
+            <div id="current-location-street" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/60 text-white text-lg font-bold py-2 px-5 rounded-lg shadow-lg backdrop-blur-sm"></div>
         </div>
         
         <!-- Contenitore per Gita Mode -->
@@ -233,7 +235,7 @@
         let mapsListData = new Map();
         let currentMarkersToOrder = [];
         let currentGitaIndex = -1; 
-        let cameFromGita = false; // Flag to handle back navigation
+        let cameFromGita = false; 
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen') };
         const buttons = {
@@ -393,7 +395,12 @@
         };
 
         const highlightClosestMarker = (userCoords) => {
-            if (currentMarkers.length === 0) return;
+            const currentLocationStreetDiv = document.getElementById('current-location-street');
+            if (currentMarkers.length === 0) {
+                currentLocationStreetDiv.classList.add('hidden');
+                return;
+            }
+
             let closest = { marker: null, distance: Infinity };
             currentMarkers.forEach(marker => {
                 const distance = getDistance(userCoords, marker.markerData);
@@ -403,6 +410,13 @@
             currentMarkers.forEach(marker => {
                 marker.getElement()?.classList.toggle('closest', marker === closest.marker && closest.distance < 50);
             });
+
+            if (closest.marker && closest.distance < 70) { // Increased range for street name
+                currentLocationStreetDiv.textContent = closest.marker.markerData.street;
+                currentLocationStreetDiv.classList.remove('hidden');
+            } else {
+                currentLocationStreetDiv.classList.add('hidden');
+            }
         };
 
         const attachMapListener = (mapId) => {
@@ -642,19 +656,15 @@
             const markers = currentMapData.markers;
             const currentDelivery = markers[currentGitaIndex];
             
-            // Evidenzia marker corrente nel giro
             currentMarkers.forEach(m => {
                 m.getElement()?.classList.toggle('gita-active', m.markerData.id === currentDelivery.id);
             });
 
-            // Centra la mappa
             const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
             if(leafletMarker) map.panTo(leafletMarker.getLatLng());
 
-            // Aggiorna nome via
             document.getElementById('current-street-name').textContent = `${currentDelivery.street}, ${currentDelivery.houseNumber}`;
             
-            // Aggiorna lista prossime 10
             const nextListContainer = document.getElementById('next-deliveries-list');
             nextListContainer.innerHTML = `
                 <div class="p-2 border-b flex justify-between items-center">
@@ -677,7 +687,6 @@
                 nextListContainer.appendChild(list);
             }
 
-            // Aggiorna stato pulsanti
             buttons.prevGita.disabled = currentGitaIndex === 0;
             buttons.nextGita.disabled = currentGitaIndex >= markers.length - 1;
         };
@@ -782,6 +791,7 @@
             if(unsubscribeMapListener) unsubscribeMapListener();
             currentMapData = null;
             currentGitaIndex = -1;
+            document.getElementById('current-location-street').classList.add('hidden');
         };
 
         buttons.signInGoogle.onclick = () => {
