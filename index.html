@@ -148,9 +148,9 @@
                 </div>
             </div>
              <!-- RIGA 2: Titolo e Reset -->
-             <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b">
-                <h3 id="current-street-name" class="text-lg font-bold text-gray-800 truncate px-2"></h3>
-                <button id="reset-gita-btn" class="text-sm bg-yellow-400 text-black font-semibold py-2 px-4 rounded hover:bg-yellow-500">Reset Giro</button>
+             <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
+                <div id="current-street-name" class="px-2"></div>
+                <button id="reset-gita-btn" class="text-sm bg-yellow-400 text-black font-semibold py-2 px-4 rounded hover:bg-yellow-500 flex-shrink-0">Reset Giro</button>
              </div>
              <!-- RIGA 3: Lista Consegne -->
              <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
@@ -669,8 +669,9 @@
         };
 
         const updateGitaView = () => {
+            const currentStreetNameEl = document.getElementById('current-street-name');
             if (currentGitaIndex < 0 || !currentMapData || !currentMapData.markers || currentMapData.markers.length === 0) {
-                 document.getElementById('current-street-name').textContent = 'Nessun civico';
+                 currentStreetNameEl.innerHTML = '<p class="text-lg font-bold text-gray-800">Nessun civico</p>';
                  document.getElementById('next-deliveries-list').innerHTML = '';
                  return;
             }
@@ -684,13 +685,17 @@
 
             const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
             if(leafletMarker) map.panTo(leafletMarker.getLatLng());
-
-            document.getElementById('current-street-name').textContent = `${currentDelivery.street}, ${currentDelivery.houseNumber}`;
+            
+            let currentDeliveryHtml = `<p class="text-lg font-bold text-gray-800 truncate">${currentDelivery.street}, ${currentDelivery.houseNumber}</p>`;
+            if (currentDelivery.notes) {
+                currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal truncate">${currentDelivery.notes}</p>`;
+            }
+            currentStreetNameEl.innerHTML = currentDeliveryHtml;
             
             const nextListContainer = document.getElementById('next-deliveries-list');
             nextListContainer.innerHTML = `
                 <div class="p-2 border-b flex justify-between items-center">
-                    <p class="font-semibold text-gray-700">Prossime 10 consegne:</p>
+                    <p class="font-semibold text-gray-700">Prossime consegne:</p>
                     <button id="gita-see-all-btn" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded hover:bg-gray-300">Vedi tutti &rarr;</button>
                 </div>
             `;
@@ -703,7 +708,11 @@
                 nextDeliveries.forEach(m => {
                     const li = document.createElement('li');
                     li.className = 'p-2 text-sm';
-                    li.innerHTML = `<b>${m.houseNumber}</b>, ${m.street}`;
+                    let deliveryHtml = `<b>${m.houseNumber}</b>, ${m.street}`;
+                    if (m.notes) {
+                        deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${m.notes}</span>`;
+                    }
+                    li.innerHTML = deliveryHtml;
                     list.appendChild(li);
                 });
                 nextListContainer.appendChild(list);
