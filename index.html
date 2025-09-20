@@ -500,7 +500,7 @@
             }, (error) => { console.error("Errore Firestore:", error); containers.mapList.innerHTML = '<p class="text-center text-red-500">Errore caricamento mappe.</p>'; });
         };
         
-        const openMapEditor = (mode, mapId = null) => {
+        const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
             currentMapData = { mode, mapId };
             Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
@@ -532,7 +532,16 @@
             }
             
             showScreen('mapEditor');
-            setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+            setTimeout(() => { 
+                if (map) map.invalidateSize();
+                if (focusMarkerId) {
+                    const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
+                    if (leafletMarker) {
+                        map.setView(leafletMarker.getLatLng(), 18);
+                        leafletMarker.openPopup();
+                    }
+                }
+            }, 100);
         };
         
         const showAllMarkersList = (mapData) => {
@@ -567,6 +576,7 @@
                             <button class="view-on-map-btn bg-purple-500 text-white font-semibold py-1 px-3 rounded hover:bg-purple-600" data-marker-id="${marker.id}">Visualizza</button>
                             <a href="${navLink}" target="_blank" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Naviga</a>
                             <button class="edit-marker-btn-list bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600" data-marker-id="${marker.id}">Modifica</button>
+                            <button class="delete-marker-btn-list bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600" data-marker-id="${marker.id}" data-marker-desc="${marker.street}, ${marker.houseNumber}">Elimina</button>
                         </div>
                     </div>
                 `;
@@ -588,29 +598,6 @@
             );
             renderAllMarkersList(filteredMarkers);
         });
-
-        const viewMarkerOnMap = (markerId) => {
-            const markerData = allMarkersForList.find(m => m.id === markerId);
-            if (!markerData) return;
-            
-            // Ensure the correct UI components are shown for 'edit' mode.
-            containers.gitaMode.classList.add('hidden');
-            containers.form.style.display = 'block';
-            buttons.backToMapListFromView.classList.add('hidden');
-            inputs.mapName.style.display = 'none';
-
-            showScreen('mapEditor');
-            
-            // Allow time for the map to become visible and invalidate its size
-            setTimeout(() => {
-                if (map) map.invalidateSize();
-                const leafletMarker = currentMarkers.find(m => m.markerData.id === markerId);
-                if (leafletMarker) {
-                    map.setView(leafletMarker.getLatLng(), 18);
-                    leafletMarker.openPopup();
-                }
-            }, 100);
-        };
 
         const showCiviciOrderScreen = () => {
             currentMarkersToOrder = [...allMarkersForList];
@@ -893,7 +880,7 @@
         buttons.backToMapListFromAll.onclick = () => {
              if (cameFromGita) {
                 cameFromGita = false;
-                showScreen('mapEditor'); 
+                openMapEditor('view', currentMapData.mapId); 
             } else {
                 if (unsubscribeMapListener) unsubscribeMapListener();
                 currentMapData = null;
@@ -944,7 +931,12 @@
             }
             if (target.classList.contains('view-on-map-btn')) {
                 const markerId = target.dataset.markerId;
-                viewMarkerOnMap(markerId);
+                openMapEditor(currentMapData.mode, currentMapData.mapId, markerId);
+            }
+            if (target.classList.contains('delete-marker-btn-list')) {
+                const markerId = target.dataset.markerId;
+                const markerDesc = target.dataset.markerDesc;
+                showConfirm(`Eliminare il civico "${markerDesc}"?`, "L'azione è irreversibile.", () => handleDeleteMarker(markerId));
             }
         });
 
@@ -999,7 +991,4 @@
     </script>
 </body>
 </html>
-
-" selected for editing.
-I noticed a new feature has been added, and I'd like to suggest an improvement. Is it possible to add a button to delete a house number? Sometimes, I may make a mistake or no longer need a particular address, so a delete button would be very helpful.
 
