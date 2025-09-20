@@ -203,6 +203,20 @@
             </div>
         </div>
     </div>
+
+    <!-- NUOVO: Modale Azioni Civico da Lista -->
+    <div id="marker-actions-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <h3 id="marker-actions-title" class="text-lg font-bold mb-4 text-center"></h3>
+            <div class="flex flex-col space-y-3">
+                <button id="action-view" class="w-full bg-purple-500 text-white font-semibold py-2 px-4 rounded hover:bg-purple-600">Visualizza su Mappa</button>
+                <a id="action-navigate" href="#" target="_blank" class="w-full text-center bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600">Naviga</a>
+                <button id="action-edit" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600">Modifica</button>
+                <button id="action-delete" class="w-full bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600">Elimina</button>
+            </div>
+            <button id="cancel-actions" class="mt-6 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Chiudi</button>
+        </div>
+    </div>
     
     <datalist id="cities-list"></datalist>
     <datalist id="streets-list"></datalist>
@@ -356,9 +370,7 @@
             }
             if (!userMarker.isPopupOpen()) userMarker.bringToFront();
 
-            if (currentMapData?.mode !== 'view') {
-                map.panTo(latLng);
-            } else {
+            if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
             }
             
@@ -563,21 +575,13 @@
             list.className = 'divide-y divide-gray-200';
             markers.forEach(marker => {
                 const li = document.createElement('li');
-                li.className = 'p-3';
-                const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
+                li.className = 'p-3 hover:bg-gray-100 cursor-pointer';
+                li.dataset.markerId = marker.id; // Add data attribute to the li
                 li.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
-                            <p class="text-sm text-gray-600">${marker.city}</p>
-                            ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
-                        </div>
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                            <button class="view-on-map-btn bg-purple-500 text-white font-semibold py-1 px-3 rounded hover:bg-purple-600" data-marker-id="${marker.id}">Visualizza</button>
-                            <a href="${navLink}" target="_blank" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Naviga</a>
-                            <button class="edit-marker-btn-list bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600" data-marker-id="${marker.id}">Modifica</button>
-                            <button class="delete-marker-btn-list bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600" data-marker-id="${marker.id}" data-marker-desc="${marker.street}, ${marker.houseNumber}">Elimina</button>
-                        </div>
+                    <div>
+                        <p class="font-bold">${marker.street}, ${marker.houseNumber}</p>
+                        <p class="text-sm text-gray-600">${marker.city}</p>
+                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1">${marker.notes}</p>` : ''}
                     </div>
                 `;
                 list.appendChild(li);
@@ -598,6 +602,35 @@
             );
             renderAllMarkersList(filteredMarkers);
         });
+
+        const openMarkerActionsModal = (markerId) => {
+            const marker = allMarkersForList.find(m => m.id === markerId);
+            if (!marker) return;
+
+            const modal = document.getElementById('marker-actions-modal');
+            document.getElementById('marker-actions-title').textContent = `${marker.street}, ${marker.houseNumber}`;
+            
+            const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
+            document.getElementById('action-navigate').href = navLink;
+
+            document.getElementById('action-view').onclick = () => {
+                modal.style.display = 'none';
+                openMapEditor(currentMapData.mode, currentMapData.mapId, markerId);
+            };
+            document.getElementById('action-edit').onclick = () => {
+                modal.style.display = 'none';
+                openEditModal(markerId);
+            };
+            document.getElementById('action-delete').onclick = () => {
+                modal.style.display = 'none';
+                showConfirm(`Eliminare il civico "${marker.street}, ${marker.houseNumber}"?`, "L'azione è irreversibile.", () => handleDeleteMarker(marker.id));
+            };
+            document.getElementById('cancel-actions').onclick = () => {
+                modal.style.display = 'none';
+            };
+
+            modal.style.display = 'flex';
+        };
 
         const showCiviciOrderScreen = () => {
             currentMarkersToOrder = [...allMarkersForList];
@@ -924,19 +957,10 @@
         });
         
         containers.allMarkersList.addEventListener('click', (e) => {
-            const target = e.target;
-            if (target.classList.contains('edit-marker-btn-list')) {
+            const target = e.target.closest('[data-marker-id]');
+            if(target) {
                 const markerId = target.dataset.markerId;
-                openEditModal(markerId);
-            }
-            if (target.classList.contains('view-on-map-btn')) {
-                const markerId = target.dataset.markerId;
-                openMapEditor(currentMapData.mode, currentMapData.mapId, markerId);
-            }
-            if (target.classList.contains('delete-marker-btn-list')) {
-                const markerId = target.dataset.markerId;
-                const markerDesc = target.dataset.markerDesc;
-                showConfirm(`Eliminare il civico "${markerDesc}"?`, "L'azione è irreversibile.", () => handleDeleteMarker(markerId));
+                openMarkerActionsModal(markerId);
             }
         });
 
