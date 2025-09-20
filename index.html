@@ -340,7 +340,7 @@
             
             if (leafletMarker && userMarker) {
                 const bounds = L.latLngBounds([leafletMarker.getLatLng(), userMarker.getLatLng()]);
-                map.fitBounds(bounds, { padding: [50, 50] }); 
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 }); 
             } else if (leafletMarker) {
                 map.setView(leafletMarker.getLatLng(), 18);
             }
