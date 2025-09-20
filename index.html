@@ -592,6 +592,12 @@
         const viewMarkerOnMap = (markerId) => {
             const markerData = allMarkersForList.find(m => m.id === markerId);
             if (!markerData) return;
+            
+            // Ensure the correct UI components are shown for 'edit' mode.
+            containers.gitaMode.classList.add('hidden');
+            containers.form.style.display = 'block';
+            buttons.backToMapListFromView.classList.add('hidden');
+            inputs.mapName.style.display = 'none';
 
             showScreen('mapEditor');
             
@@ -993,4 +999,7 @@
     </script>
 </body>
 </html>
+
+" selected for editing.
+I noticed a new feature has been added, and I'd like to suggest an improvement. Is it possible to add a button to delete a house number? Sometimes, I may make a mistake or no longer need a particular address, so a delete button would be very helpful.
 
