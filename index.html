@@ -29,8 +29,9 @@
         /* Highlight for current stop in Gita Mode */
         .leaflet-marker-icon.gita-active .custom-marker-label {
             border-color: #FFD700; 
-            transform: translate(-50%, -50%) scale(1.4);
-            transform-origin: center; z-index: 1000;
+            transform-origin: center; 
+            z-index: 1000;
+            animation: pulse 1.5s infinite; /* Pulsing animation added */
         }
 
         /* Highlight for physically closest marker */
@@ -52,6 +53,14 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* New animation for the active marker */
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1.4); }
+            50% { transform: translate(-50%, -50%) scale(1.6); }
+            100% { transform: translate(-50%, -50%) scale(1.4); }
+        }
+
         #wake-lock-status {
             position: absolute; top: 10px; right: 10px; z-index: 1000;
             background-color: rgba(255, 255, 255, 0.8);
