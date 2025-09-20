@@ -511,10 +511,11 @@
             toggleWakeLock(mode === 'view');
             
             if (mode === 'view') {
+                const mapData = mapsListData.get(mapId); 
+                currentGitaIndex = mapData?.lastGitaIndex || 0;
                 containers.gitaMode.classList.remove('hidden');
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
-                currentGitaIndex = 0;
             } else {
                 containers.gitaMode.classList.add('hidden');
                 containers.form.style.display = 'block';
@@ -681,6 +682,17 @@
                 console.error("Errore salvataggio ordine:", error);
                 feedbackP.textContent = 'Errore nel salvataggio.';
                 setTimeout(() => { feedbackP.textContent = ''; }, 2000);
+            }
+        };
+
+        const saveGitaProgress = async () => {
+            if (currentMapData?.mode !== 'view' || !currentMapData?.mapId || auth.currentUser == null || currentGitaIndex < 0) return;
+            const userId = auth.currentUser.uid;
+            const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId);
+            try {
+                await setDoc(mapRef, { lastGitaIndex: currentGitaIndex }, { merge: true });
+            } catch (error) {
+                console.error("Errore nel salvataggio dei progressi del giro:", error);
             }
         };
 
@@ -874,17 +886,20 @@
             if (currentMapData && currentGitaIndex < currentMapData.markers.length - 1) {
                 currentGitaIndex++;
                 updateGitaView();
+                saveGitaProgress();
             }
         };
         buttons.prevGita.onclick = () => {
             if (currentGitaIndex > 0) {
                 currentGitaIndex--;
                 updateGitaView();
+                saveGitaProgress();
             }
         };
         buttons.resetGita.onclick = () => {
             currentGitaIndex = 0;
             updateGitaView();
+            saveGitaProgress();
         };
 
         containers.gitaMode.addEventListener('click', (e) => {
