@@ -560,21 +560,17 @@
         };
         
         containers.allMarkersList.addEventListener('click', (e) => {
-            const target = e.target;
+            const upButton = e.target.closest('.move-marker-btn-up');
+            const downButton = e.target.closest('.move-marker-btn-down');
+            const contentDiv = e.target.closest('.list-item-content');
 
-            if (target.classList.contains('move-marker-btn-up')) {
-                const index = parseInt(target.dataset.index);
+            if (upButton && !upButton.disabled) {
+                const index = parseInt(upButton.dataset.index);
                 if (!isNaN(index)) moveMarkerInList(index, 'up');
-                return; 
-            }
-            if (target.classList.contains('move-marker-btn-down')) {
-                const index = parseInt(target.dataset.index);
+            } else if (downButton && !downButton.disabled) {
+                const index = parseInt(downButton.dataset.index);
                 if (!isNaN(index)) moveMarkerInList(index, 'down');
-                return; 
-            }
-
-            const contentDiv = target.closest('.list-item-content');
-            if (contentDiv && contentDiv.dataset.markerId) {
+            } else if (contentDiv) {
                 openListActionModal(contentDiv.dataset.markerId);
             }
         });
