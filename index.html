@@ -1172,6 +1172,8 @@
                         });
                         feedbackMsg = 'Mappa Business creata con successo!';
                     }
+                    if (unsubscribeMapsListListener) unsubscribeMapsListListener();
+                    loadMapsList(userId);
                     const feedbackP = document.getElementById('map-list-feedback');
                     feedbackP.textContent = feedbackMsg;
                     showScreen('mapList');
@@ -1189,6 +1191,4 @@
     </script>
 </body>
 </html>
-" selected for editing.
-I noticed a new feature has been added, and I'd like to suggest an improvement. Is it possible to add a button to delete a house number? Sometimes, I may make a mistake or no longer need a particular address, so a delete button would be very helpful.
 
