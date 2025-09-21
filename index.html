@@ -1052,7 +1052,7 @@
             }
         });
 
-        containers.mapList.addEventListener('click', (e) => {
+        const mapListClickHandler = (e) => {
             const target = e.target.closest('button');
             if (!target) return;
             const mapId = target.dataset.id;
@@ -1068,10 +1068,10 @@
                     showAllMarkersList(mapData);
                 }
             }
-        });
+        };
 
-        buttons.goToBusinessMaps.onclick = () => showScreen('businessMaps');
-        buttons.backToMapListFromBusiness.onclick = () => showScreen('mapList');
+        containers.mapList.addEventListener('click', mapListClickHandler);
+        containers.businessMapList.addEventListener('click', mapListClickHandler);
         
         const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
         inputs.city.addEventListener('input', forceUppercase);
