@@ -241,7 +241,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
@@ -1117,20 +1117,25 @@
             const selection = businessSelection;
             if (selection.length === 0) return;
 
-            showConfirm(`Creare una mappa Business?`, `Verrà creata una nuova mappa con ${selection.length} civici. La selezione corrente NON verrà azzerata.`, async () => {
+            showConfirm(`Creare o aggiornare la mappa Business di oggi?`, `${selection.length} civici selezionati.`, async () => {
                 loadingView.classList.remove('hidden');
+                const userId = auth.currentUser.uid;
+                const today = new Date();
+                const dateString = today.toLocaleDateString('it-IT');
+                const searchPrefix = `Business - ${dateString}`;
+                const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
                 
+                const q = query(mapsCollectionRef, where("name", ">=", searchPrefix), where("name", "<=", searchPrefix + '\uf8ff'));
+                const querySnapshot = await getDocs(q);
+
                 const allSelectedMarkers = [];
                 const mapsToFetch = new Map();
                 selection.forEach(item => {
-                    if (!mapsToFetch.has(item.mapId)) {
-                        mapsToFetch.set(item.mapId, []);
-                    }
+                    if (!mapsToFetch.has(item.mapId)) { mapsToFetch.set(item.mapId, []); }
                     mapsToFetch.get(item.mapId).push(item.markerId);
                 });
-
                 for (const [mapId, markerIds] of mapsToFetch.entries()) {
-                    const mapRef = doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId);
+                    const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
                     const docSnap = await getDoc(mapRef);
                     if (docSnap.exists()) {
                         const mapData = docSnap.data();
@@ -1138,26 +1143,42 @@
                         allSelectedMarkers.push(...foundMarkers);
                     }
                 }
-
-                const today = new Date();
-                const mapName = `Business - ${today.toLocaleDateString('it-IT')}`;
                 
+                let feedbackMsg = '';
                 try {
-                    await addDoc(collection(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`), {
-                        name: mapName,
-                        createdAt: new Date(),
-                        markers: allSelectedMarkers,
-                        isBusiness: true
-                    });
-                    
+                    if (!querySnapshot.empty) { // Mappa Business di oggi esiste, la aggiorno
+                        const existingMapDoc = querySnapshot.docs[0];
+                        const existingMapData = existingMapDoc.data();
+                        const existingMarkers = existingMapData.markers || [];
+                        const existingMarkerIds = new Set(existingMarkers.map(m => m.id));
+                        
+                        const newMarkersToAdd = allSelectedMarkers.filter(m => !existingMarkerIds.has(m.id));
+                        const combinedMarkers = [...existingMarkers, ...newMarkersToAdd];
+
+                        const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                        const newName = `Business - ${dateString} ${timeString} (${combinedMarkers.length} civici)`;
+                        
+                        await setDoc(existingMapDoc.ref, { markers: combinedMarkers, name: newName }, { merge: true });
+                        feedbackMsg = "Mappa Business di oggi aggiornata!";
+
+                    } else { // Non esiste, la creo
+                        const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                        const mapName = `Business - ${dateString} ${timeString} (${allSelectedMarkers.length} civici)`;
+                        await addDoc(mapsCollectionRef, {
+                            name: mapName,
+                            createdAt: new Date(),
+                            markers: allSelectedMarkers,
+                            isBusiness: true
+                        });
+                        feedbackMsg = 'Mappa Business creata con successo!';
+                    }
                     const feedbackP = document.getElementById('map-list-feedback');
-                    feedbackP.textContent = 'Mappa Business creata con successo!';
+                    feedbackP.textContent = feedbackMsg;
                     showScreen('mapList');
                     setTimeout(() => { feedbackP.textContent = ''; }, 3000);
-
                 } catch(error) {
-                    console.error("Errore creazione mappa business:", error);
-                    alert("Impossibile creare la mappa.");
+                    console.error("Errore gestione mappa business:", error);
+                    alert("Impossibile creare o aggiornare la mappa.");
                 } finally {
                     loadingView.classList.add('hidden');
                 }
