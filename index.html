@@ -231,7 +231,7 @@
 
     <!-- NUOVO: Pulsante Flottante per Linea Business -->
     <button id="business-fab" class="hidden fixed bottom-6 right-6 bg-orange-500 text-white rounded-full p-4 shadow-lg hover:bg-orange-600 z-[1500] flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M21.2 8.4c.5.2.8.8.8 1.4v8.4c0 .8-.6 1.4-1.4 1.4H4.4C3.6 20 3 19.4 3 18.6V9.8c0-.6.3-1.2.8-1.4L12 4.1l8.2 4.3Z"/><path d="m22 9.6-10 5.2-10-5.2"/><path d="M12 20V9.6"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         <span id="business-fab-count" class="ml-2 font-bold"></span>
     </button>
     
@@ -305,6 +305,7 @@
         const showScreen = (screenName) => {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
             screens[screenName].classList.add('active');
+            updateBusinessFab(); // Update FAB visibility on every screen change
         };
         
         const showConfirm = (title, subtitle, onConfirmCallback) => {
@@ -618,7 +619,7 @@
                         ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
                     </div>
                     <button class="business-toggle-btn p-2 rounded-full hover:bg-orange-200 flex-shrink-0" data-marker-id="${marker.id}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isSelected ? '#f97316' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none text-gray-500"><path d="M21.2 8.4c.5.2.8.8.8 1.4v8.4c0 .8-.6 1.4-1.4 1.4H4.4C3.6 20 3 19.4 3 18.6V9.8c0-.6.3-1.2.8-1.4L12 4.1l8.2 4.3Z"/><path d="m22 9.6-10 5.2-10-5.2"/><path d="M12 20V9.6"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isSelected ? '#f97316' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none text-gray-500"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     </button>
                 `;
                 list.appendChild(li);
@@ -1075,7 +1076,9 @@
             const countSpan = document.getElementById('business-fab-count');
             const clearBtn = buttons.clearBusinessSelection;
 
-            if (count > 0) {
+            const isMapListScreenActive = screens.mapList.classList.contains('active');
+
+            if (count > 0 && isMapListScreenActive) {
                 fab.classList.remove('hidden');
                 clearBtn.classList.remove('hidden');
                 countSpan.textContent = count;
@@ -1114,7 +1117,7 @@
             const selection = businessSelection;
             if (selection.length === 0) return;
 
-            showConfirm(`Creare una mappa Business?`, `Verrà creata una nuova mappa con ${selection.length} civici.`, async () => {
+            showConfirm(`Creare una mappa Business?`, `Verrà creata una nuova mappa con ${selection.length} civici. La selezione corrente NON verrà azzerata.`, async () => {
                 loadingView.classList.remove('hidden');
                 
                 const allSelectedMarkers = [];
