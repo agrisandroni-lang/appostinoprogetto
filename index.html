@@ -1238,9 +1238,8 @@
                         });
                         feedbackMsg = 'Mappa Business creata con successo!';
                     }
-                    
-                    // The realtime listener will update the list automatically. 
-                    // We just need to show the right screen.
+                    if (unsubscribeMapsListListener) unsubscribeMapsListListener();
+                    loadMapsList(userId);
                     const feedbackP = document.getElementById('business-map-list-feedback');
                     feedbackP.textContent = feedbackMsg;
                     showScreen('businessMaps');
@@ -1254,7 +1253,8 @@
             });
         };
         buttons.createUpdateBusinessMap.onclick = handleCreateBusinessMap;
-
+        buttons.goToBusinessMaps.onclick = () => showScreen('businessMaps');
+        buttons.backToMapListFromBusiness.onclick = () => showScreen('mapList');
     </script>
 </body>
 </html>
