@@ -74,7 +74,6 @@
 </head>
 <body class="bg-gray-100">
 
-    <!-- Schermata 1: Menu Principale -->
     <div id="home-screen" class="screen active justify-center items-center p-5">
         <div class="text-center">
             <h1 class="text-5xl font-bold text-blue-600 mb-2">ApPostino</h1>
@@ -102,45 +101,42 @@
         </div>
     </div>
 
-    <!-- Schermata 2: Elenco Mappe -->
     <div id="map-list-screen" class="screen">
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
-            <button id="back-to-home-from-list" class="text-blue-600 font-semibold">&lt; Menu</button>
+            <button id="back-to-home-from-list" class="text-blue-600 font-semibold">< Menu</button>
             <h2 class="text-2xl font-bold text-gray-800">Le tue Mappe</h2>
-            <div></div>
+            <button id="clear-business-main-btn" class="hidden text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota Selezione</button>
         </div>
          <p id="map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
         <div class="p-4 border-b">
              <button id="go-to-business-maps-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                Linea Business
+                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                 Linea Business
              </button>
         </div>
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
     </div>
 
-    <!-- NUOVA Schermata Business -->
-     <div id="business-maps-screen" class="screen">
+    <div id="business-maps-screen" class="screen">
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
-            <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">&lt; Le Mie Mappe</button>
+            <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">< Le Mie Mappe</button>
             <h2 class="text-2xl font-bold text-orange-600">Mappe Business</h2>
             <button id="clear-business-btn" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota e Azzera</button>
         </div>
-         <p id="business-map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
-        <div id="business-maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
-        <div class="p-4 border-t">
+        <div class="p-4 border-b">
              <button id="create-update-business-map-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center gap-3">
-                Crea / Aggiorna Mappa di Oggi
-                <span id="business-selection-count" class="bg-white text-orange-600 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
+                 Crea / Aggiorna Mappa di Oggi
+                 <span id="business-selection-count" class="bg-white text-orange-600 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
              </button>
         </div>
+         <p id="business-map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
+        <div id="business-maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
     </div>
     
-    <!-- Schermata 4: Elenco di tutti i civici -->
     <div id="all-markers-list-screen" class="screen">
         <div class="p-4 bg-white shadow-md">
             <div class="flex justify-between items-center mb-4">
-                <button id="back-to-map-list-from-all" class="text-blue-600 font-semibold">&lt; Le mie Mappe</button>
+                <button id="back-to-map-list-from-all" class="text-blue-600 font-semibold">< Le mie Mappe</button>
                 <h2 id="all-markers-map-name" class="text-xl font-bold text-gray-800"></h2>
                 <button id="go-to-order-btn" class="bg-indigo-500 text-white font-semibold py-1 px-3 rounded hover:bg-indigo-600">Ordina</button>
             </div>
@@ -149,55 +145,46 @@
         <div id="all-markers-list" class="overflow-y-auto"></div>
     </div>
 
-    <!-- Schermata 5: Ordinamento Civici -->
     <div id="civici-order-screen" class="screen">
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
-             <button id="back-to-all-markers-list" class="text-blue-600 font-semibold">&lt; Elenco</button>
+             <button id="back-to-all-markers-list" class="text-blue-600 font-semibold">< Elenco</button>
              <h2 id="order-screen-map-name" class="text-xl font-bold text-gray-800">Ordina Casellario</h2>
              <div class="flex items-center gap-2">
-                <button id="optimize-route-btn" class="hidden bg-purple-500 text-white font-semibold py-1 px-3 rounded hover:bg-purple-600">Ottimizza</button>
-                <button id="save-order-button" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Salva</button>
+                 <button id="optimize-route-btn" class="hidden bg-purple-500 text-white font-semibold py-1 px-3 rounded hover:bg-purple-600">Ottimizza</button>
+                 <button id="save-order-button" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Salva</button>
              </div>
         </div>
         <p id="save-order-feedback" class="text-center text-sm text-green-700 h-4"></p>
         <div id="civici-order-list" class="overflow-y-auto p-2 space-y-2 bg-gray-100">
-            <!-- La lista ordinabile verrà inserita qui -->
-        </div>
+            </div>
     </div>
 
-    <!-- Schermata 3: Editor Mappa / Gita Mode -->
     <div id="map-editor-screen" class="screen">
         <div id="map-container">
-            <button id="back-to-map-list-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">&lt; Elenco Mappe</button>
+            <button id="back-to-map-list-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">< Elenco Mappe</button>
             <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
                 <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
             </div>
         </div>
         
-        <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0 flex flex-col" style="height: 45vh;">
-             <!-- RIGA 1 (NUOVA): Navigazione e Via Vicina -->
-             <div class="p-2 bg-gray-50 border-b">
-                <div id="current-location-street" class="text-center text-sm font-bold text-gray-600 mb-2 h-5"></div>
-                <div id="gita-nav-buttons" class="flex justify-between items-center">
-                    <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square">&lt;</button>
-                    <button id="next-gita-btn" class="bg-blue-600/75 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg disabled:bg-gray-400">SUCCESSIVO</button>
-                </div>
-            </div>
-             <!-- RIGA 2: Titolo e Reset -->
-             <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
-                <a id="current-street-name" href="#" target="_blank" class="px-2 block hover:bg-gray-100 rounded-md w-full"></a>
-                <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
-             </div>
-             <!-- RIGA 3: Lista Consegne -->
-             <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
-                <!-- Lista prossime 10 consegne -->
-             </div>
+              <div class="p-2 bg-gray-50 border-b">
+                  <div id="current-location-street" class="text-center text-sm font-bold text-gray-600 mb-2 h-5"></div>
+                  <div id="gita-nav-buttons" class="flex justify-between items-center">
+                      <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square"><</button>
+                      <button id="next-gita-btn" class="bg-blue-600/75 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg disabled:bg-gray-400">SUCCESSIVO</button>
+                  </div>
+              </div>
+              <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
+                  <a id="current-street-name" href="#" target="_blank" class="px-2 block hover:bg-gray-100 rounded-md w-full"></a>
+                  <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
+              </div>
+              <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
+                  </div>
         </div>
 
-        <!-- Form per Edit/Create Mode -->
         <div id="form-container" class="p-3 bg-white shadow-lg flex-shrink-0">
-            <button id="back-to-list-from-editor" class="text-blue-600 font-semibold mb-2">&lt; Elenco Mappe</button>
+            <button id="back-to-list-from-editor" class="text-blue-600 font-semibold mb-2">< Elenco Mappe</button>
             <input type="text" id="map-name-input" placeholder="Nome Mappa (es. Giro Centro)" class="w-full p-2 border rounded mb-2">
             <input type="text" id="city-input" list="cities-list" placeholder="Città" class="w-full p-2 border rounded mb-2">
             <input type="text" id="street-input" list="streets-list" placeholder="Via" class="w-full p-2 border rounded mb-2">
@@ -210,7 +197,6 @@
         </div>
     </div>
     
-    <!-- Modale di Conferma Generica -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm mx-4">
             <p id="confirm-modal-title" class="text-lg font-semibold mb-2"></p>
@@ -222,7 +208,6 @@
         </div>
     </div>
 
-    <!-- Modale Modifica Segnaposto -->
     <div id="edit-marker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 class="text-lg font-bold mb-4">Modifica Segnaposto</h3>
@@ -241,7 +226,6 @@
         </div>
     </div>
 
-    <!-- NUOVO: Modale Azioni Civico da Lista -->
     <div id="marker-actions-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 id="marker-actions-title" class="text-lg font-bold mb-4 text-center"></h3>
@@ -255,7 +239,6 @@
         </div>
     </div>
 
-    <!-- NUOVO: Modale Conteggio Pacchi Business -->
     <div id="business-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 id="business-item-title" class="text-lg font-bold mb-4 text-center"></h3>
@@ -313,6 +296,7 @@
         let currentGitaIndex = -1; 
         let cameFromGita = false; 
         let businessSelection = [];
+        let cameFromBusinessScreen = false; // NUOVA VARIABILE DI STATO
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen') };
@@ -334,6 +318,7 @@
             backToMapListFromBusiness: document.getElementById('back-to-map-list-from-business'),
             createUpdateBusinessMap: document.getElementById('create-update-business-map-btn'),
             clearBusiness: document.getElementById('clear-business-btn'),
+            clearBusinessMain: document.getElementById('clear-business-main-btn'), // NUOVO PULSANTE
             optimizeRoute: document.getElementById('optimize-route-btn'),
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
@@ -424,7 +409,7 @@
             map.createPane('userPane');
             map.getPane('userPane').style.zIndex = 650; 
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
                 if (currentMapData?.mode === 'view') return;
@@ -497,7 +482,7 @@
                     popupContent += `<br><small class="text-gray-600 italic">${markerData.notes}</small>`
                 }
                 
-                const navLink = `https://www.google.com/maps/dir/?api=1&destination=${markerData.latitude},${markerData.longitude}`;
+                const navLink = `https://maps.google.com/maps?q=${markerData.latitude},${markerData.longitude}`;
 
                 popupContent += `<div class="flex justify-around items-center gap-2 mt-2">`;
                 if(currentMapData?.mode !== 'view') {
@@ -600,7 +585,7 @@
                 } else {
                      // If doc doesn't exist (e.g., deleted), go back to map list
                     if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
-                        showScreen('mapList');
+                        showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
                     }
                 }
             });
@@ -777,7 +762,7 @@
             const modal = document.getElementById('marker-actions-modal');
             document.getElementById('marker-actions-title').textContent = `${marker.street}, ${marker.houseNumber}`;
             
-            const navLink = `https://www.google.com/maps/dir/?api=1&destination=${marker.latitude},${marker.longitude}`;
+            const navLink = `https://maps.google.com/maps?q=${marker.latitude},${marker.longitude}`;
             document.getElementById('action-navigate').href = navLink;
 
             document.getElementById('action-view').onclick = () => {
@@ -971,7 +956,7 @@
             const markers = currentMapData.markers;
             const currentDelivery = markers[currentGitaIndex];
             
-            const navLink = `https://www.google.com/maps/dir/?api=1&destination=${currentDelivery.latitude},${currentDelivery.longitude}`;
+            const navLink = `https://maps.google.com/maps?q=${currentDelivery.latitude},${currentDelivery.longitude}`;
             currentStreetNameEl.href = navLink;
 
             currentMarkers.forEach(m => {
@@ -1004,7 +989,7 @@
             nextListContainer.innerHTML = `
                 <div class="p-2 border-b flex justify-between items-center">
                     <p class="font-semibold text-gray-700">Prossime consegne:</p>
-                    <button id="gita-see-all-btn" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded hover:bg-gray-300">Vedi tutti &rarr;</button>
+                    <button id="gita-see-all-btn" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded hover:bg-gray-300">Vedi tutti →</button>
                 </div>
             `;
             const nextDeliveries = markers.slice(currentGitaIndex + 1, currentGitaIndex + 11);
@@ -1023,7 +1008,7 @@
                      if (currentMapData.isBusiness && m.count > 0) {
                         deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${m.count}</span>`;
                     } else {
-                         const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === m.id);
+                          const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === m.id);
                         if (selectionInfo) {
                             deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${selectionInfo.count}</span>`;
                         }
@@ -1154,18 +1139,19 @@
         buttons.goToCreate.onclick = () => openMapEditor('create');
         buttons.goToList.onclick = () => showScreen('mapList');
         buttons.backToHomeFromList.onclick = () => showScreen('home');
-        buttons.backToMapListFromView.onclick = () => { handleBackAction(); showScreen('mapList'); };
-        buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen('mapList'); };
+        
+        buttons.backToMapListFromView.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
+        buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
         
         buttons.backToMapListFromAll.onclick = () => {
              if (cameFromGita) {
-                cameFromGita = false;
-                openMapEditor('view', currentMapData.mapId); 
-            } else {
-                if (unsubscribeMapListener) unsubscribeMapListener();
-                currentMapData = null;
-                showScreen('mapList');
-            }
+                 cameFromGita = false;
+                 openMapEditor('view', currentMapData.mapId); 
+             } else {
+                 if (unsubscribeMapListener) unsubscribeMapListener();
+                 currentMapData = null;
+                 showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
+             }
         };
 
         buttons.saveMarker.onclick = handleSaveMarker;
@@ -1218,6 +1204,12 @@
         const mapListClickHandler = async (e) => {
             const target = e.target.closest('button');
             if (!target) return;
+
+            const parentContainer = target.closest('#business-maps-list-container, #maps-list-container');
+            if (parentContainer) {
+                cameFromBusinessScreen = parentContainer.id === 'business-maps-list-container';
+            }
+
             const mapId = target.dataset.id;
             const mapName = target.dataset.name;
             if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
@@ -1234,7 +1226,7 @@
             if(target.classList.contains('show-all-btn')) {
                 const mapData = mapsListData.get(mapId);
                 if (mapData) {
-                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name };
+                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name, isBusiness: mapData.isBusiness };
                     showAllMarkersList(mapData);
                 }
             }
@@ -1292,16 +1284,33 @@
             const createBtn = buttons.createUpdateBusinessMap;
             const countSpan = document.getElementById('business-selection-count');
             const clearBtn = buttons.clearBusiness;
+            const clearBtnMain = buttons.clearBusinessMain;
 
             countSpan.textContent = count;
             if (count > 0) {
                  createBtn.disabled = false;
                  createBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                  clearBtn.classList.remove('hidden');
+                 if(clearBtnMain) clearBtnMain.classList.remove('hidden');
             } else {
                  createBtn.disabled = true;
                  createBtn.classList.add('opacity-50', 'cursor-not-allowed');
                  clearBtn.classList.add('hidden');
+                 if(clearBtnMain) clearBtnMain.classList.add('hidden');
+            }
+        };
+        
+        // NUOVA FUNZIONE PER SVUOTARE SOLO LA SELEZIONE
+        const handleClearSelection = async () => {
+            const confirmed = await showConfirm('Svuotare la selezione?', `Verranno rimossi ${businessSelection.length} civici dalla selezione business.`);
+            if (confirmed) {
+                businessSelection = [];
+                saveSelectionToStorage();
+                updateBusinessUI();
+                renderMapLists(); // Ridisegna le liste per rimuovere i contatori
+                const feedbackP = document.getElementById('map-list-feedback');
+                feedbackP.textContent = 'Selezione azzerata!';
+                setTimeout(() => { feedbackP.textContent = ''; }, 2000);
             }
         };
 
@@ -1413,8 +1422,7 @@
                 }
             }
         };
-        buttons.clearBusiness.onclick = handleClearBusiness;
-
+        
         const handleCreateBusinessMap = async () => {
             const selection = businessSelection;
             if (selection.length === 0) return;
@@ -1498,6 +1506,10 @@
                 loadingView.classList.add('hidden');
             }
         };
+
+        // AGGIUNTA EVENT LISTENER
+        buttons.clearBusiness.onclick = handleClearBusiness;
+        buttons.clearBusinessMain.onclick = handleClearSelection;
         buttons.createUpdateBusinessMap.onclick = handleCreateBusinessMap;
         buttons.goToBusinessMaps.onclick = () => showScreen('businessMaps');
         buttons.backToMapListFromBusiness.onclick = () => showScreen('mapList');
@@ -1505,4 +1517,3 @@
     </script>
 </body>
 </html>
-
