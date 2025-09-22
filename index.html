@@ -154,7 +154,10 @@
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
              <button id="back-to-all-markers-list" class="text-blue-600 font-semibold">&lt; Elenco</button>
              <h2 id="order-screen-map-name" class="text-xl font-bold text-gray-800">Ordina Casellario</h2>
-             <button id="save-order-button" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Salva</button>
+             <div class="flex items-center gap-2">
+                <button id="optimize-route-btn" class="hidden bg-purple-500 text-white font-semibold py-1 px-3 rounded hover:bg-purple-600">Ottimizza</button>
+                <button id="save-order-button" class="bg-green-500 text-white font-semibold py-1 px-3 rounded hover:bg-green-600">Salva</button>
+             </div>
         </div>
         <p id="save-order-feedback" class="text-center text-sm text-green-700 h-4"></p>
         <div id="civici-order-list" class="overflow-y-auto p-2 space-y-2 bg-gray-100">
@@ -311,6 +314,7 @@
             backToMapListFromBusiness: document.getElementById('back-to-map-list-from-business'),
             createUpdateBusinessMap: document.getElementById('create-update-business-map-btn'),
             clearBusiness: document.getElementById('clear-business-btn'),
+            optimizeRoute: document.getElementById('optimize-route-btn'),
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container') };
@@ -777,6 +781,13 @@
         const showCiviciOrderScreen = () => {
             currentMarkersToOrder = [...allMarkersForList];
             document.getElementById('order-screen-map-name').textContent = currentMapData.name;
+            
+            if (currentMapData.isBusiness) {
+                buttons.optimizeRoute.classList.remove('hidden');
+            } else {
+                buttons.optimizeRoute.classList.add('hidden');
+            }
+
             renderOrderList();
             showScreen('civiciOrder');
         };
