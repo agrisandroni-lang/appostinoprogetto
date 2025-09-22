@@ -718,6 +718,7 @@
                 const mapData = mapsListData.get(mapId); 
                 currentGitaIndex = mapData?.lastGitaIndex || 0;
                 containers.gitaMode.classList.remove('hidden');
+                document.getElementById('current-location-street').classList.remove('hidden');
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
             } else {
@@ -1316,7 +1317,7 @@
                 authStatus.textContent = "";
                 authStatus.classList.remove('text-green-600');
                 loggedInView.classList.add('hidden');
-                loggedOutView.classList.add('hidden');
+                loggedOutView.classList.remove('hidden');
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
