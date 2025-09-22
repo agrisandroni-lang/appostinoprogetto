@@ -435,7 +435,6 @@
             const sizeClass = context === 'map' ? 'w-4 h-4 text-xs leading-4' : 'w-6 h-6 text-sm leading-6';
             switch (type) {
                 case 'pacco':
-                    // Emoji works well in both contexts
                     return `<span class="text-xl" title="Pacco">📦</span>`;
                 case 'raccomandata':
                     return `<span class="inline-block text-center ${sizeClass} bg-red-500 text-white font-bold rounded-full" title="Raccomandata">R</span>`;
@@ -514,7 +513,9 @@
             currentMarkers = [];
             markers.forEach(markerData => {
                 const streetColor = getStreetColor(markerData.street || 'default');
-                const typeIconForMap = getDeliveryTypeIcon(markerData.type, 'map');
+                const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
+                const displayType = currentMapData.isBusiness ? markerData.type : (selectionInfo ? selectionInfo.type : null);
+                const typeIconForMap = getDeliveryTypeIcon(displayType, 'map');
 
                 const customIcon = L.divIcon({ 
                     className: 'custom-marker-container', 
@@ -655,39 +656,11 @@
                 const selectionCount = businessSelection.filter(item => item.mapId === map.id).length;
                 const totalItems = businessSelection.filter(item => item.mapId === map.id).reduce((sum, item) => sum + item.count, 0);
 
-                let detailsHtml = '';
-                const selectionForThisMap = businessSelection.filter(item => item.mapId === map.id);
-                if (selectionForThisMap.length > 0) {
-                    const mapData = mapsListData.get(map.id);
-                    if (mapData && mapData.markers) {
-                        const selectedMarkersDetails = selectionForThisMap.map(selectionItem => {
-                            const marker = mapData.markers.find(m => m.id === selectionItem.markerId);
-                            if (!marker) return null;
-                            return { ...marker, ...selectionItem };
-                        }).filter(Boolean);
-
-                        if (selectedMarkersDetails.length > 0) {
-                            detailsHtml += '<div class="mb-3 border-t pt-2 mt-2 text-left"><p class="text-sm font-semibold text-orange-700 mb-1">Civici selezionati per il giro:</p><ul class="text-sm space-y-1 pl-2">';
-                            selectedMarkersDetails.forEach(detail => {
-                                detailsHtml += `
-                                    <li class="flex items-center gap-2 text-gray-700">
-                                        <div class="w-6 text-center">${getDeliveryTypeIcon(detail.type)}</div>
-                                        <span>${detail.street}, ${detail.houseNumber}</span>
-                                        <span class="font-bold ml-auto bg-gray-200 text-gray-800 text-xs rounded-full px-2 py-0.5">${detail.count}x</span>
-                                    </li>
-                                `;
-                            });
-                            detailsHtml += '</ul></div>';
-                        }
-                    }
-                }
-
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3 relative';
                 mapDiv.innerHTML = `
                     ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-lg p-1 text-center pointer-events-none"><div>Fermate: ${selectionCount}</div><div>Oggetti: ${totalItems}</div></div>` : ''}
                     <h3 class="text-xl font-bold mb-3 pr-24">${map.name}</h3>
-                    ${detailsHtml}
                     <div class="flex justify-around flex-wrap gap-2 items-center border-t pt-3 mt-3">
                         <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                         <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
@@ -1045,18 +1018,21 @@
 
             adjustGitaMapView();
             
-            const typeIcon = getDeliveryTypeIcon(currentDelivery.type);
+            const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === currentDelivery.id);
+            const displayDelivery = {...currentDelivery, ...(selectionInfo || {})};
+            
+            const typeIcon = getDeliveryTypeIcon(displayDelivery.type);
             let currentDeliveryHtml = `
             <div class="flex items-start gap-3">
                 ${typeIcon ? `<div class="flex-shrink-0 mt-1">${typeIcon}</div>` : ''}
                 <div class="flex-grow">
-                    <p class="text-lg font-bold text-gray-800 break-words whitespace-normal">${currentDelivery.street}, ${currentDelivery.houseNumber}</p>`;
+                    <p class="text-lg font-bold text-gray-800 break-words whitespace-normal">${displayDelivery.street}, ${displayDelivery.houseNumber}</p>`;
             
-            if (currentDelivery.notes) {
-                currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${currentDelivery.notes}</p>`;
+            if (displayDelivery.notes) {
+                currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${displayDelivery.notes}</p>`;
             }
-            if (currentMapData.isBusiness && currentDelivery.count > 0) {
-                currentDeliveryHtml += `<p class="font-bold text-orange-600">OGGETTI: ${currentDelivery.count}</p>`;
+            if (displayDelivery.count > 0) {
+                currentDeliveryHtml += `<p class="font-bold text-orange-600">OGGETTI: ${displayDelivery.count}</p>`;
             }
             currentDeliveryHtml += `</div></div>`;
             currentStreetNameEl.innerHTML = currentDeliveryHtml;
@@ -1077,17 +1053,21 @@
                 nextDeliveries.forEach(m => {
                     const li = document.createElement('li');
                     li.className = 'p-2 text-sm';
+                    
+                    const nextSelectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === m.id);
+                    const displayNextDelivery = {...m, ...(nextSelectionInfo || {})};
+
                     let deliveryHtml = `
                         <div class="flex items-start gap-2">
-                            <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(m.type)}</div>
+                            <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(displayNextDelivery.type)}</div>
                             <div class="flex-grow">
-                                <b>${m.houseNumber}</b>, ${m.street}`;
+                                <b>${displayNextDelivery.houseNumber}</b>, ${displayNextDelivery.street}`;
 
-                    if (m.notes) {
-                        deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${m.notes}</span>`;
+                    if (displayNextDelivery.notes) {
+                        deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${displayNextDelivery.notes}</span>`;
                     }
-                    if (currentMapData.isBusiness && m.count > 0) {
-                        deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${m.count}</span>`;
+                    if (displayNextDelivery.count > 0) {
+                        deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${displayNextDelivery.count}</span>`;
                     }
                     deliveryHtml += `</div></div>`;
                     li.innerHTML = deliveryHtml;
@@ -1336,7 +1316,7 @@
                 authStatus.textContent = "";
                 authStatus.classList.remove('text-green-600');
                 loggedInView.classList.add('hidden');
-                loggedOutView.classList.remove('hidden');
+                loggedOutView.classList.add('hidden');
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
@@ -1554,16 +1534,21 @@
                     const existingMapDoc = querySnapshot.docs[0];
                     const existingMapData = existingMapDoc.data();
                     const existingMarkers = existingMapData.markers || [];
+                    
+                    const updatedMarkers = [...existingMarkers];
                     const existingMarkerIds = new Set(existingMarkers.map(m => m.id));
-                    
-                    const newMarkersToAdd = allSelectedMarkers.filter(m => !existingMarkerIds.has(m.id));
-                    const combinedMarkers = [...existingMarkers, ...newMarkersToAdd];
-                    const totalItemsCombined = combinedMarkers.reduce((sum, marker) => sum + (marker.count || 0), 0);
 
+                    allSelectedMarkers.forEach(selectedMarker => {
+                        if (!existingMarkerIds.has(selectedMarker.id)) {
+                            updatedMarkers.push(selectedMarker);
+                        }
+                    });
+
+                    const totalItemsCombined = updatedMarkers.reduce((sum, marker) => sum + (marker.count || 0), 0);
                     const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                    const newName = `Business - ${dateString} ${timeString} (${combinedMarkers.length} civici - ${totalItemsCombined} oggetti)`;
+                    const newName = `Business - ${dateString} ${timeString} (${updatedMarkers.length} civici - ${totalItemsCombined} oggetti)`;
                     
-                    await setDoc(existingMapDoc.ref, { markers: combinedMarkers, name: newName }, { merge: true });
+                    await setDoc(existingMapDoc.ref, { markers: updatedMarkers, name: newName }, { merge: true });
                     feedbackMsg = "Mappa Business di oggi aggiornata!";
 
                 } else { 
