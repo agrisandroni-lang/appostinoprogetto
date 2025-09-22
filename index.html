@@ -330,7 +330,11 @@
                 loggedInView.classList.remove('hidden');
                 loggedOutView.classList.add('hidden');
             }
-            updateBusinessUI();
+
+            if (screenName === 'mapList') {
+                document.getElementById('map-list-feedback').textContent = '';
+            }
+            updateBusinessUI(); 
         };
         
         const showConfirm = (title, subtitle) => {
