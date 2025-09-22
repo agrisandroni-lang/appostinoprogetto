@@ -327,14 +327,27 @@
             updateBusinessUI(); 
         };
         
-        const showConfirm = (title, subtitle, onConfirmCallback) => {
-            const modal = document.getElementById('confirm-modal');
-            document.getElementById('confirm-modal-title').textContent = title;
-            document.getElementById('confirm-modal-subtitle').textContent = subtitle;
-            modal.style.display = 'flex';
-            document.getElementById('confirm-action').onclick = () => { onConfirmCallback(); modal.style.display = 'none'; };
-            document.getElementById('cancel-confirm').onclick = () => { modal.style.display = 'none'; };
-        }
+        const showConfirm = (title, subtitle) => {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                const confirmBtn = document.getElementById('confirm-action');
+                const cancelBtn = document.getElementById('cancel-confirm');
+                
+                document.getElementById('confirm-modal-title').textContent = title;
+                document.getElementById('confirm-modal-subtitle').textContent = subtitle;
+                modal.style.display = 'flex';
+
+                const close = (value) => {
+                    modal.style.display = 'none';
+                    confirmBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    resolve(value);
+                }
+
+                confirmBtn.onclick = () => close(true);
+                cancelBtn.onclick = () => close(false);
+            });
+        };
 
         const toggleWakeLock = async (enable) => {
             if (enable) {
@@ -1061,7 +1074,7 @@
             }
         });
 
-        const mapListClickHandler = (e) => {
+        const mapListClickHandler = async (e) => {
             const target = e.target.closest('button');
             if (!target) return;
             const mapId = target.dataset.id;
@@ -1069,11 +1082,13 @@
             if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
             if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
             if (target.classList.contains('delete-btn')) {
-                 showConfirm(`Eliminare la mappa "${mapName}"?`, "I dati andranno persi per sempre.", () => {
-                    showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile.", async () => {
+                const confirmed1 = await showConfirm(`Eliminare la mappa "${mapName}"?`, "I dati andranno persi per sempre.");
+                if (confirmed1) {
+                    const confirmed2 = await showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile.");
+                    if (confirmed2) {
                         await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId));
-                    });
-                });
+                    }
+                }
             }
             if(target.classList.contains('show-all-btn')) {
                 const mapData = mapsListData.get(mapId);
@@ -1167,8 +1182,10 @@
             const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
             const q = query(mapsCollectionRef, where("isBusiness", "==", true));
             
-            showConfirm(`Svuotare e azzerare Business?`, `Verranno eliminate TUTTE le mappe Business e la selezione di ${businessSelection.length} civici sarà azzerata.`, () => {
-                showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile e cancellerà le mappe business.", async () => {
+            const confirmed1 = await showConfirm(`Svuotare e azzerare Business?`, `Verranno eliminate TUTTE le mappe Business e la selezione di ${businessSelection.length} civici sarà azzerata.`);
+            if (confirmed1) {
+                const confirmed2 = await showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile e cancellerà le mappe business.");
+                if (confirmed2) {
                     loadingView.classList.remove('hidden');
                     try {
                         const querySnapshot = await getDocs(q);
@@ -1191,8 +1208,8 @@
                     } finally {
                         loadingView.classList.add('hidden');
                     }
-                })
-            });
+                }
+            }
         };
         buttons.clearBusiness.onclick = handleClearBusiness;
 
