@@ -324,7 +324,13 @@
         const showScreen = (screenName) => {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
             screens[screenName].classList.add('active');
-            updateBusinessUI(); 
+            
+            if (screenName === 'home' && auth.currentUser) {
+                loadingView.classList.add('hidden');
+                loggedInView.classList.remove('hidden');
+                loggedOutView.classList.add('hidden');
+            }
+            updateBusinessUI();
         };
         
         const showConfirm = (title, subtitle) => {
@@ -721,11 +727,10 @@
                 modal.style.display = 'none';
                 openEditModal(markerId);
             };
-            document.getElementById('action-delete').onclick = () => {
+            document.getElementById('action-delete').onclick = async () => {
                 modal.style.display = 'none';
-                showConfirm(`Eliminare il civico "${marker.street}, ${marker.houseNumber}"?`, "L'azione è irreversibile.").then(confirmed => {
-                    if (confirmed) handleDeleteMarker(marker.id);
-                });
+                const confirmed = await showConfirm(`Eliminare il civico "${marker.street}, ${marker.houseNumber}"?`, "L'azione è irreversibile.");
+                if (confirmed) handleDeleteMarker(marker.id);
             };
             document.getElementById('cancel-actions').onclick = () => {
                 modal.style.display = 'none';
@@ -1128,7 +1133,7 @@
                 authStatus.textContent = "";
                 authStatus.classList.remove('text-green-600');
                 loggedInView.classList.add('hidden');
-                loggedOutView.classList.add('hidden');
+                loggedOutView.classList.remove('hidden');
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
@@ -1225,8 +1230,8 @@
             if (selection.length === 0) return;
 
             const confirmed = await showConfirm(`Creare o aggiornare la mappa Business di oggi?`, `${selection.length} civici selezionati.`);
-            if (!confirmed) return;
-
+            if(!confirmed) return;
+            
             loadingView.classList.remove('hidden');
             const userId = auth.currentUser.uid;
             const today = new Date();
