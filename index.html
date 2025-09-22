@@ -882,6 +882,51 @@
             }
         };
 
+        const handleOptimizeRoute = () => {
+            if (!userMarker) {
+                alert("Posizione GPS non ancora disponibile. Attendi un momento e riprova.");
+                return;
+            }
+            if (currentMarkersToOrder.length < 2) return; // Nothing to optimize
+
+            const feedbackP = document.getElementById('save-order-feedback');
+            feedbackP.textContent = 'Ottimizzazione in corso...';
+
+            let remainingMarkers = [...currentMarkersToOrder];
+            let optimizedRoute = [];
+            let currentLocation = { 
+                latitude: userMarker.getLatLng().lat, 
+                longitude: userMarker.getLatLng().lng 
+            };
+
+            while (remainingMarkers.length > 0) {
+                let closest = { marker: null, distance: Infinity, index: -1 };
+                
+                remainingMarkers.forEach((marker, index) => {
+                    const distance = getDistance(currentLocation, marker);
+                    if (distance < closest.distance) {
+                        closest = { marker, distance, index };
+                    }
+                });
+
+                if (closest.marker) {
+                    optimizedRoute.push(closest.marker);
+                    currentLocation = { 
+                        latitude: closest.marker.latitude, 
+                        longitude: closest.marker.longitude 
+                    };
+                    remainingMarkers.splice(closest.index, 1);
+                } else {
+                    break; 
+                }
+            }
+
+            currentMarkersToOrder = optimizedRoute;
+            renderOrderList();
+            feedbackP.textContent = 'Percorso ottimizzato! Salva le modifiche.';
+            setTimeout(() => { feedbackP.textContent = ''; }, 3000);
+        };
+
         const saveGitaProgress = async () => {
             if (currentMapData?.mode !== 'view' || !currentMapData?.mapId || auth.currentUser == null || currentGitaIndex < 0) return;
             const userId = auth.currentUser.uid;
@@ -1350,6 +1395,7 @@
         buttons.createUpdateBusinessMap.onclick = handleCreateBusinessMap;
         buttons.goToBusinessMaps.onclick = () => showScreen('businessMaps');
         buttons.backToMapListFromBusiness.onclick = () => showScreen('mapList');
+        buttons.optimizeRoute.onclick = handleOptimizeRoute;
     </script>
 </body>
 </html>
