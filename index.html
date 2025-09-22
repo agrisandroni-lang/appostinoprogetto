@@ -183,7 +183,7 @@
             </div>
              <!-- RIGA 2: Titolo e Reset -->
              <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
-                <div id="current-street-name" class="px-2"></div>
+                <a id="current-street-name" href="#" target="_blank" class="px-2 block hover:bg-gray-100 rounded-md w-full"></a>
                 <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
              </div>
              <!-- RIGA 3: Lista Consegne -->
@@ -833,15 +833,18 @@
             const markers = currentMapData.markers;
             const currentDelivery = markers[currentGitaIndex];
             
+            const navLink = `https://www.google.com/maps/dir/?api=1&destination=${currentDelivery.latitude},${currentDelivery.longitude}`;
+            currentStreetNameEl.href = navLink;
+
             currentMarkers.forEach(m => {
                 m.getElement()?.classList.toggle('gita-active', m.markerData.id === currentDelivery.id);
             });
 
             adjustGitaMapView();
             
-            let currentDeliveryHtml = `<p class="text-lg font-bold text-gray-800 truncate">${currentDelivery.street}, ${currentDelivery.houseNumber}</p>`;
+            let currentDeliveryHtml = `<p class="text-lg font-bold text-gray-800 break-words whitespace-normal">${currentDelivery.street}, ${currentDelivery.houseNumber}</p>`;
             if (currentDelivery.notes) {
-                currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal truncate">${currentDelivery.notes}</p>`;
+                currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${currentDelivery.notes}</p>`;
             }
             currentStreetNameEl.innerHTML = currentDeliveryHtml;
             
@@ -1056,10 +1059,15 @@
             const target = e.target.closest('button');
             if (!target) return;
             const mapId = target.dataset.id;
+            const mapName = target.dataset.name;
             if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
             if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
             if (target.classList.contains('delete-btn')) {
-                showConfirm(`Eliminare la mappa "${target.dataset.name}"?`, 'I dati andranno persi per sempre.', async () => { await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId)); });
+                 showConfirm(`Eliminare la mappa "${mapName}"?`, "I dati andranno persi per sempre.", () => {
+                    showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile.", async () => {
+                        await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId));
+                    });
+                });
             }
             if(target.classList.contains('show-all-btn')) {
                 const mapData = mapsListData.get(mapId);
@@ -1153,29 +1161,31 @@
             const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
             const q = query(mapsCollectionRef, where("isBusiness", "==", true));
             
-            showConfirm(`Svuotare e azzerare Business?`, `Verranno eliminate TUTTE le mappe Business e la selezione di ${businessSelection.length} civici sarà azzerata.`, async () => {
-                loadingView.classList.remove('hidden');
-                try {
-                    const querySnapshot = await getDocs(q);
-                    const batch = writeBatch(db);
-                    querySnapshot.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-                    await batch.commit();
+            showConfirm(`Svuotare e azzerare Business?`, `Verranno eliminate TUTTE le mappe Business e la selezione di ${businessSelection.length} civici sarà azzerata.`, () => {
+                showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile e cancellerà le mappe business.", async () => {
+                    loadingView.classList.remove('hidden');
+                    try {
+                        const querySnapshot = await getDocs(q);
+                        const batch = writeBatch(db);
+                        querySnapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        await batch.commit();
 
-                    businessSelection = [];
-                    saveSelectionToStorage();
-                    updateBusinessUI();
-                    
-                    const feedbackP = document.getElementById('business-map-list-feedback');
-                    feedbackP.textContent = 'Mappe Business e selezione azzerate!';
-                    setTimeout(() => { feedbackP.textContent = ''; }, 3000);
-                } catch (error) {
-                    console.error("Errore eliminazione mappe business:", error);
-                    alert("Impossibile eliminare le mappe business.");
-                } finally {
-                    loadingView.classList.add('hidden');
-                }
+                        businessSelection = [];
+                        saveSelectionToStorage();
+                        updateBusinessUI();
+                        
+                        const feedbackP = document.getElementById('business-map-list-feedback');
+                        feedbackP.textContent = 'Mappe Business e selezione azzerate!';
+                        setTimeout(() => { feedbackP.textContent = ''; }, 3000);
+                    } catch (error) {
+                        console.error("Errore eliminazione mappe business:", error);
+                        alert("Impossibile eliminare le mappe business.");
+                    } finally {
+                        loadingView.classList.add('hidden');
+                    }
+                })
             });
         };
         buttons.clearBusiness.onclick = handleClearBusiness;
