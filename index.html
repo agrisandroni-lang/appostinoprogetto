@@ -539,6 +539,11 @@
                             renderAllMarkersList(filteredMarkers);
                         }
                     }
+                } else {
+                     // If doc doesn't exist (e.g., deleted), go back to map list
+                    if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
+                        showScreen('mapList');
+                    }
                 }
             });
         };
@@ -718,7 +723,9 @@
             };
             document.getElementById('action-delete').onclick = () => {
                 modal.style.display = 'none';
-                showConfirm(`Eliminare il civico "${marker.street}, ${marker.houseNumber}"?`, "L'azione è irreversibile.", () => handleDeleteMarker(marker.id));
+                showConfirm(`Eliminare il civico "${marker.street}, ${marker.houseNumber}"?`, "L'azione è irreversibile.").then(confirmed => {
+                    if (confirmed) handleDeleteMarker(marker.id);
+                });
             };
             document.getElementById('cancel-actions').onclick = () => {
                 modal.style.display = 'none';
@@ -1217,73 +1224,77 @@
             const selection = businessSelection;
             if (selection.length === 0) return;
 
-            showConfirm(`Creare o aggiornare la mappa Business di oggi?`, `${selection.length} civici selezionati.`, async () => {
-                loadingView.classList.remove('hidden');
-                const userId = auth.currentUser.uid;
-                const today = new Date();
-                const dateString = today.toLocaleDateString('it-IT');
-                const searchPrefix = `Business - ${dateString}`;
-                const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
-                
-                const q = query(mapsCollectionRef, where("name", ">=", searchPrefix), where("name", "<=", searchPrefix + '\uf8ff'));
-                const querySnapshot = await getDocs(q);
+            const confirmed = await showConfirm(`Creare o aggiornare la mappa Business di oggi?`, `${selection.length} civici selezionati.`);
+            if (!confirmed) return;
 
-                const allSelectedMarkers = [];
-                const mapsToFetch = new Map();
-                selection.forEach(item => {
-                    if (!mapsToFetch.has(item.mapId)) { mapsToFetch.set(item.mapId, []); }
-                    mapsToFetch.get(item.mapId).push(item.markerId);
-                });
+            loadingView.classList.remove('hidden');
+            const userId = auth.currentUser.uid;
+            const today = new Date();
+            const dateString = today.toLocaleDateString('it-IT');
+            const searchPrefix = `Business - ${dateString}`;
+            const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
+            
+            const q = query(mapsCollectionRef, where("name", ">=", searchPrefix), where("name", "<=", searchPrefix + '\uf8ff'));
+            const querySnapshot = await getDocs(q);
 
-                for (const [mapId, markerIds] of mapsToFetch.entries()) {
-                    const mapData = mapsListData.get(mapId);
+            const allSelectedMarkers = [];
+            const mapsToFetch = new Map();
+            selection.forEach(item => {
+                if (!mapsToFetch.has(item.mapId)) { mapsToFetch.set(item.mapId, []); }
+                mapsToFetch.get(item.mapId).push(item.markerId);
+            });
+
+            for (const [mapId, markerIds] of mapsToFetch.entries()) {
+                 const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
+                const docSnap = await getDoc(mapRef);
+                if (docSnap.exists()) {
+                    const mapData = docSnap.data();
                     if(mapData && mapData.markers) {
                         const foundMarkers = mapData.markers.filter(m => markerIds.includes(m.id));
                         allSelectedMarkers.push(...foundMarkers);
                     }
                 }
-                
-                let feedbackMsg = '';
-                try {
-                    if (!querySnapshot.empty) { 
-                        const existingMapDoc = querySnapshot.docs[0];
-                        const existingMapData = existingMapDoc.data();
-                        const existingMarkers = existingMapData.markers || [];
-                        const existingMarkerIds = new Set(existingMarkers.map(m => m.id));
-                        
-                        const newMarkersToAdd = allSelectedMarkers.filter(m => !existingMarkerIds.has(m.id));
-                        const combinedMarkers = [...existingMarkers, ...newMarkersToAdd];
+            }
+            
+            let feedbackMsg = '';
+            try {
+                if (!querySnapshot.empty) { 
+                    const existingMapDoc = querySnapshot.docs[0];
+                    const existingMapData = existingMapDoc.data();
+                    const existingMarkers = existingMapData.markers || [];
+                    const existingMarkerIds = new Set(existingMarkers.map(m => m.id));
+                    
+                    const newMarkersToAdd = allSelectedMarkers.filter(m => !existingMarkerIds.has(m.id));
+                    const combinedMarkers = [...existingMarkers, ...newMarkersToAdd];
 
-                        const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                        const newName = `Business - ${dateString} ${timeString} (${combinedMarkers.length} civici)`;
-                        
-                        await setDoc(existingMapDoc.ref, { markers: combinedMarkers, name: newName }, { merge: true });
-                        feedbackMsg = "Mappa Business di oggi aggiornata!";
+                    const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                    const newName = `Business - ${dateString} ${timeString} (${combinedMarkers.length} civici)`;
+                    
+                    await setDoc(existingMapDoc.ref, { markers: combinedMarkers, name: newName }, { merge: true });
+                    feedbackMsg = "Mappa Business di oggi aggiornata!";
 
-                    } else { 
-                        const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                        const mapName = `Business - ${dateString} ${timeString} (${allSelectedMarkers.length} civici)`;
-                        await addDoc(mapsCollectionRef, {
-                            name: mapName,
-                            createdAt: new Date(),
-                            markers: allSelectedMarkers,
-                            isBusiness: true
-                        });
-                        feedbackMsg = 'Mappa Business creata con successo!';
-                    }
-                    if (unsubscribeMapsListListener) unsubscribeMapsListListener();
-                    loadMapsList(userId);
-                    const feedbackP = document.getElementById('business-map-list-feedback');
-                    feedbackP.textContent = feedbackMsg;
-                    showScreen('businessMaps');
-                    setTimeout(() => { feedbackP.textContent = ''; }, 3000);
-                } catch(error) {
-                    console.error("Errore gestione mappa business:", error);
-                    alert("Impossibile creare o aggiornare la mappa.");
-                } finally {
-                    loadingView.classList.add('hidden');
+                } else { 
+                    const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                    const mapName = `Business - ${dateString} ${timeString} (${allSelectedMarkers.length} civici)`;
+                    await addDoc(mapsCollectionRef, {
+                        name: mapName,
+                        createdAt: new Date(),
+                        markers: allSelectedMarkers,
+                        isBusiness: true
+                    });
+                    feedbackMsg = 'Mappa Business creata con successo!';
                 }
-            });
+                
+                const feedbackP = document.getElementById('business-map-list-feedback');
+                feedbackP.textContent = feedbackMsg;
+                showScreen('businessMaps');
+                setTimeout(() => { feedbackP.textContent = ''; }, 3000);
+            } catch(error) {
+                console.error("Errore gestione mappa business:", error);
+                alert("Impossibile creare o aggiornare la mappa.");
+            } finally {
+                loadingView.classList.add('hidden');
+            }
         };
         buttons.createUpdateBusinessMap.onclick = handleCreateBusinessMap;
         buttons.goToBusinessMaps.onclick = () => showScreen('businessMaps');
