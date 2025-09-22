@@ -254,6 +254,22 @@
             <button id="cancel-actions" class="mt-6 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Chiudi</button>
         </div>
     </div>
+
+    <!-- NUOVO: Modale Conteggio Pacchi Business -->
+    <div id="business-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <h3 id="business-item-title" class="text-lg font-bold mb-4 text-center"></h3>
+            <div class="mb-4">
+                <label for="business-item-count-input" class="block text-sm font-medium text-gray-700 mb-1">Numero di pacchi</label>
+                <input type="number" id="business-item-count-input" value="1" min="0" class="w-full p-2 border rounded text-center text-2xl font-bold">
+            </div>
+            <div class="flex justify-between gap-4 mt-6">
+                <button id="business-item-remove" class="bg-red-500 text-white font-bold py-2 px-6 rounded hover:bg-red-700">Rimuovi</button>
+                <button id="business-item-confirm" class="bg-green-500 text-white font-bold py-2 px-6 rounded hover:bg-green-600">Conferma</button>
+            </div>
+             <button id="business-item-cancel" class="mt-4 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
+        </div>
+    </div>
     
     <datalist id="cities-list"></datalist>
     <datalist id="streets-list"></datalist>
@@ -603,10 +619,12 @@
             containers.mapList.innerHTML = regularMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
             regularMaps.forEach(map => {
                 const selectionCount = businessSelection.filter(item => item.mapId === map.id).length;
+                const totalItems = businessSelection.filter(item => item.mapId === map.id).reduce((sum, item) => sum + item.count, 0);
+
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3 relative';
                 mapDiv.innerHTML = `
-                    ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center pointer-events-none">${selectionCount}</div>` : ''}
+                    ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-full h-auto min-w-[24px] p-1 flex items-center justify-center pointer-events-none">${selectionCount}/${totalItems}</div>` : ''}
                     <h3 class="text-xl font-bold mb-3 pr-8">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
                         <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                         <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
@@ -968,6 +986,9 @@
             if (currentDelivery.notes) {
                 currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${currentDelivery.notes}</p>`;
             }
+             if (currentMapData.isBusiness && currentDelivery.count > 0) {
+                currentDeliveryHtml += `<p class="font-bold text-orange-600">PACCHI: ${currentDelivery.count}</p>`;
+            }
             currentStreetNameEl.innerHTML = currentDeliveryHtml;
             
             const nextListContainer = document.getElementById('next-deliveries-list');
@@ -989,6 +1010,9 @@
                     let deliveryHtml = `<b>${m.houseNumber}</b>, ${m.street}`;
                     if (m.notes) {
                         deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${m.notes}</span>`;
+                    }
+                     if (currentMapData.isBusiness && m.count > 0) {
+                        deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">PACCHI: ${m.count}</span>`;
                     }
                     li.innerHTML = deliveryHtml;
                     list.appendChild(li);
@@ -1171,7 +1195,7 @@
             const markerId = markerLi.dataset.markerId;
 
             if (e.target.closest('.business-toggle-btn')) {
-                 toggleBusinessSelection(markerId);
+                 openBusinessItemModal(markerId);
             } else {
                  openMarkerActionsModal(markerId);
             }
@@ -1267,18 +1291,65 @@
             }
         };
 
-        const toggleBusinessSelection = (markerId) => {
-            const selectionIndex = businessSelection.findIndex(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
+        const openBusinessItemModal = (markerId) => {
+            const marker = allMarkersForList.find(m => m.id === markerId);
+            if (!marker) return;
 
-            if (selectionIndex > -1) {
-                businessSelection.splice(selectionIndex, 1);
+            const modal = document.getElementById('business-item-modal');
+            const titleEl = document.getElementById('business-item-title');
+            const countInput = document.getElementById('business-item-count-input');
+            const confirmBtn = document.getElementById('business-item-confirm');
+            const removeBtn = document.getElementById('business-item-remove');
+            const cancelBtn = document.getElementById('business-item-cancel');
+
+            titleEl.textContent = `${marker.street}, ${marker.houseNumber}`;
+
+            const selection = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
+            countInput.value = selection ? selection.count : 1;
+
+            const close = () => modal.style.display = 'none';
+
+            confirmBtn.onclick = () => {
+                const count = parseInt(countInput.value, 10);
+                if (!isNaN(count) && count > 0) {
+                    updateBusinessItem(markerId, count);
+                } else {
+                    updateBusinessItem(markerId, 0); // Rimuove se il valore non è valido
+                }
+                close();
+            };
+            
+            removeBtn.onclick = () => {
+                updateBusinessItem(markerId, 0);
+                close();
+            };
+
+            cancelBtn.onclick = close;
+
+            modal.style.display = 'flex';
+        };
+
+        const updateBusinessItem = (markerId, count) => {
+             const selectionIndex = businessSelection.findIndex(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
+
+            if (count > 0) {
+                if (selectionIndex > -1) {
+                    businessSelection[selectionIndex].count = count;
+                } else {
+                    businessSelection.push({ mapId: currentMapData.mapId, markerId: markerId, count: count });
+                }
             } else {
-                businessSelection.push({ mapId: currentMapData.mapId, markerId: markerId });
+                if (selectionIndex > -1) {
+                    businessSelection.splice(selectionIndex, 1);
+                }
             }
+
             saveSelectionToStorage();
             updateBusinessUI();
-            renderAllMarkersList(allMarkersForList); // Rerender to show selection highlight
+            renderAllMarkersList(allMarkersForList);
+            renderMapLists(); // Update the counter on the map list view
         };
+
 
         const handleClearBusiness = async () => {
             const userId = auth.currentUser.uid;
@@ -1320,7 +1391,7 @@
             const selection = businessSelection;
             if (selection.length === 0) return;
 
-            const confirmed = await showConfirm(`Creare o aggiornare la mappa Business di oggi?`, `${selection.length} civici selezionati.`);
+            const confirmed = await showConfirm(`Creare o aggiornare la mappa Business di oggi?`, `${selection.length} fermate.`);
             if(!confirmed) return;
             
             loadingView.classList.remove('hidden');
@@ -1347,7 +1418,12 @@
                     const mapData = docSnap.data();
                     if(mapData && mapData.markers) {
                         const foundMarkers = mapData.markers.filter(m => markerIds.includes(m.id));
-                        allSelectedMarkers.push(...foundMarkers);
+                        // Add the count to each marker
+                        const markersWithCount = foundMarkers.map(m => {
+                            const sel = selection.find(s => s.mapId === mapId && s.markerId === m.id);
+                            return {...m, count: sel ? sel.count : 1 };
+                        });
+                        allSelectedMarkers.push(...markersWithCount);
                     }
                 }
             }
