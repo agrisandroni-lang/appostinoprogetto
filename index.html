@@ -331,6 +331,10 @@
                 loggedOutView.classList.add('hidden');
             }
 
+            if (screenName === 'mapList' || screenName === 'businessMaps') {
+                 if(mapsListData.size > 0) renderMapLists(); // Re-render if data is already loaded
+            }
+
             if (screenName === 'mapList') {
                 document.getElementById('map-list-feedback').textContent = '';
             }
@@ -407,7 +411,10 @@
             map.on('popupopen', (e) => {
                 const popupNode = e.popup._container;
                 const deleteBtn = popupNode.querySelector('.delete-marker-btn');
-                if (deleteBtn) deleteBtn.onclick = () => showConfirm('Eliminare questo segnaposto?', "L'azione è irreversibile.", () => handleDeleteMarker(deleteBtn.dataset.markerId));
+                if (deleteBtn) deleteBtn.onclick = async () => {
+                    const confirmed = await showConfirm('Eliminare questo segnaposto?', "L'azione è irreversibile.");
+                    if(confirmed) handleDeleteMarker(deleteBtn.dataset.markerId)
+                };
                 const moveBtn = popupNode.querySelector('.move-marker-btn');
                 if (moveBtn) moveBtn.onclick = () => startRepositioning(moveBtn.dataset.markerId);
                 const editBtn = popupNode.querySelector('.edit-marker-btn');
@@ -575,6 +582,50 @@
             });
         };
 
+        const renderMapLists = () => {
+            const regularMaps = [];
+            const businessMaps = [];
+            mapsListData.forEach(map => {
+                if (map.isBusiness) {
+                    businessMaps.push(map);
+                } else {
+                    regularMaps.push(map);
+                }
+            });
+            
+            regularMaps.sort((a,b) => a.name.localeCompare(b.name));
+            businessMaps.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+            containers.mapList.innerHTML = regularMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
+            regularMaps.forEach(map => {
+                const selectionCount = businessSelection.filter(item => item.mapId === map.id).length;
+                const mapDiv = document.createElement('div');
+                mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3 relative';
+                mapDiv.innerHTML = `
+                    ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center pointer-events-none">${selectionCount}</div>` : ''}
+                    <h3 class="text-xl font-bold mb-3 pr-8">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
+                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
+                        <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
+                        <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
+                        <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
+                    </div>`;
+                containers.mapList.appendChild(mapDiv);
+            });
+
+            containers.businessMapList.innerHTML = businessMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa Business.</p>' : '';
+             businessMaps.forEach(map => {
+                const mapDiv = document.createElement('div');
+                mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
+                mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
+                    <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
+                    <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
+                    <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
+                    <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
+                </div>`;
+                containers.businessMapList.appendChild(mapDiv);
+            });
+        };
+
         const loadMapsList = (userId) => {
             if (unsubscribeMapsListListener) unsubscribeMapsListListener();
             containers.mapList.innerHTML = '<p class="text-center text-gray-500">Caricamento mappe...</p>';
@@ -582,47 +633,10 @@
             const q = query(collection(db, `artifacts/${appId}/users/${userId}/maps`));
             unsubscribeMapsListListener = onSnapshot(q, (snapshot) => {
                 mapsListData.clear();
-                let regularMaps = [];
-                let businessMaps = [];
                 snapshot.forEach(doc => {
-                    const map = { id: doc.id, ...doc.data() };
-                    mapsListData.set(map.id, map);
-                    if (map.isBusiness) {
-                        businessMaps.push(map);
-                    } else {
-                        regularMaps.push(map);
-                    }
+                    mapsListData.set(doc.id, { id: doc.id, ...doc.data() });
                 });
-                
-                regularMaps.sort((a,b) => a.name.localeCompare(b.name));
-                businessMaps.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-
-
-                containers.mapList.innerHTML = regularMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
-                regularMaps.forEach(map => {
-                    const mapDiv = document.createElement('div');
-                    mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
-                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
-                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
-                        <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
-                        <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
-                        <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
-                    </div>`;
-                    containers.mapList.appendChild(mapDiv);
-                });
-
-                containers.businessMapList.innerHTML = businessMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa Business.</p>' : '';
-                 businessMaps.forEach(map => {
-                    const mapDiv = document.createElement('div');
-                    mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
-                    mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
-                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
-                        <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
-                        <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
-                        <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
-                    </div>`;
-                    containers.businessMapList.appendChild(mapDiv);
-                });
+                renderMapLists();
             }, (error) => { 
                 console.error("Errore Firestore:", error); 
                 containers.mapList.innerHTML = '<p class="text-center text-red-500">Errore caricamento mappe.</p>';
