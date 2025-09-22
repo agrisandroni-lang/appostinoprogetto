@@ -837,7 +837,13 @@
             currentStreetNameEl.href = navLink;
 
             currentMarkers.forEach(m => {
-                m.getElement()?.classList.toggle('gita-active', m.markerData.id === currentDelivery.id);
+                const isActive = m.markerData.id === currentDelivery.id;
+                m.getElement()?.classList.toggle('gita-active', isActive);
+                if (isActive) {
+                    m.setZIndexOffset(1000); // Porta in primo piano
+                } else {
+                    m.setZIndexOffset(0); // Resetta la posizione
+                }
             });
 
             adjustGitaMapView();
