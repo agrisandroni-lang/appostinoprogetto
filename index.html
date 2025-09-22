@@ -655,11 +655,40 @@
                 const selectionCount = businessSelection.filter(item => item.mapId === map.id).length;
                 const totalItems = businessSelection.filter(item => item.mapId === map.id).reduce((sum, item) => sum + item.count, 0);
 
+                let detailsHtml = '';
+                const selectionForThisMap = businessSelection.filter(item => item.mapId === map.id);
+                if (selectionForThisMap.length > 0) {
+                    const mapData = mapsListData.get(map.id);
+                    if (mapData && mapData.markers) {
+                        const selectedMarkersDetails = selectionForThisMap.map(selectionItem => {
+                            const marker = mapData.markers.find(m => m.id === selectionItem.markerId);
+                            if (!marker) return null;
+                            return { ...marker, ...selectionItem };
+                        }).filter(Boolean);
+
+                        if (selectedMarkersDetails.length > 0) {
+                            detailsHtml += '<div class="mb-3 border-t pt-2 mt-2 text-left"><p class="text-sm font-semibold text-orange-700 mb-1">Civici selezionati per il giro:</p><ul class="text-sm space-y-1 pl-2">';
+                            selectedMarkersDetails.forEach(detail => {
+                                detailsHtml += `
+                                    <li class="flex items-center gap-2 text-gray-700">
+                                        <div class="w-6 text-center">${getDeliveryTypeIcon(detail.type)}</div>
+                                        <span>${detail.street}, ${detail.houseNumber}</span>
+                                        <span class="font-bold ml-auto bg-gray-200 text-gray-800 text-xs rounded-full px-2 py-0.5">${detail.count}x</span>
+                                    </li>
+                                `;
+                            });
+                            detailsHtml += '</ul></div>';
+                        }
+                    }
+                }
+
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3 relative';
                 mapDiv.innerHTML = `
                     ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-lg p-1 text-center pointer-events-none"><div>Fermate: ${selectionCount}</div><div>Oggetti: ${totalItems}</div></div>` : ''}
-                    <h3 class="text-xl font-bold mb-3 pr-24">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
+                    <h3 class="text-xl font-bold mb-3 pr-24">${map.name}</h3>
+                    ${detailsHtml}
+                    <div class="flex justify-around flex-wrap gap-2 items-center border-t pt-3 mt-3">
                         <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                         <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
                         <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
@@ -1570,3 +1599,4 @@
     </script>
 </body>
 </html>
+
