@@ -520,6 +520,23 @@
             }
         };
 
+        const populateDatalists = (markers = []) => {
+            const citiesDatalist = document.getElementById('cities-list');
+            const streetsDatalist = document.getElementById('streets-list');
+            citiesDatalist.innerHTML = '';
+            streetsDatalist.innerHTML = '';
+
+            const uniqueCities = [...new Set(markers.map(m => m.city).filter(Boolean))];
+            uniqueCities.forEach(city => {
+                citiesDatalist.innerHTML += `<option value="${city}">`;
+            });
+
+            const uniqueStreets = [...new Set(markers.map(m => m.street).filter(Boolean))];
+            uniqueStreets.forEach(street => {
+                streetsDatalist.innerHTML += `<option value="${street}">`;
+            });
+        };
+
         const attachMapListener = (mapId) => {
             const userId = auth.currentUser?.uid; if (!userId) return;
             if (unsubscribeMapListener) unsubscribeMapListener();
