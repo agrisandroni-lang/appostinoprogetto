@@ -73,6 +73,9 @@
             background-color: #e0f2fe !important; /* Light blue background */
             border-left: 4px solid #3b82f6; /* Blue left border */
         }
+        .user-location-icon {
+            transition: transform 0.5s linear;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -491,11 +494,29 @@
         const updateUserLocation = (coords) => {
             if (!map) return;
             const latLng = [coords.latitude, coords.longitude];
+
             if (!userMarker) {
-                userMarker = L.circleMarker(latLng, { radius: 8, color: 'blue', fillColor: '#3498db', fillOpacity: 1, pane: 'userPane' }).addTo(map);
+                const userIcon = L.divIcon({
+                    className: 'user-location-marker',
+                    html: `<svg class="user-location-icon" width="28" height="28" viewBox="0 0 24 24" fill="#1E88E5" stroke="white" stroke-width="2" style="transform-origin: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">
+                                <path d="M12 2L2 22l10-4 10 4L12 2z"/>
+                           </svg>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+                userMarker = L.marker(latLng, { icon: userIcon, pane: 'userPane' }).addTo(map);
             } else {
                 userMarker.setLatLng(latLng);
             }
+
+            // Heading update
+            if (userMarker.getElement() && coords.heading !== null && coords.heading >= 0) {
+                const iconElement = userMarker.getElement().querySelector('.user-location-icon');
+                if(iconElement) {
+                    iconElement.style.transform = `rotate(${coords.heading}deg)`;
+                }
+            }
+            
             if (!userMarker.isPopupOpen()) userMarker.bringToFront();
 
             if (currentMapData?.mode === 'view') {
