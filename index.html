@@ -264,12 +264,12 @@
             <h3 id="business-item-title" class="text-lg font-bold mb-4 text-center"></h3>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1 text-center">Tipologia</label>
-                <select id="business-item-type" class="w-full p-2 border rounded bg-white mt-1">
-                    <option value="standard" selected>Standard</option>
-                    <option value="pacco">Pacco</option>
-                    <option value="raccomandata">Raccomandata</option>
-                    <option value="prioritaria">Prioritaria</option>
-                </select>
+                <div id="business-item-type-selector" class="grid grid-cols-4 gap-2 text-center mt-2">
+                    <button data-type="standard" class="p-2 border rounded-md text-sm">Standard</button>
+                    <button data-type="pacco" class="p-2 border rounded-md text-2xl">📦</button>
+                    <button data-type="raccomandata" class="p-2 border rounded-md flex justify-center items-center"></button>
+                    <button data-type="prioritaria" class="p-2 border rounded-md flex justify-center items-center"></button>
+                </div>
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1 text-center">Numero di oggetti</label>
@@ -1008,8 +1008,17 @@
             currentStreetNameEl.href = navLink;
 
             currentMarkers.forEach(m => {
+                const markerIndex = currentMapData.markers.findIndex(marker => marker.id === m.markerData.id);
                 const isActive = m.markerData.id === currentDelivery.id;
+                
                 m.getElement()?.classList.toggle('gita-active', isActive);
+                
+                if (markerIndex < currentGitaIndex) {
+                    m.getElement()?.classList.add('opacity-40');
+                } else {
+                    m.getElement()?.classList.remove('opacity-40');
+                }
+
                 if (isActive) {
                     m.setZIndexOffset(1000);
                 } else {
@@ -1383,19 +1392,27 @@
             const modal = document.getElementById('business-item-modal');
             const titleEl = document.getElementById('business-item-title');
             const countDisplay = document.getElementById('business-item-count-display');
-            const typeSelect = document.getElementById('business-item-type');
+            const typeSelector = document.getElementById('business-item-type-selector');
             const incrementBtn = document.getElementById('business-item-increment');
             const decrementBtn = document.getElementById('business-item-decrement');
             const confirmBtn = document.getElementById('business-item-confirm');
             const removeBtn = document.getElementById('business-item-remove');
             const cancelBtn = document.getElementById('business-item-cancel');
 
+            typeSelector.querySelector('[data-type="raccomandata"]').innerHTML = getDeliveryTypeIcon('raccomandata');
+            typeSelector.querySelector('[data-type="prioritaria"]').innerHTML = getDeliveryTypeIcon('prioritaria');
+            
             titleEl.textContent = `${marker.street}, ${marker.houseNumber}`;
 
             const selection = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
             let currentCount = selection ? selection.count : 1;
+            const selectedType = selection ? selection.type : 'pacco';
             countDisplay.textContent = currentCount;
-            typeSelect.value = selection ? selection.type : 'standard';
+
+            typeSelector.querySelectorAll('button').forEach(btn => {
+                btn.classList.toggle('ring-2', btn.dataset.type === selectedType);
+                btn.classList.toggle('ring-blue-500', btn.dataset.type === selectedType);
+            });
 
             incrementBtn.onclick = () => {
                 currentCount++;
@@ -1412,7 +1429,7 @@
 
             confirmBtn.onclick = () => {
                 const count = parseInt(countDisplay.textContent, 10);
-                const type = typeSelect.value;
+                const type = typeSelector.querySelector('.ring-2').dataset.type;
                 if (!isNaN(count) && count > 0) {
                     updateBusinessItem(markerId, count, type);
                 } else {
@@ -1430,6 +1447,14 @@
 
             modal.style.display = 'flex';
         };
+        document.getElementById('business-item-type-selector').addEventListener('click', (e) => {
+            const clickedButton = e.target.closest('button');
+            if (!clickedButton) return;
+            document.getElementById('business-item-type-selector').querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-blue-500');
+            });
+            clickedButton.classList.add('ring-2', 'ring-blue-500');
+        });
 
         const updateBusinessItem = (markerId, count, type) => {
              const selectionIndex = businessSelection.findIndex(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
