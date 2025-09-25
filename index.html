@@ -818,6 +818,18 @@
             inputs.searchMarkers.value = '';
             renderAllMarkersList(allMarkersForList);
             showScreen('allMarkers');
+
+            if (cameFromGita) {
+                setTimeout(() => {
+                    if (currentGitaIndex >= 0 && currentMapData.markers[currentGitaIndex]) {
+                        const currentMarkerId = currentMapData.markers[currentGitaIndex].id;
+                        const targetElement = document.querySelector(`#all-markers-list li[data-marker-id="${currentMarkerId}"]`);
+                        if (targetElement) {
+                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                }, 100); 
+            }
         };
 
         const renderAllMarkersList = (markers) => {
