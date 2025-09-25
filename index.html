@@ -38,7 +38,7 @@
             border-color: #FFD700; 
             transform-origin: center; 
             z-index: 1000;
-            animation: pulse 1.5s infinite;
+            animation: bounce 1.5s infinite;
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
@@ -60,10 +60,13 @@
             100% { transform: rotate(360deg); }
         }
         
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1.4); }
-            50% { transform: translate(-50%, -50%) scale(1.6); }
-            100% { transform: translate(-50%, -50%) scale(1.4); }
+        @keyframes bounce {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1.4) translateY(0);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.5) translateY(-8px);
+            }
         }
 
         #wake-lock-status {
@@ -1669,5 +1672,6 @@
     </script>
 </body>
 </html>
+
 
 
