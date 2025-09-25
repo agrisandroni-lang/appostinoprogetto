@@ -488,29 +488,31 @@
         };
 
         const adjustGitaMapView = () => {
-            if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !currentMapData.markers || currentMapData.markers.length === 0) return;
+            if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !currentMapData.markers || currentMapData.markers.length === 0 || !userMarker) {
+                return;
+            }
 
             const currentDelivery = currentMapData.markers[currentGitaIndex];
+            if (!currentDelivery) return;
+
             const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+            if (!leafletMarker) return;
             
-            if (leafletMarker && userMarker) {
-                const userLatLng = userMarker.getLatLng();
-                const markerLatLng = leafletMarker.getLatLng();
-                const distance = userLatLng.distanceTo(markerLatLng);
+            const userLatLng = userMarker.getLatLng();
+            const markerLatLng = leafletMarker.getLatLng();
+            const distance = userLatLng.distanceTo(markerLatLng);
 
-                let zoomOptions = { padding: [70, 70] };
-                if (distance < 50) {
-                    zoomOptions.maxZoom = 20;
-                } else if (distance < 250) {
-                    zoomOptions.maxZoom = 18;
-                } 
+            let zoomOptions = { padding: [70, 70] };
+            if (distance < 50) {
+                zoomOptions.maxZoom = 20;
+            } else if (distance < 250) {
+                zoomOptions.maxZoom = 18;
+            } 
 
-                const bounds = L.latLngBounds([userLatLng, markerLatLng]);
-                map.fitBounds(bounds, zoomOptions);
-            } else if (leafletMarker) {
-                map.setView(leafletMarker.getLatLng(), 18);
-            }
+            const bounds = L.latLngBounds([userLatLng, markerLatLng]);
+            map.fitBounds(bounds, zoomOptions);
         };
+
 
         const updateUserLocation = (coords) => {
             if (!map) return;
@@ -605,7 +607,7 @@
             const currentLocationStreetDiv = document.getElementById('current-location-street');
             
             if (currentMarkers.length === 0) {
-                currentLocationStreetDiv.textContent = '';
+                if(currentLocationStreetDiv) currentLocationStreetDiv.textContent = '';
                 return;
             }
 
@@ -630,9 +632,11 @@
             if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
                 // In Gita mode, the target is the ACTIVE delivery marker
                 const currentDelivery = currentMapData.markers[currentGitaIndex];
-                const activeMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
-                if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 50) {
-                    markerToHighlight = activeMarker;
+                if(currentDelivery) {
+                    const activeMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+                    if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 50) {
+                        markerToHighlight = activeMarker;
+                    }
                 }
             } else {
                 // In other modes, the target is the physically closest marker
