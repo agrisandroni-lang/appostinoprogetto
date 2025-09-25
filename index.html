@@ -593,9 +593,6 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         };
 
-        // --- CORREZIONE APPORTATA QUI ---
-        // Ho riscritto questa funzione per separare la logica della visualizzazione della via
-        // da quella dell'evidenziazione del civico.
         const highlightClosestMarker = (userCoords) => {
             const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
             const currentLocationStreetDiv = document.getElementById('current-location-street');
@@ -800,6 +797,11 @@
             }
             
             showScreen('mapEditor');
+            
+            if (mode === 'view' && userMarker) {
+                map.setView(userMarker.getLatLng(), 18);
+            }
+
             setTimeout(() => { 
                 if (map) map.invalidateSize();
                 if (focusMarkerId) {
@@ -1673,3 +1675,4 @@
     </script>
 </body>
 </html>
+
