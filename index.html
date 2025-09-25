@@ -623,14 +623,14 @@
                 const currentDelivery = currentMapData.markers[currentGitaIndex];
                 if(currentDelivery) {
                     const activeMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
-                    // Evidenzialo se sei a meno di 50m da LUI
-                    if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 50) {
+                    // Evidenzialo se sei a meno di 20m da LUI
+                    if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 20) {
                         markerToHighlight = activeMarker;
                     }
                 }
             } else {
                 // Nelle altre modalità, l'obiettivo è il marcatore fisicamente più vicino
-                if (closestForStreetName.distance < 50) {
+                if (closestForStreetName.distance < 20) {
                     markerToHighlight = closestForStreetName.marker;
                 }
             }
@@ -1669,4 +1669,5 @@
     </script>
 </body>
 </html>
+
 
