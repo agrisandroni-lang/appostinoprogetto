@@ -15,15 +15,20 @@
         
         .custom-marker-label {
             color: black;
-            padding: 3px 8px; border-radius: 12px;
-            font-weight: bold; font-size: 14px; text-align: center;
-            white-space: nowrap; border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            transition: all 0.2s ease-in-out; position: absolute;
+            padding: 2px 6px; /* Ridotto */
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 12px; /* Ridotto */
+            text-align: center;
+            white-space: nowrap;
+            border: 1px solid white; /* Ridotto */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            transition: all 0.2s ease-in-out;
+            position: absolute;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            text-shadow: 0px 0px 3px #FFF, 0px 0px 3px #FFF;
+            text-shadow: 0px 0px 2px #FFF;
             display: flex;
             align-items: center;
             gap: 4px;
@@ -450,12 +455,16 @@
 
         const initMap = (coords) => {
             if (map) return map.setView([coords.latitude, coords.longitude], 16);
-            map = L.map('map-container').setView([coords.latitude, coords.longitude], 16);
+            map = L.map('map-container', {maxZoom: 20}).setView([coords.latitude, coords.longitude], 16);
             
             map.createPane('userPane');
             map.getPane('userPane').style.zIndex = 650; 
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+                attribution: '© OpenStreetMap',
+                maxZoom: 20
+            }).addTo(map);
+
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
                 if (currentMapData?.mode === 'view') return;
@@ -485,9 +494,9 @@
             
             if (leafletMarker && userMarker) {
                 const bounds = L.latLngBounds([leafletMarker.getLatLng(), userMarker.getLatLng()]);
-                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 }); 
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 }); 
             } else if (leafletMarker) {
-                map.setView(leafletMarker.getLatLng(), 18);
+                map.setView(leafletMarker.getLatLng(), 20);
             }
         };
 
@@ -509,7 +518,6 @@
                 userMarker.setLatLng(latLng);
             }
 
-            // Heading update
             if (userMarker.getElement() && coords.heading !== null && coords.heading >= 0) {
                 const iconElement = userMarker.getElement().querySelector('.user-location-icon');
                 if(iconElement) {
@@ -763,7 +771,7 @@
                 if (focusMarkerId) {
                     const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
                     if (leafletMarker) {
-                        map.setView(leafletMarker.getLatLng(), 18);
+                        map.setView(leafletMarker.getLatLng(), 20);
                         leafletMarker.openPopup();
                     }
                 }
