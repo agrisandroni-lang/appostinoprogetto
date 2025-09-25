@@ -462,7 +462,8 @@
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
                 attribution: '© OpenStreetMap',
-                maxZoom: 20
+                maxZoom: 20,
+                maxNativeZoom: 19
             }).addTo(map);
 
             map.on('click', async (e) => {
