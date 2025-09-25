@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- Questo è uno sfondo azzurro chiaro per farti vedere meglio l'icona. Diventerà trasparente una volta usata. -->
+  <rect width="180" height="180" rx="40" fill="#f0f8ff" />
+  
+  <!-- Gruppo principale dell'ape per centrarla -->
+  <g transform="translate(0, -5)">
+
+    <!-- Ali -->
+    <ellipse cx="70" cy="80" rx="25" ry="35" fill="#FFFFFF" fill-opacity="0.9" transform="rotate(-20 70 80)"/>
+    <ellipse cx="110" cy="80" rx="25" ry="35" fill="#FFFFFF" fill-opacity="0.9" transform="rotate(20 110 80)"/>
+
+    <!-- Corpo dell'ape -->
+    <ellipse cx="90" cy="115" rx="48" ry="42" fill="#FFD700" stroke="#333" stroke-width="2"/>
+    
+    <!-- Strisce -->
+    <path d="M 58 100 Q 90 90 122 100 L 125 115 Q 90 105 55 115 Z" fill="#333"/>
+    <path d="M 50 128 Q 90 120 130 128 L 130 143 Q 90 135 50 143 Z" fill="#333"/>
+    
+    <!-- Pungiglione -->
+    <path d="M 138 115 L 155 125 L 138 135 Z" fill="#333"/>
+
+    <!-- Testa -->
+    <circle cx="90" cy="75" r="32" fill="#FFD700" stroke="#333" stroke-width="2"/>
+    
+    <!-- Occhi -->
+    <circle cx="80" cy="70" r="6" fill="#333"/>
+    <circle cx="100" cy="70" r="6" fill="#333"/>
+    
+    <!-- Sorriso -->
+    <path d="M 85 82 Q 90 88 95 82" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    
+    <!-- Antenne -->
+    <path d="M 78 50 Q 70 30 80 35" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M 102 50 Q 110 30 100 35" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+    <!-- Lettera -->
+    <g transform="translate(15, 110) rotate(15)">
+      <rect x="0" y="0" width="40" height="30" fill="white" stroke="#555" stroke-width="2" rx="3"/>
+      <line x1="2" y1="2" x2="20" y2="15" stroke="#aaa" stroke-width="2"/>
+      <line x1="38" y1="2" x2="20" y2="15" stroke="#aaa" stroke-width="2"/>
+      <circle cx="32" cy="8" r="4" fill="#E44D26"/>
+    </g>
+  </g>
+</svg>
