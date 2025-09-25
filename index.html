@@ -530,8 +530,6 @@
                 }
             }
             
-            if (!userMarker.isPopupOpen()) userMarker.bringToFront();
-
             if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
             } else if (currentMapData?.mode !== 'edit' && currentMapData?.mode !== 'create') {
@@ -798,10 +796,6 @@
             
             showScreen('mapEditor');
             
-            if (mode === 'view' && userMarker) {
-                map.setView(userMarker.getLatLng(), 18);
-            }
-
             setTimeout(() => { 
                 if (map) map.invalidateSize();
                 if (focusMarkerId) {
