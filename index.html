@@ -132,20 +132,20 @@
 
     <!-- NUOVA Schermata Business -->
      <div id="business-maps-screen" class="screen">
-        <div class="p-4 bg-white shadow-md flex justify-between items-center">
-            <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">&lt; Le Mie Mappe</button>
-            <h2 class="text-2xl font-bold text-orange-600">Mappe Business</h2>
-            <button id="clear-business-btn" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota e Azzera</button>
-        </div>
-        <div class="p-4 border-b">
-             <button id="create-update-business-map-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center gap-3">
-                 Crea / Aggiorna Mappa di Oggi
-                 <span id="business-selection-count" class="bg-white text-orange-600 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
-             </button>
-        </div>
-         <p id="business-map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
-        <div id="business-maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
-    </div>
+         <div class="p-4 bg-white shadow-md flex justify-between items-center">
+             <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">&lt; Le Mie Mappe</button>
+             <h2 class="text-2xl font-bold text-orange-600">Mappe Business</h2>
+             <button id="clear-business-btn" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota e Azzera</button>
+         </div>
+         <div class="p-4 border-b">
+              <button id="create-update-business-map-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center gap-3">
+                  Crea / Aggiorna Mappa di Oggi
+                  <span id="business-selection-count" class="bg-white text-orange-600 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
+              </button>
+         </div>
+          <p id="business-map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
+         <div id="business-maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
+     </div>
     
     <!-- Schermata 4: Elenco di tutti i civici -->
     <div id="all-markers-list-screen" class="screen">
@@ -187,23 +187,23 @@
         
         <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0 flex flex-col" style="height: 45vh;">
-              <!-- RIGA 1 (NUOVA): Navigazione e Via Vicina -->
-              <div class="p-2 bg-gray-50 border-b">
-                  <div id="current-location-street" class="text-center text-sm font-bold text-gray-600 mb-2 h-5"></div>
-                  <div id="gita-nav-buttons" class="flex justify-between items-center">
-                      <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square">&lt;</button>
-                      <button id="next-gita-btn" class="bg-blue-600/75 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg disabled:bg-gray-400">SUCCESSIVO</button>
-                  </div>
-              </div>
-              <!-- RIGA 2: Titolo e Reset -->
-              <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
-                  <a id="current-street-name" href="#" target="_blank" class="block w-full"></a>
-                  <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
-              </div>
-              <!-- RIGA 3: Lista Consegne -->
-              <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
-                  <!-- Lista prossime 10 consegne -->
-              </div>
+             <!-- RIGA 1 (NUOVA): Navigazione e Via Vicina -->
+             <div class="p-2 bg-gray-50 border-b">
+                 <div id="current-location-street" class="text-center text-sm font-bold text-gray-600 mb-2 h-5"></div>
+                 <div id="gita-nav-buttons" class="flex justify-between items-center">
+                     <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square">&lt;</button>
+                     <button id="next-gita-btn" class="bg-blue-600/75 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg disabled:bg-gray-400">SUCCESSIVO</button>
+                 </div>
+             </div>
+             <!-- RIGA 2: Titolo e Reset -->
+             <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
+                 <a id="current-street-name" href="#" target="_blank" class="block w-full"></a>
+                 <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
+             </div>
+             <!-- RIGA 3: Lista Consegne -->
+             <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
+                 <!-- Lista prossime 10 consegne -->
+             </div>
         </div>
 
         <!-- Form per Edit/Create Mode -->
@@ -568,10 +568,10 @@
                 popupContent += `<div class="flex justify-around items-center gap-2 mt-2">`;
                 if(currentMapData?.mode !== 'view') {
                     popupContent += `
-                        <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
-                        <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
-                        <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
-                    `;
+                            <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
+                            <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
+                            <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
+                        `;
                 }
                 popupContent += `<a href="${navLink}" target="_blank" class="bg-green-500 text-white text-xs py-1 px-2 rounded">Naviga</a></div>`;
 
@@ -593,6 +593,9 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         };
 
+        // --- CORREZIONE APPORTATA QUI ---
+        // Ho riscritto questa funzione per separare la logica della visualizzazione della via
+        // da quella dell'evidenziazione del civico.
         const highlightClosestMarker = (userCoords) => {
             const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
             const currentLocationStreetDiv = document.getElementById('current-location-street');
@@ -602,7 +605,7 @@
                 return;
             }
 
-            // First, always find the physically closest marker for the street name display
+            // 1. Trova sempre il marcatore fisicamente più vicino per mostrare il nome della via
             let closestForStreetName = { marker: null, distance: Infinity };
             currentMarkers.forEach(marker => {
                 const distance = userLatLng.distanceTo(marker.getLatLng());
@@ -611,32 +614,33 @@
                 }
             });
 
-            // Update street name text
+            // 2. Aggiorna il testo della via se sei abbastanza vicino (soglia: 70 metri)
             if (closestForStreetName.marker && closestForStreetName.distance < 70) {
                 currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closestForStreetName.marker.markerData.street}`;
             } else {
                 currentLocationStreetDiv.textContent = '';
             }
 
-            // Now, determine which marker to highlight (the "closest" one)
+            // 3. Separatamente, determina quale marcatore evidenziare in rosso
             let markerToHighlight = null;
             if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
-                // In Gita mode, the target is the ACTIVE delivery marker
+                // In modalità Gita, l'obiettivo è il marcatore della consegna ATTIVA
                 const currentDelivery = currentMapData.markers[currentGitaIndex];
                 if(currentDelivery) {
                     const activeMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+                    // Evidenzialo se sei a meno di 50m da LUI
                     if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 50) {
                         markerToHighlight = activeMarker;
                     }
                 }
             } else {
-                // In other modes, the target is the physically closest marker
+                // Nelle altre modalità, l'obiettivo è il marcatore fisicamente più vicino
                 if (closestForStreetName.distance < 50) {
                     markerToHighlight = closestForStreetName.marker;
                 }
             }
 
-            // Apply the highlight
+            // 4. Applica la classe '.closest' solo al marcatore da evidenziare
             currentMarkers.forEach(marker => {
                 marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
             });
@@ -675,19 +679,19 @@
                         inputs.city.value = lastMarker.city; inputs.street.value = lastMarker.street;
                     }
                      if (screens.allMarkers.classList.contains('active')) {
-                        allMarkersForList = markers;
-                        const searchTerm = inputs.searchMarkers.value.toLowerCase();
-                        if (!searchTerm) {
-                            renderAllMarkersList(allMarkersForList);
-                        } else {
-                            const filteredMarkers = allMarkersForList.filter(m => 
-                                m.street.toLowerCase().includes(searchTerm) ||
-                                m.houseNumber.toLowerCase().includes(searchTerm) ||
-                                (m.notes && m.notes.toLowerCase().includes(searchTerm))
-                            );
-                            renderAllMarkersList(filteredMarkers);
-                        }
-                    }
+                         allMarkersForList = markers;
+                         const searchTerm = inputs.searchMarkers.value.toLowerCase();
+                         if (!searchTerm) {
+                             renderAllMarkersList(allMarkersForList);
+                         } else {
+                             const filteredMarkers = allMarkersForList.filter(m => 
+                                 m.street.toLowerCase().includes(searchTerm) ||
+                                 m.houseNumber.toLowerCase().includes(searchTerm) ||
+                                 (m.notes && m.notes.toLowerCase().includes(searchTerm))
+                             );
+                             renderAllMarkersList(filteredMarkers);
+                         }
+                     }
                 } else {
                     if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
                         showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
@@ -1669,4 +1673,3 @@
     </script>
 </body>
 </html>
-
