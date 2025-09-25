@@ -494,10 +494,21 @@
             const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
             
             if (leafletMarker && userMarker) {
-                const bounds = L.latLngBounds([leafletMarker.getLatLng(), userMarker.getLatLng()]);
-                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 20 }); 
+                const userLatLng = userMarker.getLatLng();
+                const markerLatLng = leafletMarker.getLatLng();
+                const distance = userLatLng.distanceTo(markerLatLng); // Use Leaflet's distance method
+
+                if (distance > 250) { // If far away, fit both on screen
+                    const bounds = L.latLngBounds([userLatLng, markerLatLng]);
+                    map.fitBounds(bounds, { padding: [70, 70] });
+                } else if (distance > 50) { // Getting closer, center on user with a reasonable zoom
+                    map.setView(userLatLng, 18, { animate: true, duration: 1 });
+                } else { // Very close, max zoom on user
+                    map.setView(userLatLng, 20, { animate: true, duration: 1 });
+                }
             } else if (leafletMarker) {
-                map.setView(leafletMarker.getLatLng(), 20);
+                // Fallback if user location is not available
+                map.setView(leafletMarker.getLatLng(), 18);
             }
         };
 
@@ -590,27 +601,50 @@
         };
 
         const highlightClosestMarker = (userCoords) => {
+            const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
             const currentLocationStreetDiv = document.getElementById('current-location-street');
+            
             if (currentMarkers.length === 0) {
                 currentLocationStreetDiv.textContent = '';
                 return;
             }
 
-            let closest = { marker: null, distance: Infinity };
+            // First, always find the physically closest marker for the street name display
+            let closestForStreetName = { marker: null, distance: Infinity };
             currentMarkers.forEach(marker => {
-                const distance = getDistance(userCoords, marker.markerData);
-                if (distance < closest.distance) closest = { marker, distance };
+                const distance = userLatLng.distanceTo(marker.getLatLng());
+                if (distance < closestForStreetName.distance) {
+                    closestForStreetName = { marker, distance };
+                }
             });
 
-            currentMarkers.forEach(marker => {
-                marker.getElement()?.classList.toggle('closest', marker === closest.marker && closest.distance < 50);
-            });
-
-            if (closest.marker && closest.distance < 70) {
-                currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closest.marker.markerData.street}`;
+            // Update street name text
+            if (closestForStreetName.marker && closestForStreetName.distance < 70) {
+                currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closestForStreetName.marker.markerData.street}`;
             } else {
                 currentLocationStreetDiv.textContent = '';
             }
+
+            // Now, determine which marker to highlight (the "closest" one)
+            let markerToHighlight = null;
+            if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
+                // In Gita mode, the target is the ACTIVE delivery marker
+                const currentDelivery = currentMapData.markers[currentGitaIndex];
+                const activeMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+                if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 50) {
+                    markerToHighlight = activeMarker;
+                }
+            } else {
+                // In other modes, the target is the physically closest marker
+                if (closestForStreetName.distance < 50) {
+                    markerToHighlight = closestForStreetName.marker;
+                }
+            }
+
+            // Apply the highlight
+            currentMarkers.forEach(marker => {
+                marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
+            });
         };
 
         const populateDatalists = (markers = []) => {
