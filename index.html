@@ -496,18 +496,18 @@
             if (leafletMarker && userMarker) {
                 const userLatLng = userMarker.getLatLng();
                 const markerLatLng = leafletMarker.getLatLng();
-                const distance = userLatLng.distanceTo(markerLatLng); // Use Leaflet's distance method
+                const distance = userLatLng.distanceTo(markerLatLng);
 
-                if (distance > 250) { // If far away, fit both on screen
-                    const bounds = L.latLngBounds([userLatLng, markerLatLng]);
-                    map.fitBounds(bounds, { padding: [70, 70] });
-                } else if (distance > 50) { // Getting closer, center on user with a reasonable zoom
-                    map.setView(userLatLng, 18, { animate: true, duration: 1 });
-                } else { // Very close, max zoom on user
-                    map.setView(userLatLng, 20, { animate: true, duration: 1 });
-                }
+                let zoomOptions = { padding: [70, 70] };
+                if (distance < 50) {
+                    zoomOptions.maxZoom = 20;
+                } else if (distance < 250) {
+                    zoomOptions.maxZoom = 18;
+                } 
+
+                const bounds = L.latLngBounds([userLatLng, markerLatLng]);
+                map.fitBounds(bounds, zoomOptions);
             } else if (leafletMarker) {
-                // Fallback if user location is not available
                 map.setView(leafletMarker.getLatLng(), 18);
             }
         };
