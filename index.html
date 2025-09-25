@@ -500,19 +500,10 @@
             
             const userLatLng = userMarker.getLatLng();
             const markerLatLng = leafletMarker.getLatLng();
-            const distance = userLatLng.distanceTo(markerLatLng);
-
-            let zoomOptions = { padding: [70, 70] };
-            if (distance < 50) {
-                zoomOptions.maxZoom = 20;
-            } else if (distance < 250) {
-                zoomOptions.maxZoom = 18;
-            } 
-
+            
             const bounds = L.latLngBounds([userLatLng, markerLatLng]);
-            map.fitBounds(bounds, zoomOptions);
+            map.fitBounds(bounds, { padding: [70, 70], maxZoom: 20 });
         };
-
 
         const updateUserLocation = (coords) => {
             if (!map) return;
@@ -606,7 +597,7 @@
             const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
             const currentLocationStreetDiv = document.getElementById('current-location-street');
             
-            if (currentMarkers.length === 0) {
+            if (currentMarkers.length === 0 || !currentLocationStreetDiv) {
                 if(currentLocationStreetDiv) currentLocationStreetDiv.textContent = '';
                 return;
             }
