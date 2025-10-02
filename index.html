@@ -11,6 +11,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Librerie per import KML/KMZ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
         .screen { display: none; }
@@ -127,13 +130,23 @@
             <h2 class="text-2xl font-bold text-gray-800">Le tue Mappe</h2>
             <button id="clear-business-main-btn" class="hidden text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota Selezione</button>
         </div>
-         <p id="map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
+        <p id="map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
         <div class="p-4 border-b">
              <button id="go-to-business-maps-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center gap-3">
                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                  Linea Business
              </button>
         </div>
+        <!-- NUOVO: Pulsante Importazione -->
+        <div class="p-4 border-b">
+            <button id="import-kml-btn" class="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Importa Mappa KML/KMZ
+            </button>
+            <input type="file" id="kml-file-input" class="hidden" accept=".kml,.kmz">
+        </div>
+        <p id="import-feedback" class="text-center text-sm text-blue-700 h-8 p-2"></p>
+        <!-- Fine Nuovo Pulsante -->
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
     </div>
 
@@ -364,8 +377,9 @@
             clearBusiness: document.getElementById('clear-business-btn'),
             clearBusinessMain: document.getElementById('clear-business-main-btn'),
             optimizeRoute: document.getElementById('optimize-route-btn'),
+            importKml: document.getElementById('import-kml-btn'),
         };
-        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
+        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), kmlFile: document.getElementById('kml-file-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
@@ -373,6 +387,7 @@
         const loggedInView = document.getElementById('logged-in-view');
         const loggedOutView = document.getElementById('logged-out-view');
         const wakeLockStatus = document.getElementById('wake-lock-status');
+        const importFeedback = document.getElementById('import-feedback');
 
         const showScreen = (screenName) => {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
@@ -1252,6 +1267,101 @@
             infoText.textContent = 'Segnaposto riposizionato!';
             document.getElementById('map-container').style.cursor = '';
         };
+
+        // --- FUNZIONI IMPORT KML ---
+        const handleFileImport = async (file) => {
+            importFeedback.innerHTML = `<div class="flex justify-center items-center"><div class="spinner"></div><span class="ml-2">Importazione in corso...</span></div>`;
+
+            try {
+                const kmlText = await getKmlTextFromFile(file);
+                if (!kmlText) {
+                    throw new Error("Impossibile leggere il file KML.");
+                }
+
+                const parser = new DOMParser();
+                const kmlDom = parser.parseFromString(kmlText, 'text/xml');
+                
+                const geoJson = togeojson.kml(kmlDom);
+
+                if (!geoJson || !geoJson.features || geoJson.features.length === 0) {
+                    throw new Error("Nessun punto trovato nel file KML.");
+                }
+
+                const newMarkers = geoJson.features.map(feature => {
+                    if (feature.geometry && feature.geometry.type === 'Point') {
+                        const [longitude, latitude] = feature.geometry.coordinates;
+                        
+                        const name = feature.properties.name || '';
+                        const description = feature.properties.description || '';
+
+                        return {
+                            id: Date.now().toString() + Math.random(), // Unique ID
+                            latitude,
+                            longitude,
+                            houseNumber: name, // Best guess
+                            street: '', 
+                            city: '',  
+                            notes: description, 
+                        };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+                if (newMarkers.length === 0) {
+                    throw new Error("Nessun punto valido trovato nel file KML.");
+                }
+
+                const mapName = file.name.replace(/\.(kml|kmz)$/i, '');
+                
+                const userId = auth.currentUser.uid;
+                const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
+                await addDoc(collection(db, mapsCollectionPath), {
+                    name: `(Import) ${mapName}`,
+                    createdAt: new Date(),
+                    markers: newMarkers
+                });
+
+                importFeedback.textContent = `Mappa "${mapName}" importata con ${newMarkers.length} punti!`;
+                
+            } catch (error) {
+                console.error("Errore durante l'importazione KML:", error);
+                importFeedback.textContent = `Errore: ${error.message}`;
+            } finally {
+                setTimeout(() => {
+                    importFeedback.innerHTML = '';
+                }, 5000);
+            }
+        };
+
+        const getKmlTextFromFile = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                if (file.name.toLowerCase().endsWith('.kml')) {
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(new Error("Errore lettura file KML."));
+                    reader.readAsText(file);
+                } else if (file.name.toLowerCase().endsWith('.kmz')) {
+                    reader.onload = (e) => {
+                        JSZip.loadAsync(e.target.result)
+                            .then(zip => {
+                                const kmlFile = Object.keys(zip.files).find(name => name.toLowerCase().endsWith('.kml'));
+                                if (kmlFile) {
+                                    return zip.file(kmlFile).async('string');
+                                } else {
+                                    throw new Error("Nessun file .kml trovato nell'archivio .kmz.");
+                                }
+                            })
+                            .then(kmlText => resolve(kmlText))
+                            .catch(err => reject(err));
+                    };
+                    reader.onerror = (e) => reject(new Error("Errore lettura file KMZ."));
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reject(new Error("Formato file non supportato. Seleziona .kml o .kmz"));
+                }
+            });
+        };
         
         const startWatchingLocation = () => {
             if (navigator.geolocation && !locationWatcher) {
@@ -1384,6 +1494,18 @@
 
         containers.mapList.addEventListener('click', mapListClickHandler);
         containers.businessMapList.addEventListener('click', mapListClickHandler);
+
+        buttons.importKml.onclick = () => {
+            inputs.kmlFile.click();
+        };
+
+        inputs.kmlFile.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                handleFileImport(file);
+            }
+            event.target.value = null; 
+        };
         
         const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
         inputs.city.addEventListener('input', forceUppercase);
