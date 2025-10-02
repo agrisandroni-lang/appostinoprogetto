@@ -1281,7 +1281,7 @@
                 const parser = new DOMParser();
                 const kmlDom = parser.parseFromString(kmlText, 'text/xml');
                 
-                const geoJson = togeojson.kml(kmlDom);
+                const geoJson = window.togeojson.kml(kmlDom);
 
                 if (!geoJson || !geoJson.features || geoJson.features.length === 0) {
                     throw new Error("Nessun punto trovato nel file KML.");
@@ -1343,7 +1343,7 @@
                     reader.readAsText(file);
                 } else if (file.name.toLowerCase().endsWith('.kmz')) {
                     reader.onload = (e) => {
-                        JSZip.loadAsync(e.target.result)
+                        window.JSZip.loadAsync(e.target.result)
                             .then(zip => {
                                 const kmlFile = Object.keys(zip.files).find(name => name.toLowerCase().endsWith('.kml'));
                                 if (kmlFile) {
