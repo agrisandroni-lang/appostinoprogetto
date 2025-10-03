@@ -364,9 +364,8 @@
             clearBusiness: document.getElementById('clear-business-btn'),
             clearBusinessMain: document.getElementById('clear-business-main-btn'),
             optimizeRoute: document.getElementById('optimize-route-btn'),
-            importKml: document.getElementById('import-kml-btn'),
         };
-        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), kmlFile: document.getElementById('kml-file-input')};
+        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
@@ -1254,101 +1253,6 @@
             infoText.textContent = 'Segnaposto riposizionato!';
             document.getElementById('map-container').style.cursor = '';
         };
-
-        // --- FUNZIONI IMPORT KML ---
-        const handleFileImport = async (file) => {
-            importFeedback.innerHTML = `<div class="flex justify-center items-center"><div class="spinner"></div><span class="ml-2">Importazione in corso...</span></div>`;
-
-            try {
-                const kmlText = await getKmlTextFromFile(file);
-                if (!kmlText) {
-                    throw new Error("Impossibile leggere il file KML.");
-                }
-
-                const parser = new DOMParser();
-                const kmlDom = parser.parseFromString(kmlText, 'text/xml');
-                
-                const geoJson = window.togeojson.kml(kmlDom);
-
-                if (!geoJson || !geoJson.features || geoJson.features.length === 0) {
-                    throw new Error("Nessun punto trovato nel file KML.");
-                }
-
-                const newMarkers = geoJson.features.map(feature => {
-                    if (feature.geometry && feature.geometry.type === 'Point') {
-                        const [longitude, latitude] = feature.geometry.coordinates;
-                        
-                        const name = feature.properties.name || '';
-                        const description = feature.properties.description || '';
-
-                        return {
-                            id: Date.now().toString() + Math.random(), // Unique ID
-                            latitude,
-                            longitude,
-                            houseNumber: name, // Best guess
-                            street: '', 
-                            city: '',  
-                            notes: description, 
-                        };
-                    }
-                    return null;
-                }).filter(Boolean);
-
-                if (newMarkers.length === 0) {
-                    throw new Error("Nessun punto valido trovato nel file KML.");
-                }
-
-                const mapName = file.name.replace(/\.(kml|kmz)$/i, '');
-                
-                const userId = auth.currentUser.uid;
-                const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
-                await addDoc(collection(db, mapsCollectionPath), {
-                    name: `(Import) ${mapName}`,
-                    createdAt: new Date(),
-                    markers: newMarkers
-                });
-
-                importFeedback.textContent = `Mappa "${mapName}" importata con ${newMarkers.length} punti!`;
-                
-            } catch (error) {
-                console.error("Errore durante l'importazione KML:", error);
-                importFeedback.textContent = `Errore: ${error.message}`;
-            } finally {
-                setTimeout(() => {
-                    importFeedback.innerHTML = '';
-                }, 5000);
-            }
-        };
-
-        const getKmlTextFromFile = (file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                
-                if (file.name.toLowerCase().endsWith('.kml')) {
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.onerror = (e) => reject(new Error("Errore lettura file KML."));
-                    reader.readAsText(file);
-                } else if (file.name.toLowerCase().endsWith('.kmz')) {
-                    reader.onload = (e) => {
-                        window.JSZip.loadAsync(e.target.result)
-                            .then(zip => {
-                                const kmlFile = Object.keys(zip.files).find(name => name.toLowerCase().endsWith('.kml'));
-                                if (kmlFile) {
-                                    return zip.file(kmlFile).async('string');
-                                } else {
-                                    throw new Error("Nessun file .kml trovato nell'archivio .kmz.");
-                                }
-                            })
-                            .then(kmlText => resolve(kmlText))
-                            .catch(err => reject(err));
-                    };
-                    reader.onerror = (e) => reject(new Error("Errore lettura file KMZ."));
-                    reader.readAsArrayBuffer(file);
-                } else {
-                    reject(new Error("Formato file non supportato. Seleziona .kml o .kmz"));
-                }
-            });
-        };
         
         const startWatchingLocation = () => {
             if (navigator.geolocation && !locationWatcher) {
@@ -1481,18 +1385,6 @@
 
         containers.mapList.addEventListener('click', mapListClickHandler);
         containers.businessMapList.addEventListener('click', mapListClickHandler);
-
-        buttons.importKml.onclick = () => {
-            inputs.kmlFile.click();
-        };
-
-        inputs.kmlFile.onchange = (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                handleFileImport(file);
-            }
-            event.target.value = null; 
-        };
         
         const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
         inputs.city.addEventListener('input', forceUppercase);
