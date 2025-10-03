@@ -1422,7 +1422,8 @@
                     (position) => updateUserLocation(position.coords),
                     (error) => {
                         console.error("Errore geolocalizzazione (watch):", error.code, error.message);
-                        // Non mostriamo un errore continuo, solo quello iniziale
+                        // Se il watch fallisce (es. permessi revocati), smettiamo di provare.
+                        stopWatchingLocation();
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
@@ -1434,9 +1435,8 @@
              const handleLocationError = (error) => {
                 console.error("Errore geolocalizzazione (initial):", error.code, error.message);
                 let errorMessage = '<br><span class="text-red-500 font-semibold">Geolocalizzazione non disponibile. La mappa è centrata su una posizione predefinita.</span>';
-                if(authStatusEl) authStatusEl.innerHTML += errorMessage;
+                if(authStatusEl && !authStatusEl.innerHTML.includes('Geolocalizzazione')) authStatusEl.innerHTML += errorMessage;
                 initMap(defaultCoords);
-                startWatchingLocation(); // Tentiamo comunque di avviare il watch
             };
             
             if (navigator.geolocation) {
@@ -1450,7 +1450,7 @@
                 );
             } else {
                  let errorMessage = '<br><span class="text-red-500 font-semibold">Geolocalizzazione non supportata dal browser.</span>';
-                 if(authStatusEl) authStatusEl.innerHTML += errorMessage;
+                 if(authStatusEl && !authStatusEl.innerHTML.includes('Geolocalizzazione')) authStatusEl.innerHTML += errorMessage;
                  initMap(defaultCoords);
             }
         };
@@ -1496,7 +1496,7 @@
         buttons.backToAllMarkersList.onclick = () => showScreen('allMarkers');
 
         buttons.nextGita.onclick = () => {
-            if (currentMapData && currentGitaIndex < currentMapData.markers.length - 1) {
+            if (currentMapData && currentMapData.markers.length > 0 && currentGitaIndex < currentMapData.markers.length - 1) {
                 currentGitaIndex++;
                 updateGitaView();
                 saveGitaProgress();
