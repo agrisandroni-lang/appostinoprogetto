@@ -1779,4 +1779,31 @@
             }
         };
 
-     
+        containers.mapList.addEventListener('click', mapListClickHandler);
+        containers.businessMapList.addEventListener('click', mapListClickHandler);
+        
+        const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
+        inputs.city.addEventListener('input', forceUppercase);
+        inputs.street.addEventListener('input', forceUppercase);
+
+        buttons.clearBusiness.onclick = handleClearBusiness;
+        buttons.clearBusinessMain.onclick = handleClearSelection;
+        buttons.createUpdateBusinessMap.onclick = handleCreateBusinessMap;
+        buttons.goToBusinessMaps.onclick = () => showScreen('businessMaps');
+        buttons.backToMapListFromBusiness.onclick = () => showScreen('mapList');
+        buttons.optimizeRoute.onclick = handleOptimizeRoute;
+
+        buttons.importKml.onclick = () => {
+            inputs.kmlFile.click();
+        };
+
+        inputs.kmlFile.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleKmlImport(file);
+            }
+        };
+    </script>
+</body>
+</html>
+
