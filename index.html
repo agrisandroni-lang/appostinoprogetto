@@ -95,6 +95,18 @@
             opacity: 0.4;
             background: #c8ebfb;
         }
+        details > summary {
+            list-style: none; /* Rimuove la freccia di default */
+        }
+        details > summary::-webkit-details-marker {
+            display: none; /* Rimuove la freccia di default per Safari */
+        }
+        .details-arrow {
+            transition: transform 0.2s;
+        }
+        details[open] > summary .details-arrow {
+            transform: rotate(90deg);
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -943,23 +955,26 @@
             sortedStreets.forEach(street => {
                 const streetMarkers = groupedByStreet[street];
                 
-                const streetContainer = document.createElement('div');
-                streetContainer.className = 'mb-4';
-
-                const header = document.createElement('div');
-                header.className = 'flex justify-between items-center bg-gray-200 p-2 rounded-t-lg sticky top-0 z-10';
-                header.innerHTML = `
-                    <h3 class="font-bold text-gray-700">${street}</h3>
+                const details = document.createElement('details');
+                details.className = 'mb-2 border rounded-lg bg-white shadow-sm';
+                
+                const summary = document.createElement('summary');
+                summary.className = 'flex justify-between items-center bg-gray-100 p-3 rounded-t-lg cursor-pointer';
+                summary.innerHTML = `
+                    <div class="flex items-center gap-2">
+                         <svg class="details-arrow w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                         <h3 class="font-bold text-gray-800">${street}</h3>
+                    </div>
                     <button class="toggle-street-selection-btn text-xs bg-blue-500 text-white font-semibold py-1 px-2 rounded hover:bg-blue-600" data-street="${street}">Seleziona Via</button>
                 `;
-                streetContainer.appendChild(header);
+                details.appendChild(summary);
 
                 const list = document.createElement('ul');
-                list.className = 'divide-y divide-gray-100 border rounded-b-lg';
+                list.className = 'divide-y divide-gray-100 p-2';
                 
                 streetMarkers.forEach(marker => {
                     const li = document.createElement('li');
-                    li.className = 'p-3 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                    li.className = 'p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center';
                     const isSelected = businessSelection.some(item => item.mapId === currentMapData.mapId && item.markerId === marker.id);
                     if (isSelected) {
                         li.classList.add('business-selected');
@@ -977,8 +992,8 @@
                     `;
                     list.appendChild(li);
                 });
-                streetContainer.appendChild(list);
-                container.appendChild(streetContainer);
+                details.appendChild(list);
+                container.appendChild(details);
             });
         };
         
