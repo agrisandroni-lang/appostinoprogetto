@@ -91,6 +91,10 @@
         .user-location-icon {
             transition: transform 0.5s linear;
         }
+        .ghost {
+            opacity: 0.4;
+            background: #c8ebfb;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -360,6 +364,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/modular/sortable.esm.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
@@ -391,14 +396,13 @@
         let currentGitaIndex = -1; 
         let cameFromGita = false; 
         let businessSelection = [];
-        let cameFromBusinessScreen = false;
-        const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
+        let cameFromScreen = 'mapList'; // 'mapList', 'businessMaps', 'zoneMaps'
         
-        let importSessionData = {
-            active: false,
-            markersToPlace: [],
-            mapId: null
-        };
+        let groupedMarkersToOrder = [];
+        let mainSortable = null;
+        let streetSortables = [];
+        
+        const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen'), zoneMaps: document.getElementById('zone-maps-screen') };
         const buttons = {
@@ -759,7 +763,7 @@
                      }
                 } else {
                     if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
-                        showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
+                        goBackToListScreen();
                     }
                 }
             });
@@ -895,13 +899,6 @@
             
             showScreen('mapEditor');
             
-            // Logica per assistente importazione
-            if (importSessionData.active && importSessionData.mapId === mapId) {
-                renderImportHelper();
-            } else {
-                document.getElementById('import-helper-container').classList.add('hidden');
-            }
-
             setTimeout(() => { 
                 if (map) map.invalidateSize();
                 if (focusMarkerId) {
@@ -1041,7 +1038,7 @@
         };
 
         const showCiviciOrderScreen = () => {
-            currentMarkersToOrder = [...allMarkersForList];
+            currentMarkersToOrder = [...allMarkersForList]; // Keep flat array for Sortable
             document.getElementById('order-screen-map-name').textContent = currentMapData.name;
             
             if (currentMapData.mapType === 'business') {
@@ -1055,76 +1052,96 @@
         };
 
         function renderOrderList() {
-            containers.civiciOrderList.innerHTML = ''; 
-            currentMarkersToOrder.forEach((marker, index) => {
-                const isFirst = index === 0;
-                const isLast = index === currentMarkersToOrder.length - 1;
-                const listItem = document.createElement('div');
-                listItem.className = 'flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing';
-                listItem.setAttribute('draggable', true);
-                listItem.dataset.index = index;
-                listItem.innerHTML = `
-                    <div class="flex items-center space-x-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M9 18v-6l-2 2M9 6v6l-2-2"/><path d="m15 12 2-2v6l-2-2"/><path d="m15 6 2 2v-6l-2 2"/></svg>
-                        <div>
-                            <span class="font-bold text-lg text-blue-700">${marker.houseNumber}</span>
-                            <p class="text-gray-600 text-sm">${marker.street}</p>
+            const container = containers.civiciOrderList;
+            container.innerHTML = '';
+            
+            // Group markers by street
+            groupedMarkersToOrder = currentMarkersToOrder.reduce((acc, marker) => {
+                const street = marker.street || 'Senza Via';
+                const existingStreet = acc.find(s => s.street === street);
+                if (existingStreet) {
+                    existingStreet.markers.push(marker);
+                } else {
+                    acc.push({ street: street, markers: [marker] });
+                }
+                return acc;
+            }, []);
+
+            groupedMarkersToOrder.forEach((group, groupIndex) => {
+                const streetContainer = document.createElement('div');
+                streetContainer.className = 'bg-white rounded-lg border border-gray-300 mb-3 street-group';
+                streetContainer.dataset.groupIndex = groupIndex;
+
+                const header = document.createElement('div');
+                header.className = 'flex items-center justify-between bg-gray-200 p-2 rounded-t-lg cursor-grab active:cursor-grabbing handle';
+                header.innerHTML = `<h4 class="font-bold text-gray-700">${group.street}</h4>`;
+                streetContainer.appendChild(header);
+
+                const civicList = document.createElement('div');
+                civicList.className = 'p-2 space-y-2 civic-list';
+                civicList.dataset.street = group.street;
+
+                group.markers.forEach(marker => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200 cursor-grab active:cursor-grabbing';
+                    listItem.dataset.id = marker.id; // Use unique marker ID
+                    listItem.innerHTML = `
+                        <div class="flex items-center space-x-3 pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M9 18v-6l-2 2M9 6v6l-2-2"/><path d="m15 12 2-2v6l-2-2"/><path d="m15 6 2 2v-6l-2 2"/></svg>
+                            <p class="text-gray-800"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
                         </div>
-                    </div>
-                    <div class="flex space-x-1">
-                        <button data-action="move-up" data-index="${index}" class="p-2 rounded-md ${isFirst ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 hover:bg-blue-500 hover:text-white'}" ${isFirst ? 'disabled' : ''}>
-                            <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
-                        </button>
-                        <button data-action="move-down" data-index="${index}" class="p-2 rounded-md ${isLast ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-200 hover:bg-blue-500 hover:text-white'}" ${isLast ? 'disabled' : ''}>
-                            <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                        </button>
-                    </div>
-                `;
-                containers.civiciOrderList.appendChild(listItem);
+                    `;
+                    civicList.appendChild(listItem);
+                });
+                streetContainer.appendChild(civicList);
+                container.appendChild(streetContainer);
             });
-            addOrderDragAndDropHandlers();
+
+            setupSortables();
         }
 
-        containers.civiciOrderList.addEventListener('click', (e) => {
-            const button = e.target.closest('button');
-            if (!button) return;
-            const action = button.dataset.action;
-            const index = parseInt(button.dataset.index);
-            if (action === 'move-up' && index > 0) {
-                [currentMarkersToOrder[index], currentMarkersToOrder[index - 1]] = [currentMarkersToOrder[index - 1], currentMarkersToOrder[index]];
-            }
-            if (action === 'move-down' && index < currentMarkersToOrder.length - 1) {
-                [currentMarkersToOrder[index], currentMarkersToOrder[index + 1]] = [currentMarkersToOrder[index + 1], currentMarkersToOrder[index]];
-            }
-            renderOrderList();
-        });
+        function setupSortables() {
+            // Destroy previous instances
+            if(mainSortable) mainSortable.destroy();
+            streetSortables.forEach(s => s.destroy());
+            streetSortables = [];
+            
+            // Sortable for street groups
+            mainSortable = new Sortable(containers.civiciOrderList, {
+                animation: 150,
+                group: 'main-list',
+                handle: '.handle',
+                ghostClass: 'ghost',
+            });
 
-        let draggedItemIndex = null;
-        function addOrderDragAndDropHandlers() {
-            const listItems = containers.civiciOrderList.querySelectorAll('[draggable="true"]');
-            listItems.forEach(item => {
-                item.addEventListener('dragstart', (e) => {
-                    draggedItemIndex = parseInt(e.target.dataset.index);
-                    e.target.style.opacity = '0.5';
+            // Sortable for civics within each street
+            document.querySelectorAll('.civic-list').forEach(listEl => {
+                const s = new Sortable(listEl, {
+                    animation: 150,
+                    group: 'civic-list',
+                    ghostClass: 'ghost',
                 });
-                item.addEventListener('dragend', (e) => {
-                    e.target.style.opacity = '1';
-                    draggedItemIndex = null;
-                });
-                item.addEventListener('dragover', (e) => e.preventDefault());
-                item.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    const targetIndex = parseInt(e.target.closest('[draggable="true"]').dataset.index);
-                    if (draggedItemIndex !== null && draggedItemIndex !== targetIndex) {
-                        const [draggedItem] = currentMarkersToOrder.splice(draggedItemIndex, 1);
-                        currentMarkersToOrder.splice(targetIndex, 0, draggedItem);
-                        renderOrderList();
-                    }
-                });
+                streetSortables.push(s);
             });
         }
         
         const handleSaveOrder = async () => {
+            // Reconstruct the flat marker list from the DOM
+            const newOrderedMarkers = [];
+            const streetGroups = containers.civiciOrderList.querySelectorAll('.street-group');
+            streetGroups.forEach(group => {
+                const civicItems = group.querySelectorAll('[data-id]');
+                civicItems.forEach(item => {
+                    const markerId = item.dataset.id;
+                    const originalMarker = allMarkersForList.find(m => m.id === markerId);
+                    if(originalMarker) {
+                        newOrderedMarkers.push(originalMarker);
+                    }
+                });
+            });
+
+            currentMarkersToOrder = newOrderedMarkers;
+            
             const userId = auth.currentUser.uid;
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId);
             const feedbackP = document.getElementById('save-order-feedback');
@@ -1429,6 +1446,12 @@
             }
         };
 
+        const goBackToListScreen = () => {
+            if (unsubscribeMapListener) unsubscribeMapListener();
+            currentMapData = null;
+            showScreen(cameFromScreen);
+        };
+
         const handleBackAction = () => {
             toggleWakeLock(false);
             if(unsubscribeMapListener) unsubscribeMapListener();
@@ -1577,17 +1600,15 @@
         buttons.goToList.onclick = () => showScreen('mapList');
         buttons.backToHomeFromList.onclick = () => showScreen('home');
         
-        buttons.backToMapListFromView.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
-        buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
+        buttons.backToMapListFromView.onclick = () => { handleBackAction(); goBackToListScreen(); };
+        buttons.backToListFromEditor.onclick = () => { handleBackAction(); goBackToListScreen(); };
         
         buttons.backToMapListFromAll.onclick = () => {
              if (cameFromGita) {
                  cameFromGita = false;
                  openMapEditor('view', currentMapData.mapId); 
              } else {
-                 if (unsubscribeMapListener) unsubscribeMapListener();
-                 currentMapData = null;
-                 showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
+                 goBackToListScreen();
              }
         };
 
@@ -1672,9 +1693,11 @@
             const target = e.target.closest('button');
             if (!target) return;
 
-            const parentContainer = target.closest('#business-maps-list-container, #maps-list-container, #zone-maps-list-container');
+            const parentContainer = e.target.closest('#business-maps-list-container, #maps-list-container, #zone-maps-list-container');
             if (parentContainer) {
-                cameFromBusinessScreen = parentContainer.id === 'business-maps-list-container';
+                if (parentContainer.id === 'business-maps-list-container') cameFromScreen = 'businessMaps';
+                else if (parentContainer.id === 'zone-maps-list-container') cameFromScreen = 'zoneMaps';
+                else cameFromScreen = 'mapList';
             }
 
             const mapId = target.dataset.id;
@@ -2057,4 +2080,5 @@
     </script>
 </body>
 </html>
+
 
