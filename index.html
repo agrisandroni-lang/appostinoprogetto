@@ -743,7 +743,7 @@
                     currentMapData = { ...currentMapData, ...data, markers: markers };
                     renderMarkers(markers);
                     populateDatalists(markers); 
-                    if (currentMapData.mode !== 'create' && markers.length > 0 && !importSessionData.active) {
+                    if (currentMapData.mode !== 'create' && markers.length > 0) {
                         const lastMarker = markers[markers.length - 1];
                         inputs.city.value = lastMarker.city; inputs.street.value = lastMarker.street;
                     }
@@ -801,7 +801,6 @@
                     ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-lg p-1 text-center pointer-events-none"><div>Fermate: ${selectionCount}</div><div>Oggetti: ${totalItems}</div></div>` : ''}
                     <h3 class="text-xl font-bold mb-3 pr-24">${map.name}</h3>
                     <div class="flex justify-around flex-wrap gap-2 items-center border-t pt-3 mt-3">
-                        <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                         <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
                         <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
                         <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
@@ -1253,7 +1252,11 @@
             adjustGitaMapView();
             
             const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === currentDelivery.id);
-            const displayDelivery = {...currentDelivery, ...(selectionInfo || {})};
+            const displayDelivery = {...currentDelivery }; // Start with base data
+            if(selectionInfo){
+                displayDelivery.count = selectionInfo.count;
+                displayDelivery.type = selectionInfo.type;
+            }
             
             const typeIcon = getDeliveryTypeIcon(displayDelivery.type);
             let currentDeliveryHtml = `
@@ -1289,7 +1292,11 @@
                     li.className = 'p-2 text-sm';
                     
                     const nextSelectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === m.id);
-                    const displayNextDelivery = {...m, ...(nextSelectionInfo || {})};
+                    const displayNextDelivery = {...m };
+                     if(nextSelectionInfo){
+                        displayNextDelivery.count = nextSelectionInfo.count;
+                        displayNextDelivery.type = nextSelectionInfo.type;
+                    }
 
                     let deliveryHtml = `
                         <div class="flex items-start gap-2">
@@ -1347,27 +1354,9 @@
                 map.removeLayer(temporaryMarker);
                 temporaryMarker = null;
 
-                if (importSessionData.active && currentMapData.mapId === importSessionData.mapId) {
-                    const savedStreet = inputs.street.value.trim().toUpperCase();
-                    const savedHouseNumber = inputs.houseNumber.value;
-                    const foundIndex = importSessionData.markersToPlace.findIndex(m => 
-                        m.street === savedStreet && m.houseNumber === savedHouseNumber
-                    );
-
-                    if (foundIndex !== -1) {
-                        importSessionData.markersToPlace.splice(foundIndex, 1);
-                    }
-                    renderImportHelper(); 
-                    if (importSessionData.active) {
-                         inputs.street.value = ''; inputs.houseNumber.value = ''; inputs.notes.value = '';
-                         inputs.street.focus();
-                         infoText.textContent = 'Salvato! Scegli il prossimo dalla lista in alto.';
-                    }
-                } else {
-                    inputs.houseNumber.value = ''; 
-                    inputs.notes.value = '';
-                    infoText.textContent = 'Segnaposto salvato!';
-                }
+                inputs.houseNumber.value = ''; 
+                inputs.notes.value = '';
+                infoText.textContent = 'Segnaposto salvato!';
                 map.panTo(newMarkerCoords);
             } catch(error) { 
                 console.error("Errore salvataggio: ", error); 
@@ -1762,6 +1751,17 @@
                 toggleWakeLock(true);
             }
         });
+        
+        document.addEventListener('keydown', (e) => {
+            if (!screens.mapEditor.classList.contains('active') || containers.gitaMode.classList.contains('hidden')) {
+                return;
+            }
+            if (e.key === 'ArrowRight') {
+                buttons.nextGita.click();
+            } else if (e.key === 'ArrowLeft') {
+                buttons.prevGita.click();
+            }
+        });
 
         // --- FUNZIONI LINEA BUSINESS ---
         const loadSelectionFromStorage = () => {
@@ -2080,5 +2080,4 @@
     </script>
 </body>
 </html>
-
 
