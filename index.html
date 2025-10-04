@@ -1291,6 +1291,117 @@
             document.getElementById('current-location-street').classList.add('hidden');
         };
 
+        buttons.signInGoogle.onclick = () => {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider).catch((error) => {
+                console.error("Errore con l'accesso popup:", error);
+                authStatus.textContent = "Errore durante l'accesso. Riprova.";
+            });
+        };
+        buttons.signOut.onclick = () => signOut(auth);
+        buttons.goToCreate.onclick = () => openMapEditor('create');
+        buttons.goToList.onclick = () => showScreen('mapList');
+        buttons.backToHomeFromList.onclick = () => showScreen('home');
+        
+        buttons.backToMapListFromView.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
+        buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
+        
+        buttons.backToMapListFromAll.onclick = () => {
+             if (cameFromGita) {
+                 cameFromGita = false;
+                 openMapEditor('view', currentMapData.mapId); 
+             } else {
+                 if (unsubscribeMapListener) unsubscribeMapListener();
+                 currentMapData = null;
+                 showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
+             }
+        };
+
+        buttons.saveMarker.onclick = handleSaveMarker;
+        
+        buttons.goToOrder.onclick = showCiviciOrderScreen;
+        buttons.saveOrder.onclick = handleSaveOrder;
+        buttons.backToAllMarkersList.onclick = () => showScreen('allMarkers');
+
+        buttons.nextGita.onclick = () => {
+            if (currentMapData && currentGitaIndex < currentMapData.markers.length - 1) {
+                currentGitaIndex++;
+                updateGitaView();
+                saveGitaProgress();
+            }
+        };
+        buttons.prevGita.onclick = () => {
+            if (currentGitaIndex > 0) {
+                currentGitaIndex--;
+                updateGitaView();
+                saveGitaProgress();
+            }
+        };
+        buttons.resetGita.onclick = () => {
+            currentGitaIndex = 0;
+            updateGitaView();
+            saveGitaProgress();
+        };
+
+        containers.gitaMode.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'gita-see-all-btn') {
+                if (currentMapData) {
+                    cameFromGita = true;
+                    showAllMarkersList(currentMapData);
+                }
+            }
+        });
+        
+        containers.allMarkersList.addEventListener('click', (e) => {
+            const markerLi = e.target.closest('[data-marker-id]');
+            if (!markerLi) return;
+            const markerId = markerLi.dataset.markerId;
+
+            if (e.target.closest('.business-toggle-btn')) {
+                 openBusinessItemModal(markerId);
+            } else {
+                 openMarkerActionsModal(markerId);
+            }
+        });
+
+        const mapListClickHandler = async (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            const parentContainer = target.closest('#business-maps-list-container, #maps-list-container');
+            if (parentContainer) {
+                cameFromBusinessScreen = parentContainer.id === 'business-maps-list-container';
+            }
+
+            const mapId = target.dataset.id;
+            const mapName = target.dataset.name;
+            if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
+            if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
+            if (target.classList.contains('delete-btn')) {
+                const confirmed1 = await showConfirm(`Eliminare la mappa "${mapName}"?`, "I dati andranno persi per sempre.");
+                if (confirmed1) {
+                    const confirmed2 = await showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile.");
+                    if (confirmed2) {
+                        await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId));
+                    }
+                }
+            }
+            if(target.classList.contains('show-all-btn')) {
+                const mapData = mapsListData.get(mapId);
+                if (mapData) {
+                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name, isBusiness: mapData.isBusiness };
+                    showAllMarkersList(mapData);
+                }
+            }
+        };
+
+        containers.mapList.addEventListener('click', mapListClickHandler);
+        containers.businessMapList.addEventListener('click', mapListClickHandler);
+        
+        const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
+        inputs.city.addEventListener('input', forceUppercase);
+        inputs.street.addEventListener('input', forceUppercase);
+
         onAuthStateChanged(auth, (user) => {
             loadingView.classList.add('hidden');
             if (user && !user.isAnonymous) {
@@ -1673,118 +1784,6 @@
                 loadingView.classList.add('hidden');
             }
         };
-        
-        // --- EVENT LISTENERS ---
-        buttons.signInGoogle.onclick = () => {
-            const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider).catch((error) => {
-                console.error("Errore con l'accesso popup:", error);
-                authStatus.textContent = "Errore durante l'accesso. Riprova.";
-            });
-        };
-        buttons.signOut.onclick = () => signOut(auth);
-        buttons.goToCreate.onclick = () => openMapEditor('create');
-        buttons.goToList.onclick = () => showScreen('mapList');
-        buttons.backToHomeFromList.onclick = () => showScreen('home');
-        
-        buttons.backToMapListFromView.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
-        buttons.backToListFromEditor.onclick = () => { handleBackAction(); showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList'); };
-        
-        buttons.backToMapListFromAll.onclick = () => {
-             if (cameFromGita) {
-                 cameFromGita = false;
-                 openMapEditor('view', currentMapData.mapId); 
-             } else {
-                 if (unsubscribeMapListener) unsubscribeMapListener();
-                 currentMapData = null;
-                 showScreen(cameFromBusinessScreen ? 'businessMaps' : 'mapList');
-             }
-        };
-
-        buttons.saveMarker.onclick = handleSaveMarker;
-        
-        buttons.goToOrder.onclick = showCiviciOrderScreen;
-        buttons.saveOrder.onclick = handleSaveOrder;
-        buttons.backToAllMarkersList.onclick = () => showScreen('allMarkers');
-
-        buttons.nextGita.onclick = () => {
-            if (currentMapData && currentGitaIndex < currentMapData.markers.length - 1) {
-                currentGitaIndex++;
-                updateGitaView();
-                saveGitaProgress();
-            }
-        };
-        buttons.prevGita.onclick = () => {
-            if (currentGitaIndex > 0) {
-                currentGitaIndex--;
-                updateGitaView();
-                saveGitaProgress();
-            }
-        };
-        buttons.resetGita.onclick = () => {
-            currentGitaIndex = 0;
-            updateGitaView();
-            saveGitaProgress();
-        };
-
-        containers.gitaMode.addEventListener('click', (e) => {
-            if (e.target && e.target.id === 'gita-see-all-btn') {
-                if (currentMapData) {
-                    cameFromGita = true;
-                    showAllMarkersList(currentMapData);
-                }
-            }
-        });
-        
-        containers.allMarkersList.addEventListener('click', (e) => {
-            const markerLi = e.target.closest('[data-marker-id]');
-            if (!markerLi) return;
-            const markerId = markerLi.dataset.markerId;
-
-            if (e.target.closest('.business-toggle-btn')) {
-                 openBusinessItemModal(markerId);
-            } else {
-                 openMarkerActionsModal(markerId);
-            }
-        });
-
-        const mapListClickHandler = async (e) => {
-            const target = e.target.closest('button');
-            if (!target) return;
-
-            const parentContainer = target.closest('#business-maps-list-container, #maps-list-container');
-            if (parentContainer) {
-                cameFromBusinessScreen = parentContainer.id === 'business-maps-list-container';
-            }
-
-            const mapId = target.dataset.id;
-            const mapName = target.dataset.name;
-            if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
-            if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
-            if (target.classList.contains('delete-btn')) {
-                const confirmed1 = await showConfirm(`Eliminare la mappa "${mapName}"?`, "I dati andranno persi per sempre.");
-                if (confirmed1) {
-                    const confirmed2 = await showConfirm("SEI ASSOLUTAMENTE SICURO?", "L'azione è irreversibile.");
-                    if (confirmed2) {
-                        await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/maps`, mapId));
-                    }
-                }
-            }
-            if(target.classList.contains('show-all-btn')) {
-                const mapData = mapsListData.get(mapId);
-                if (mapData) {
-                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name, isBusiness: mapData.isBusiness };
-                    showAllMarkersList(mapData);
-                }
-            }
-        };
-
-        containers.mapList.addEventListener('click', mapListClickHandler);
-        containers.businessMapList.addEventListener('click', mapListClickHandler);
-        
-        const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
-        inputs.city.addEventListener('input', forceUppercase);
-        inputs.street.addEventListener('input', forceUppercase);
 
         buttons.clearBusiness.onclick = handleClearBusiness;
         buttons.clearBusinessMain.onclick = handleClearSelection;
