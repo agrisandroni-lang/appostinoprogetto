@@ -172,7 +172,7 @@
             </div>
             <input type="search" id="search-markers-input" placeholder="Cerca via, civico o note..." class="w-full p-2 border rounded">
         </div>
-        <div id="all-markers-list" class="overflow-y-auto"></div>
+        <div id="all-markers-list" class="overflow-y-auto p-2"></div>
     </div>
 
     <!-- Schermata 5: Ordinamento Civici -->
@@ -241,6 +241,9 @@
             <div class="flex items-center gap-2">
                 <input type="text" id="house-number-input" placeholder="N° Civico" class="w-1/3 p-2 border rounded">
                 <input type="text" id="notes-input" placeholder="Note (es. cane, interno 5)" class="flex-grow p-2 border rounded">
+                <button id="paste-coords-button" class="bg-purple-500 text-white font-bold py-2 px-2 rounded hover:bg-purple-600" title="Incolla coordinate">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                </button>
                 <button id="save-marker-button" class="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">+</button>
             </div>
             <p id="info-text" class="text-center text-blue-600 italic mt-2 text-sm"></p>
@@ -278,7 +281,7 @@
         </div>
     </div>
 
-    <!-- NUOVO: Modale Azioni Civico da Lista -->
+    <!-- Modale Azioni Civico da Lista -->
     <div id="marker-actions-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 id="marker-actions-title" class="text-lg font-bold mb-4 text-center"></h3>
@@ -292,7 +295,7 @@
         </div>
     </div>
 
-    <!-- NUOVO: Modale Conteggio Pacchi Business -->
+    <!-- Modale Conteggio Pacchi Business -->
     <div id="business-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 id="business-item-title" class="text-lg font-bold mb-4 text-center"></h3>
@@ -318,6 +321,22 @@
                 <button id="business-item-confirm" class="bg-green-500 text-white font-bold py-2 px-6 rounded hover:bg-green-600">Conferma</button>
             </div>
              <button id="business-item-cancel" class="mt-4 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
+        </div>
+    </div>
+    
+    <!-- MODIFICATO: Modale di Revisione Importazione KML -->
+    <div id="import-review-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-4 flex flex-col max-h-[90vh]">
+            <h3 class="text-xl font-bold mb-4">Importa Mappa da File</h3>
+            <p class="text-sm text-gray-600 mb-2">Abbiamo trovato <b id="import-count">0</b> indirizzi. Assegna un nome alla mappa per iniziare a posizionarli.</p>
+            <input type="text" id="import-map-name-input" placeholder="Nome della nuova mappa" class="w-full p-2 border rounded mb-4">
+            <div id="import-review-list" class="flex-grow overflow-y-auto border rounded p-2 bg-gray-50 text-xs mb-4">
+                <!-- Lista dei segnaposto trovati -->
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-import-review" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
+                <button id="confirm-import-review" class="bg-green-600 text-white font-bold py-2 px-6 rounded hover:bg-green-700">Crea Mappa e Inizia</button>
+            </div>
         </div>
     </div>
 
@@ -390,6 +409,7 @@
             clearBusinessMain: document.getElementById('clear-business-main-btn'),
             optimizeRoute: document.getElementById('optimize-route-btn'),
             importFile: document.getElementById('import-file-button'),
+            pasteCoords: document.getElementById('paste-coords-button'),
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container') };
@@ -1348,7 +1368,7 @@
             document.getElementById('current-location-street').classList.add('hidden');
         };
 
-        // --- LOGICA DI IMPORTAZIONE KML/KMZ (NUOVA E CORRETTA) ---
+        // --- LOGICA DI IMPORTAZIONE KML/KMZ/CSV ---
 
         buttons.importFile.onclick = () => {
             fileInput.click();
@@ -1435,98 +1455,79 @@
                 if (parsedAddresses.length === 0) {
                     throw new Error("Nessun indirizzo valido trovato nel file.");
                 }
-
-                await geocodeAndCreateMap(mapName, parsedAddresses);
+                
+                showImportReviewModal(mapName, parsedAddresses);
 
             } catch (error) {
                 console.error("Errore durante l'importazione:", error);
                 importFeedback.textContent = `Errore: ${error.message}`;
-                loadingView.classList.add('hidden');
                 setTimeout(() => { importFeedback.textContent = ''; }, 4000);
-            }
-        };
-
-        const geocodeAndCreateMap = async (mapName, addresses) => {
-            importFeedback.textContent = `Inizio geocodifica di ${addresses.length} indirizzi...`;
-            
-            const finalMarkers = [];
-            const failedAddresses = [];
-            const delay = ms => new Promise(res => setTimeout(res, ms));
-
-            for (let i = 0; i < addresses.length; i++) {
-                const address = addresses[i];
-                importFeedback.textContent = `Cerco coordinate per ${i + 1} di ${addresses.length}...`;
-
-                const query = `${address.street}, ${address.houseNumber}, ${address.city}, Italy`;
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
-
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`Errore di rete`);
-                    const data = await response.json();
-
-                    if (data && data.length > 0) {
-                        finalMarkers.push({
-                            id: Date.now().toString() + i,
-                            latitude: parseFloat(data[0].lat),
-                            longitude: parseFloat(data[0].lon),
-                            ...address
-                        });
-                    } else {
-                        failedAddresses.push(address);
-                    }
-                } catch (error) {
-                    console.error(`Errore geocodifica per ${query}:`, error);
-                    failedAddresses.push(address);
-                }
-                
-                await delay(1000); 
-            }
-
-            try {
-                const userId = auth.currentUser.uid;
-                const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
-                const docRef = await addDoc(collection(db, mapsCollectionPath), {
-                    name: mapName,
-                    createdAt: new Date(),
-                    markers: finalMarkers,
-                    isBusiness: false
-                });
-
-                if (failedAddresses.length > 0) {
-                    importFeedback.textContent = `Mappa creata! ${failedAddresses.length} indirizzi non trovati. Verranno mostrati per il posizionamento manuale.`;
-                    importSessionData = {
-                        active: true,
-                        markersToPlace: failedAddresses,
-                        mapId: docRef.id
-                    };
-                    setTimeout(() => {
-                        importFeedback.textContent = '';
-                        openMapEditor('edit', docRef.id);
-                    }, 3000);
-                } else {
-                    importFeedback.textContent = `Mappa "${mapName}" creata con ${finalMarkers.length} segnaposto!`;
-                    setTimeout(() => {
-                        importFeedback.textContent = '';
-                        showScreen('mapList');
-                    }, 3000);
-                }
-
-            } catch (error) {
-                console.error("Errore salvataggio mappa su Firestore:", error);
-                importFeedback.textContent = 'Errore durante il salvataggio della mappa.';
             } finally {
                 loadingView.classList.add('hidden');
             }
         };
 
+        const showImportReviewModal = (mapName, addresses) => {
+            const modal = document.getElementById('import-review-modal');
+            const listContainer = document.getElementById('import-review-list');
+            document.getElementById('import-count').textContent = addresses.length;
+            document.getElementById('import-map-name-input').value = mapName;
+            
+            listContainer.innerHTML = addresses.map(m => 
+                `<p class="border-b py-1">${m.street}, ${m.houseNumber} <span class="text-gray-500">(${m.city})</span></p>`
+            ).join('');
+            
+            modal.style.display = 'flex';
+
+            document.getElementById('cancel-import-review').onclick = () => {
+                    modal.style.display = 'none';
+            };
+            document.getElementById('confirm-import-review').onclick = () => {
+                const newMapName = document.getElementById('import-map-name-input').value.trim();
+                if (!newMapName) {
+                    alert("Per favore, inserisci un nome per la mappa.");
+                    return;
+                }
+                modal.style.display = 'none';
+                startImportPlacement(newMapName, addresses);
+            };
+        };
+
+        const startImportPlacement = async (mapName, addresses) => {
+            loadingView.classList.remove('hidden');
+
+            try {
+                const userId = auth.currentUser.uid;
+                const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
+                const docRef = await addDoc(collection(db, mapsCollectionPath), { 
+                    name: mapName, 
+                    createdAt: new Date(), 
+                    markers: []
+                });
+                
+                importSessionData = {
+                    active: true,
+                    markersToPlace: addresses,
+                    mapId: docRef.id
+                };
+
+                openMapEditor('edit', docRef.id);
+                
+            } catch (error) {
+                console.error("Errore creazione mappa per import:", error);
+                alert("Impossibile creare la nuova mappa.");
+            } finally {
+                loadingView.classList.add('hidden');
+            }
+        };
+        
         const renderImportHelper = () => {
             const container = document.getElementById('import-helper-container');
             const list = document.getElementById('import-list');
             
             if (!importSessionData.active || importSessionData.markersToPlace.length === 0) {
                 container.classList.add('hidden');
-                if (importSessionData.active) { 
+                if (importSessionData.active) { // Se era attiva e ora è vuota, la sessione è finita
                     infoText.textContent = 'Importazione completata!';
                 }
                 importSessionData = { active: false, markersToPlace: [], mapId: null };
@@ -1534,18 +1535,51 @@
             }
             
             container.classList.remove('hidden');
-            list.innerHTML = importSessionData.markersToPlace.map((marker, index) =>
-                `<div data-index="${index}" class="p-2 border rounded bg-yellow-100 hover:bg-yellow-200 cursor-pointer">
-                    <b>${marker.street}, ${marker.houseNumber}</b><br>
-                    <span class="text-gray-700">${marker.city}</span>
-                    ${marker.notes ? `<br><i class="text-blue-600">${marker.notes}</i>` : ''}
-                </div>`
-            ).join('');
+            list.innerHTML = importSessionData.markersToPlace.map((marker, index) => {
+                const fullAddress = `${marker.street}, ${marker.houseNumber}, ${marker.city}`;
+                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+                return `<div data-index="${index}" class="p-2 border rounded bg-yellow-100 hover:bg-yellow-200 cursor-pointer flex justify-between items-center">
+                    <div>
+                        <b>${marker.street}, ${marker.houseNumber}</b><br>
+                        <span class="text-gray-700">${marker.city}</span>
+                        ${marker.notes ? `<br><i class="text-blue-600">${marker.notes}</i>` : ''}
+                    </div>
+                    <a href="${googleMapsUrl}" target="_blank" class="bg-blue-500 text-white text-xs font-semibold py-1 px-2 rounded hover:bg-blue-600" onclick="event.stopPropagation();">
+                        Trova con Google
+                    </a>
+                </div>`;
+            }).join('');
+        };
+
+        buttons.pasteCoords.onclick = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                const coords = text.match(/-?\d+\.\d+/g);
+                if (coords && coords.length >= 2) {
+                    const lat = parseFloat(coords[0]);
+                    const lng = parseFloat(coords[1]);
+                    
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        if (temporaryMarker) map.removeLayer(temporaryMarker);
+                        const latLng = {lat, lng};
+                        temporaryMarker = L.circleMarker(latLng, { radius: 8, color: 'red', weight: 3, fillColor: '#f03', fillOpacity: 0.5 }).addTo(map);
+                        map.setView(latLng, 18);
+                        infoText.textContent = 'Coordinate incollate! Salva il segnaposto.';
+                    } else {
+                       infoText.textContent = 'Testo non valido negli appunti.';
+                    }
+                } else {
+                    infoText.textContent = 'Nessuna coordinata trovata negli appunti.';
+                }
+            } catch (err) {
+                console.error('Failed to read clipboard contents: ', err);
+                infoText.textContent = 'Impossibile leggere gli appunti.';
+            }
         };
 
         document.getElementById('import-list').addEventListener('click', (e) => {
             const item = e.target.closest('[data-index]');
-            if (item) {
+            if (item && !e.target.closest('a')) { // Assicurati di non attivare se si clicca sul link
                 const index = parseInt(item.dataset.index, 10);
                 const markerData = importSessionData.markersToPlace[index];
                 if (markerData) {
@@ -1557,7 +1591,7 @@
                     document.querySelectorAll('#import-list > div').forEach(div => div.classList.remove('ring-2', 'ring-blue-500'));
                     item.classList.add('ring-2', 'ring-blue-500');
                     
-                    infoText.textContent = `Posiziona il segnaposto per: ${markerData.street}, ${markerData.houseNumber}`;
+                    infoText.textContent = `Incolla le coordinate per: ${markerData.street}, ${markerData.houseNumber}`;
                 }
             }
         });
@@ -1637,15 +1671,45 @@
         
         containers.allMarkersList.addEventListener('click', (e) => {
             const markerLi = e.target.closest('[data-marker-id]');
-            if (!markerLi) return;
-            const markerId = markerLi.dataset.markerId;
-
-            if (e.target.closest('.business-toggle-btn')) {
-                 openBusinessItemModal(markerId);
-            } else {
-                 openMarkerActionsModal(markerId);
+            const streetBtn = e.target.closest('.toggle-street-selection-btn');
+            
+            if (streetBtn) {
+                handleToggleStreetSelection(streetBtn.dataset.street);
+            } else if (markerLi) {
+                const markerId = markerLi.dataset.markerId;
+                if (e.target.closest('.business-toggle-btn')) {
+                    openBusinessItemModal(markerId);
+                } else {
+                    openMarkerActionsModal(markerId);
+                }
             }
         });
+
+        const handleToggleStreetSelection = (streetName) => {
+            const streetMarkers = allMarkersForList.filter(m => m.street === streetName);
+            const streetMarkerIds = streetMarkers.map(m => m.id);
+
+            const areAnySelected = streetMarkers.some(m => businessSelection.some(s => s.mapId === currentMapData.mapId && s.markerId === m.id));
+
+            if (areAnySelected) {
+                // Deseleziona tutti
+                businessSelection = businessSelection.filter(s => {
+                    return s.mapId !== currentMapData.mapId || !streetMarkerIds.includes(s.markerId);
+                });
+            } else {
+                // Seleziona tutti
+                streetMarkers.forEach(marker => {
+                    const isAlreadyIn = businessSelection.some(s => s.mapId === currentMapData.mapId && s.markerId === marker.id);
+                    if (!isAlreadyIn) {
+                        businessSelection.push({ mapId: currentMapData.mapId, markerId: marker.id, count: 1, type: 'pacco' });
+                    }
+                });
+            }
+
+            saveSelectionToStorage();
+            updateBusinessUI();
+            renderAllMarkersList(allMarkersForList); // Rirenderizza per aggiornare lo stato
+        };
 
         const mapListClickHandler = async (e) => {
             const target = e.target.closest('button');
