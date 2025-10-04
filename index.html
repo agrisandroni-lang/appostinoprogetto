@@ -117,10 +117,10 @@
                 <button id="go-to-create" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md mb-4 hover:bg-blue-700 transition-colors">
                     Crea una Mappa
                 </button>
-                <button id="import-kml-button" class="w-full bg-green-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors">
-                    Importa Mappa (KML/KMZ)
+                <button id="import-file-button" class="w-full bg-green-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors">
+                    Importa Mappa da File
                 </button>
-                <input type="file" id="kml-file-input" class="hidden" accept=".kml,.kmz">
+                <input type="file" id="file-input" class="hidden" accept=".kml,.kmz,.csv">
                 <p id="import-feedback" class="text-center text-sm text-green-700 h-4 mt-4"></p>
                 <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
@@ -196,7 +196,7 @@
          <!-- NUOVO: Contenitore per l'assistente di importazione -->
         <div id="import-helper-container" class="hidden absolute top-0 left-0 right-0 bg-white/95 p-2 z-[1001] shadow-lg max-h-[40vh] flex flex-col">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-lg font-bold text-gray-800">Posiziona Segnaposti</h3>
+                <h3 class="text-lg font-bold text-gray-800">Posiziona Segnaposti non trovati</h3>
                 <button id="cancel-import-session" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600">Annulla</button>
             </div>
             <div id="import-list" class="overflow-y-auto text-sm space-y-1">
@@ -320,22 +320,6 @@
              <button id="business-item-cancel" class="mt-4 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
         </div>
     </div>
-    
-    <!-- NUOVO: Modale di Revisione Importazione KML -->
-    <div id="import-review-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-4 flex flex-col max-h-[90vh]">
-            <h3 class="text-xl font-bold mb-4">Importa Mappa da KML</h3>
-            <p class="text-sm text-gray-600 mb-2">Abbiamo trovato <b id="import-count">0</b> segnaposti. Assegna un nome alla nuova mappa e inizia a posizionarli.</p>
-            <input type="text" id="import-map-name-input" placeholder="Nome della nuova mappa" class="w-full p-2 border rounded mb-4">
-            <div id="import-review-list" class="flex-grow overflow-y-auto border rounded p-2 bg-gray-50 text-xs mb-4">
-                <!-- Lista dei segnaposto trovati -->
-            </div>
-            <div class="flex justify-end gap-4">
-                <button id="cancel-import-review" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
-                <button id="confirm-import-review" class="bg-green-600 text-white font-bold py-2 px-6 rounded hover:bg-green-700">Inizia a posizionare</button>
-            </div>
-        </div>
-    </div>
 
     <datalist id="cities-list"></datalist>
     <datalist id="streets-list"></datalist>
@@ -378,13 +362,11 @@
         let cameFromBusinessScreen = false;
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
         
-        // NUOVA VARIABILE GLOBALE PER LA SESSIONE DI IMPORTAZIONE
         let importSessionData = {
             active: false,
             markersToPlace: [],
             mapId: null
         };
-
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen') };
         const buttons = {
@@ -407,7 +389,7 @@
             clearBusiness: document.getElementById('clear-business-btn'),
             clearBusinessMain: document.getElementById('clear-business-main-btn'),
             optimizeRoute: document.getElementById('optimize-route-btn'),
-            importKml: document.getElementById('import-kml-button'),
+            importFile: document.getElementById('import-file-button'),
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container') };
@@ -418,7 +400,7 @@
         const loggedOutView = document.getElementById('logged-out-view');
         const wakeLockStatus = document.getElementById('wake-lock-status');
         const importFeedback = document.getElementById('import-feedback');
-        const kmlFileInput = document.getElementById('kml-file-input');
+        const fileInput = document.getElementById('file-input');
 
         const showScreen = (screenName) => {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
@@ -1368,22 +1350,21 @@
 
         // --- LOGICA DI IMPORTAZIONE KML/KMZ (NUOVA E CORRETTA) ---
 
-        buttons.importKml.onclick = () => {
-            kmlFileInput.click();
+        buttons.importFile.onclick = () => {
+            fileInput.click();
         };
 
-        kmlFileInput.onchange = (event) => {
+        fileInput.onchange = (event) => {
             const file = event.target.files[0];
             if (file) {
-                handleKmlFileRead(file);
+                handleFileImport(file);
             }
             event.target.value = null;
         };
-        
+
         const parseKmlName = (name) => {
             const parts = name.split(';').map(p => p.trim());
             if (parts.length < 4) return null;
-
             return {
                 city: parts[0].toUpperCase() || 'DA DEFINIRE',
                 street: parts[1].toUpperCase() || 'VIA SCONOSCIUTA',
@@ -1392,113 +1373,160 @@
             };
         };
 
-        const handleKmlFileRead = async (file) => {
+        const parseCsvLine = (line) => {
+            const parts = line.split(';').map(p => p.trim());
+            if (parts.length < 4) return null;
+            return {
+                city: parts[0].toUpperCase() || 'DA DEFINIRE',
+                street: parts[1].toUpperCase() || 'VIA SCONOSCIUTA',
+                houseNumber: parts[3] || 'SNC',
+                notes: parts[4] || ''
+            };
+        }
+
+        const handleFileImport = async (file) => {
+            const userId = auth.currentUser?.uid;
+            if (!userId) {
+                importFeedback.textContent = "Devi essere loggato per importare.";
+                return;
+            }
             importFeedback.textContent = 'Lettura file...';
             loadingView.classList.remove('hidden');
 
             try {
-                let kmlContent;
+                let parsedAddresses = [];
                 const fileName = file.name.toLowerCase();
+                const mapName = file.name.replace(/\.(kml|kmz|csv)$/i, '');
 
-                if (fileName.endsWith('.kmz')) {
-                    const jszip = new JSZip();
-                    const zip = await jszip.loadAsync(file);
-                    const kmlFile = Object.values(zip.files).find(f => f.name.toLowerCase().endsWith('.kml'));
-                    if (!kmlFile) throw new Error("Nessun file KML trovato nel KMZ.");
-                    kmlContent = await kmlFile.async('string');
-                } else {
-                    kmlContent = await file.text();
-                }
-
-                const parser = new DOMParser();
-                const kml = parser.parseFromString(kmlContent, 'text/xml');
-                const placemarks = kml.getElementsByTagName('Placemark');
-
-                if (placemarks.length === 0) {
-                    throw new Error("Nessun segnaposto (<Placemark>) trovato nel file.");
-                }
-
-                const parsedMarkers = [];
-                for (const item of placemarks) {
-                    const nameTag = item.getElementsByTagName('name')[0];
-                    if (nameTag) {
-                        const parsedData = parseKmlName(nameTag.textContent);
-                        if (parsedData) {
-                            parsedMarkers.push(parsedData);
+                if (fileName.endsWith('.kmz') || fileName.endsWith('.kml')) {
+                    let kmlContent;
+                    if (fileName.endsWith('.kmz')) {
+                        const jszip = new JSZip();
+                        const zip = await jszip.loadAsync(file);
+                        const kmlFile = Object.values(zip.files).find(f => f.name.toLowerCase().endsWith('.kml'));
+                        if (!kmlFile) throw new Error("Nessun file KML trovato nel KMZ.");
+                        kmlContent = await kmlFile.async('string');
+                    } else {
+                        kmlContent = await file.text();
+                    }
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(kmlContent, 'text/xml');
+                    const placemarks = kml.getElementsByTagName('Placemark');
+                    for (const item of placemarks) {
+                        const nameTag = item.getElementsByTagName('name')[0];
+                        if (nameTag) {
+                            const parsedData = parseKmlName(nameTag.textContent);
+                            if (parsedData) parsedAddresses.push(parsedData);
                         }
                     }
+                } else if (fileName.endsWith('.csv')) {
+                    const csvContent = await file.text();
+                    const lines = csvContent.split(/\r?\n/);
+                    lines.forEach(line => {
+                        if (line.trim()) {
+                            const parsedData = parseCsvLine(line);
+                            if (parsedData) parsedAddresses.push(parsedData);
+                        }
+                    });
+                } else {
+                    throw new Error("Formato file non supportato. Usa KML, KMZ o CSV.");
                 }
 
-                if (parsedMarkers.length === 0) {
-                    throw new Error("Nessun indirizzo valido trovato nei segnaposti.");
+                if (parsedAddresses.length === 0) {
+                    throw new Error("Nessun indirizzo valido trovato nel file.");
                 }
-                
-                const modal = document.getElementById('import-review-modal');
-                const listContainer = document.getElementById('import-review-list');
-                document.getElementById('import-count').textContent = parsedMarkers.length;
-                document.getElementById('import-map-name-input').value = file.name.replace(/\.(kml|kmz)$/i, '');
-                
-                listContainer.innerHTML = parsedMarkers.map(m => 
-                    `<p class="border-b py-1">${m.street}, ${m.houseNumber} <span class="text-gray-500">(${m.city})</span></p>`
-                ).join('');
-                
-                importSessionData.markersToPlace = parsedMarkers;
-                modal.style.display = 'flex';
 
-                document.getElementById('cancel-import-review').onclick = () => {
-                     modal.style.display = 'none';
-                     importSessionData = { active: false, markersToPlace: [], mapId: null };
-                };
-                document.getElementById('confirm-import-review').onclick = startImportPlacement;
+                await geocodeAndCreateMap(mapName, parsedAddresses);
 
             } catch (error) {
-                console.error("Errore durante la lettura del KML:", error);
+                console.error("Errore durante l'importazione:", error);
                 importFeedback.textContent = `Errore: ${error.message}`;
-                setTimeout(() => { importFeedback.textContent = ''; }, 4000);
-            } finally {
                 loadingView.classList.add('hidden');
+                setTimeout(() => { importFeedback.textContent = ''; }, 4000);
             }
         };
 
-        const startImportPlacement = async () => {
-            const mapName = document.getElementById('import-map-name-input').value.trim();
-            if (!mapName) {
-                alert("Per favore, inserisci un nome per la mappa.");
-                return;
-            }
+        const geocodeAndCreateMap = async (mapName, addresses) => {
+            importFeedback.textContent = `Inizio geocodifica di ${addresses.length} indirizzi...`;
             
-            document.getElementById('import-review-modal').style.display = 'none';
-            loadingView.classList.remove('hidden');
+            const finalMarkers = [];
+            const failedAddresses = [];
+            const delay = ms => new Promise(res => setTimeout(res, ms));
+
+            for (let i = 0; i < addresses.length; i++) {
+                const address = addresses[i];
+                importFeedback.textContent = `Cerco coordinate per ${i + 1} di ${addresses.length}...`;
+
+                const query = `${address.street}, ${address.houseNumber}, ${address.city}, Italy`;
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Errore di rete`);
+                    const data = await response.json();
+
+                    if (data && data.length > 0) {
+                        finalMarkers.push({
+                            id: Date.now().toString() + i,
+                            latitude: parseFloat(data[0].lat),
+                            longitude: parseFloat(data[0].lon),
+                            ...address
+                        });
+                    } else {
+                        failedAddresses.push(address);
+                    }
+                } catch (error) {
+                    console.error(`Errore geocodifica per ${query}:`, error);
+                    failedAddresses.push(address);
+                }
+                
+                await delay(1000); 
+            }
 
             try {
                 const userId = auth.currentUser.uid;
                 const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
-                const docRef = await addDoc(collection(db, mapsCollectionPath), { 
-                    name: mapName, 
-                    createdAt: new Date(), 
-                    markers: []
+                const docRef = await addDoc(collection(db, mapsCollectionPath), {
+                    name: mapName,
+                    createdAt: new Date(),
+                    markers: finalMarkers,
+                    isBusiness: false
                 });
-                
-                importSessionData.active = true;
-                importSessionData.mapId = docRef.id;
 
-                openMapEditor('edit', docRef.id);
-                
+                if (failedAddresses.length > 0) {
+                    importFeedback.textContent = `Mappa creata! ${failedAddresses.length} indirizzi non trovati. Verranno mostrati per il posizionamento manuale.`;
+                    importSessionData = {
+                        active: true,
+                        markersToPlace: failedAddresses,
+                        mapId: docRef.id
+                    };
+                    setTimeout(() => {
+                        importFeedback.textContent = '';
+                        openMapEditor('edit', docRef.id);
+                    }, 3000);
+                } else {
+                    importFeedback.textContent = `Mappa "${mapName}" creata con ${finalMarkers.length} segnaposto!`;
+                    setTimeout(() => {
+                        importFeedback.textContent = '';
+                        showScreen('mapList');
+                    }, 3000);
+                }
+
             } catch (error) {
-                console.error("Errore creazione mappa per import:", error);
-                alert("Impossibile creare la nuova mappa.");
+                console.error("Errore salvataggio mappa su Firestore:", error);
+                importFeedback.textContent = 'Errore durante il salvataggio della mappa.';
             } finally {
                 loadingView.classList.add('hidden');
             }
         };
-        
+
         const renderImportHelper = () => {
             const container = document.getElementById('import-helper-container');
             const list = document.getElementById('import-list');
             
             if (!importSessionData.active || importSessionData.markersToPlace.length === 0) {
                 container.classList.add('hidden');
-                if (importSessionData.active) { // Se era attiva e ora è vuota, la sessione è finita
+                if (importSessionData.active) { 
                     infoText.textContent = 'Importazione completata!';
                 }
                 importSessionData = { active: false, markersToPlace: [], mapId: null };
@@ -1956,3 +1984,4 @@
     </script>
 </body>
 </html>
+
