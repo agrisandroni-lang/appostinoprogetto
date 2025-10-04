@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ApPostino</title>
-    <!-- Icona Personalizzata App -->
     <link rel="icon" href="https://raw.githubusercontent.com/agrisandroni-lang/appostinoprogetto/main/icona-appostino.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/agrisandroni-lang/appostinoprogetto/main/icona-appostino.svg">
-    <!-- Fine Icona -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
         .screen { display: none; }
@@ -92,7 +92,6 @@
 </head>
 <body class="bg-gray-100">
 
-    <!-- Schermata 1: Menu Principale -->
     <div id="home-screen" class="screen active justify-center items-center p-5">
         <div class="text-center">
             <h1 class="text-5xl font-bold text-blue-600 mb-2">ApPostino</h1>
@@ -111,19 +110,23 @@
                 <button id="go-to-list" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md mb-4 hover:bg-blue-700 transition-colors">
                     Visualizza le tue mappe
                 </button>
-                <button id="go-to-create" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
+                <button id="go-to-create" class="w-full bg-blue-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md mb-4 hover:bg-blue-700 transition-colors">
                     Crea una Mappa
                 </button>
+                <button id="import-kml-button" class="w-full bg-green-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors">
+                    Importa Mappa (KML/KMZ)
+                </button>
+                <input type="file" id="kml-file-input" class="hidden" accept=".kml,.kmz">
+                <p id="import-feedback" class="text-center text-sm text-green-700 h-4 mt-4"></p>
                 <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
             <div id="auth-status" class="mt-8 text-gray-500 text-sm"></div>
         </div>
     </div>
 
-    <!-- Schermata 2: Elenco Mappe -->
     <div id="map-list-screen" class="screen">
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
-            <button id="back-to-home-from-list" class="text-blue-600 font-semibold">&lt; Menu</button>
+            <button id="back-to-home-from-list" class="text-blue-600 font-semibold">< Menu</button>
             <h2 class="text-2xl font-bold text-gray-800">Le tue Mappe</h2>
             <button id="clear-business-main-btn" class="hidden text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota Selezione</button>
         </div>
@@ -137,10 +140,9 @@
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
     </div>
 
-    <!-- NUOVA Schermata Business -->
-     <div id="business-maps-screen" class="screen">
+    <div id="business-maps-screen" class="screen">
          <div class="p-4 bg-white shadow-md flex justify-between items-center">
-             <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">&lt; Le Mie Mappe</button>
+             <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">< Le Mie Mappe</button>
              <h2 class="text-2xl font-bold text-orange-600">Mappe Business</h2>
              <button id="clear-business-btn" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota e Azzera</button>
          </div>
@@ -154,11 +156,10 @@
          <div id="business-maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
      </div>
     
-    <!-- Schermata 4: Elenco di tutti i civici -->
     <div id="all-markers-list-screen" class="screen">
         <div class="p-4 bg-white shadow-md">
             <div class="flex justify-between items-center mb-4">
-                <button id="back-to-map-list-from-all" class="text-blue-600 font-semibold">&lt; Le mie Mappe</button>
+                <button id="back-to-map-list-from-all" class="text-blue-600 font-semibold">< Le mie Mappe</button>
                 <h2 id="all-markers-map-name" class="text-xl font-bold text-gray-800"></h2>
                 <button id="go-to-order-btn" class="bg-indigo-500 text-white font-semibold py-1 px-3 rounded hover:bg-indigo-600">Ordina</button>
             </div>
@@ -167,10 +168,9 @@
         <div id="all-markers-list" class="overflow-y-auto"></div>
     </div>
 
-    <!-- Schermata 5: Ordinamento Civici -->
     <div id="civici-order-screen" class="screen">
         <div class="p-4 bg-white shadow-md flex justify-between items-center">
-             <button id="back-to-all-markers-list" class="text-blue-600 font-semibold">&lt; Elenco</button>
+             <button id="back-to-all-markers-list" class="text-blue-600 font-semibold">< Elenco</button>
              <h2 id="order-screen-map-name" class="text-xl font-bold text-gray-800">Ordina Casellario</h2>
              <div class="flex items-center gap-2">
                  <button id="optimize-route-btn" class="hidden bg-purple-500 text-white font-semibold py-1 px-3 rounded hover:bg-purple-600">Ottimizza</button>
@@ -179,43 +179,35 @@
         </div>
         <p id="save-order-feedback" class="text-center text-sm text-green-700 h-4"></p>
         <div id="civici-order-list" class="overflow-y-auto p-2 space-y-2 bg-gray-100">
-            <!-- La lista ordinabile verrà inserita qui -->
-        </div>
+            </div>
     </div>
 
-    <!-- Schermata 3: Editor Mappa / Gita Mode -->
     <div id="map-editor-screen" class="screen">
         <div id="map-container">
-            <button id="back-to-map-list-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">&lt; Elenco Mappe</button>
+            <button id="back-to-map-list-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">< Elenco Mappe</button>
             <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
                 <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
             </div>
         </div>
         
-        <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0 flex flex-col" style="height: 45vh;">
-             <!-- RIGA 1 (NUOVA): Navigazione e Via Vicina -->
              <div class="p-2 bg-gray-50 border-b">
                  <div id="current-location-street" class="text-center text-base font-bold text-gray-700 mb-2 h-5"></div>
                  <div id="gita-nav-buttons" class="flex justify-between items-center">
-                     <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square">&lt;</button>
+                     <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square"><</button>
                      <button id="next-gita-btn" class="bg-blue-600/75 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg disabled:bg-gray-400">SUCCESSIVO</button>
                  </div>
              </div>
-             <!-- RIGA 2: Titolo e Reset -->
              <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
                  <a id="current-street-name" href="#" target="_blank" class="block w-full"></a>
                  <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
              </div>
-             <!-- RIGA 3: Lista Consegne -->
              <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
-                 <!-- Lista prossime 10 consegne -->
-             </div>
+                 </div>
         </div>
 
-        <!-- Form per Edit/Create Mode -->
         <div id="form-container" class="p-3 bg-white shadow-lg flex-shrink-0">
-            <button id="back-to-list-from-editor" class="text-blue-600 font-semibold mb-2">&lt; Elenco Mappe</button>
+            <button id="back-to-list-from-editor" class="text-blue-600 font-semibold mb-2">< Elenco Mappe</button>
             <input type="text" id="map-name-input" placeholder="Nome Mappa (es. Giro Centro)" class="w-full p-2 border rounded mb-2">
             <input type="text" id="city-input" list="cities-list" placeholder="Città" class="w-full p-2 border rounded mb-2">
             <input type="text" id="street-input" list="streets-list" placeholder="Via" class="w-full p-2 border rounded mb-2">
@@ -228,7 +220,6 @@
         </div>
     </div>
     
-    <!-- Modale di Conferma Generica -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm mx-4">
             <p id="confirm-modal-title" class="text-lg font-semibold mb-2"></p>
@@ -240,7 +231,6 @@
         </div>
     </div>
 
-    <!-- Modale Modifica Segnaposto -->
     <div id="edit-marker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 class="text-lg font-bold mb-4">Modifica Segnaposto</h3>
@@ -259,7 +249,6 @@
         </div>
     </div>
 
-    <!-- NUOVO: Modale Azioni Civico da Lista -->
     <div id="marker-actions-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 id="marker-actions-title" class="text-lg font-bold mb-4 text-center"></h3>
@@ -273,7 +262,6 @@
         </div>
     </div>
 
-    <!-- NUOVO: Modale Conteggio Pacchi Business -->
     <div id="business-item-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
             <h3 id="business-item-title" class="text-lg font-bold mb-4 text-center"></h3>
@@ -364,6 +352,7 @@
             clearBusiness: document.getElementById('clear-business-btn'),
             clearBusinessMain: document.getElementById('clear-business-main-btn'),
             optimizeRoute: document.getElementById('optimize-route-btn'),
+            importKml: document.getElementById('import-kml-button'), // NUOVO
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container') };
@@ -374,6 +363,7 @@
         const loggedOutView = document.getElementById('logged-out-view');
         const wakeLockStatus = document.getElementById('wake-lock-status');
         const importFeedback = document.getElementById('import-feedback');
+        const kmlFileInput = document.getElementById('kml-file-input'); // NUOVO
 
         const showScreen = (screenName) => {
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
@@ -1130,7 +1120,7 @@
             nextListContainer.innerHTML = `
                 <div class="p-2 border-b flex justify-between items-center">
                     <p class="font-semibold text-gray-700">Prossime consegne:</p>
-                    <button id="gita-see-all-btn" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded hover:bg-gray-300">Vedi tutti &rarr;</button>
+                    <button id="gita-see-all-btn" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded hover:bg-gray-300">Vedi tutti →</button>
                 </div>
             `;
             const nextDeliveries = markers.slice(currentGitaIndex + 1, currentGitaIndex + 11);
@@ -1278,6 +1268,109 @@
             currentGitaIndex = -1;
             document.getElementById('current-location-street').classList.add('hidden');
         };
+
+        // --- NUOVA LOGICA DI IMPORTAZIONE KML/KMZ ---
+
+        buttons.importKml.onclick = () => {
+            kmlFileInput.click();
+        };
+
+        kmlFileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                handleKmlImport(file);
+            }
+            // Reset the input value to allow importing the same file again
+            event.target.value = null;
+        };
+
+        const handleKmlImport = async (file) => {
+            const userId = auth.currentUser?.uid;
+            if (!userId) {
+                importFeedback.textContent = "Devi essere loggato per importare.";
+                return;
+            }
+
+            importFeedback.textContent = 'Importazione in corso...';
+            loadingView.classList.remove('hidden');
+
+            try {
+                let kmlContent;
+                const fileName = file.name.toLowerCase();
+
+                if (fileName.endsWith('.kmz')) {
+                    const jszip = new JSZip();
+                    const zip = await jszip.loadAsync(file);
+                    // Find the first .kml file inside the zip
+                    const kmlFile = Object.values(zip.files).find(f => f.name.toLowerCase().endsWith('.kml'));
+                    if (!kmlFile) {
+                        throw new Error("Nessun file KML trovato nel KMZ.");
+                    }
+                    kmlContent = await kmlFile.async('string');
+                } else {
+                    kmlContent = await file.text();
+                }
+
+                const parser = new DOMParser();
+                const kml = parser.parseFromString(kmlContent, 'text/xml');
+                const geoJson = toGeoJSON.kml(kml);
+
+                const markers = [];
+                const mapName = file.name.replace(/\.(kml|kmz)$/i, '');
+
+                geoJson.features.forEach(feature => {
+                    if (feature.geometry && feature.geometry.type === 'Point') {
+                        const [longitude, latitude] = feature.geometry.coordinates;
+                        const name = feature.properties.name || '';
+                        let houseNumber = name;
+                        let notes = feature.properties.description || '';
+
+                        const nameParts = name.split(/\s+/);
+                        const lastPart = nameParts[nameParts.length - 1];
+                        if (!isNaN(parseInt(lastPart))) {
+                             houseNumber = lastPart;
+                        }
+
+                        markers.push({
+                            id: Date.now().toString() + Math.random(), // Unique ID
+                            latitude,
+                            longitude,
+                            city: 'DA DEFINIRE', // City is not usually in KML placemarks
+                            street: name.toUpperCase(),
+                            houseNumber: houseNumber,
+                            notes: notes,
+                        });
+                    }
+                });
+
+                if (markers.length === 0) {
+                    throw new Error("Nessun segnaposto (Placemark) trovato nel file KML.");
+                }
+
+                const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
+                await addDoc(collection(db, mapsCollectionPath), {
+                    name: mapName,
+                    createdAt: new Date(),
+                    markers: markers,
+                    isBusiness: false
+                });
+
+                importFeedback.textContent = `Mappa "${mapName}" importata con successo!`;
+                setTimeout(() => {
+                    importFeedback.textContent = '';
+                    showScreen('mapList');
+                }, 2500);
+
+            } catch (error) {
+                console.error("Errore durante l'importazione KML:", error);
+                importFeedback.textContent = `Errore: ${error.message}`;
+                setTimeout(() => { importFeedback.textContent = ''; }, 4000);
+            } finally {
+                loadingView.classList.add('hidden');
+            }
+        };
+
+        // --- FINE NUOVA LOGICA ---
 
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
@@ -1689,4 +1782,3 @@
     </script>
 </body>
 </html>
-
