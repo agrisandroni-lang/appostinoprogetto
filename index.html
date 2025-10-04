@@ -211,17 +211,6 @@
 
     <!-- Schermata 3: Editor Mappa / Gita Mode -->
     <div id="map-editor-screen" class="screen">
-         <!-- Contenitore per l'assistente di importazione -->
-        <div id="import-helper-container" class="hidden absolute top-0 left-0 right-0 bg-white/95 p-2 z-[1001] shadow-lg max-h-[40vh] flex flex-col">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="text-lg font-bold text-gray-800">Posiziona Segnaposti</h3>
-                <button id="cancel-import-session" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600">Annulla</button>
-            </div>
-            <div id="import-list" class="overflow-y-auto text-sm space-y-1">
-                <!-- Elenco indirizzi da importare -->
-            </div>
-        </div>
-
         <div id="map-container">
             <button id="back-to-map-list-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">&lt; Elenco Mappe</button>
             <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
@@ -259,10 +248,11 @@
             <div class="flex items-center gap-2">
                 <input type="text" id="house-number-input" placeholder="N° Civico" class="w-1/3 p-2 border rounded">
                 <input type="text" id="notes-input" placeholder="Note (es. cane, interno 5)" class="flex-grow p-2 border rounded">
-                <button id="paste-coords-button" class="bg-purple-500 text-white font-bold py-2 px-2 rounded hover:bg-purple-600" title="Incolla coordinate">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
-                </button>
                 <button id="save-marker-button" class="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-600">+</button>
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+                <input type="text" id="coords-paste-input" placeholder="Incolla coordinate da Google Maps qui" class="flex-grow p-2 border rounded text-sm">
+                <button id="paste-coords-button" class="bg-purple-500 text-white font-semibold py-2 px-3 rounded hover:bg-purple-600 text-sm flex-shrink-0">Posiziona</button>
             </div>
             <p id="info-text" class="text-center text-blue-600 italic mt-2 text-sm"></p>
         </div>
