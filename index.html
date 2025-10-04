@@ -420,7 +420,7 @@
             goToZoneMaps: document.getElementById('go-to-zone-maps-btn'),
             backToMapListFromZone: document.getElementById('back-to-map-list-from-zone'),
         };
-        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input')};
+        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input') };
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container'), zoneMapList: document.getElementById('zone-maps-list-container') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
@@ -1615,6 +1615,33 @@
             currentGitaIndex = 0;
             updateGitaView();
             saveGitaProgress();
+        };
+
+        buttons.pasteCoords.onclick = () => {
+            const text = inputs.coordsPaste.value.trim();
+            if (!text) {
+                infoText.textContent = 'Incolla le coordinate nel campo di testo.';
+                return;
+            }
+
+            const coords = text.match(/-?\d+\.\d+/g);
+            if (coords && coords.length >= 2) {
+                const lat = parseFloat(coords[0]);
+                const lng = parseFloat(coords[1]);
+                
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    if (temporaryMarker) map.removeLayer(temporaryMarker);
+                    const latLng = {lat, lng};
+                    temporaryMarker = L.circleMarker(latLng, { radius: 8, color: 'red', weight: 3, fillColor: '#f03', fillOpacity: 0.5 }).addTo(map);
+                    map.setView(latLng, 18);
+                    infoText.textContent = 'Coordinate posizionate! Compila i dati e salva.';
+                    inputs.coordsPaste.value = ''; // Clear the input
+                } else {
+                   infoText.textContent = 'Formato coordinate non valido. Usa "lat, lon".';
+                }
+            } else {
+                infoText.textContent = 'Nessuna coordinata valida trovata.';
+            }
         };
 
         containers.gitaMode.addEventListener('click', (e) => {
