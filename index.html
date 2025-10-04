@@ -11,7 +11,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- NUOVE LIBRERIE PER IMPORTAZIONE -->
+    <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
     <style>
@@ -22,13 +22,13 @@
         
         .custom-marker-label {
             color: black;
-            padding: 2px 6px; /* Ridotto */
+            padding: 2px 6px;
             border-radius: 10px;
             font-weight: bold;
-            font-size: 12px; /* Ridotto */
+            font-size: 12px;
             text-align: center;
             white-space: nowrap;
-            border: 1px solid white; /* Ridotto */
+            border: 1px solid white;
             box-shadow: 0 1px 2px rgba(0,0,0,0.3);
             transition: all 0.2s ease-in-out;
             position: absolute;
@@ -121,7 +121,7 @@
                     Importa Mappa da File
                 </button>
                 <input type="file" id="file-input" class="hidden" accept=".kml,.kmz,.csv">
-                <p id="import-feedback" class="text-center text-sm text-green-700 h-4 mt-4"></p>
+                <p id="import-feedback" class="text-center text-sm h-4 mt-4"></p>
                 <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
             <div id="auth-status" class="mt-8 text-gray-500 text-sm"></div>
@@ -145,7 +145,7 @@
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
     </div>
 
-    <!-- NUOVA Schermata Business -->
+    <!-- Schermata Business -->
      <div id="business-maps-screen" class="screen">
          <div class="p-4 bg-white shadow-md flex justify-between items-center">
              <button id="back-to-map-list-from-business" class="text-blue-600 font-semibold">&lt; Le Mie Mappe</button>
@@ -193,10 +193,10 @@
 
     <!-- Schermata 3: Editor Mappa / Gita Mode -->
     <div id="map-editor-screen" class="screen">
-         <!-- NUOVO: Contenitore per l'assistente di importazione -->
+         <!-- Contenitore per l'assistente di importazione -->
         <div id="import-helper-container" class="hidden absolute top-0 left-0 right-0 bg-white/95 p-2 z-[1001] shadow-lg max-h-[40vh] flex flex-col">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-lg font-bold text-gray-800">Posiziona Segnaposti non trovati</h3>
+                <h3 class="text-lg font-bold text-gray-800">Posiziona Segnaposti</h3>
                 <button id="cancel-import-session" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600">Annulla</button>
             </div>
             <div id="import-list" class="overflow-y-auto text-sm space-y-1">
@@ -324,18 +324,17 @@
         </div>
     </div>
     
-    <!-- MODIFICATO: Modale di Revisione Importazione KML -->
-    <div id="import-review-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-4 flex flex-col max-h-[90vh]">
-            <h3 class="text-xl font-bold mb-4">Importa Mappa da File</h3>
-            <p class="text-sm text-gray-600 mb-2">Abbiamo trovato <b id="import-count">0</b> indirizzi. Assegna un nome alla mappa per iniziare a posizionarli.</p>
-            <input type="text" id="import-map-name-input" placeholder="Nome della nuova mappa" class="w-full p-2 border rounded mb-4">
-            <div id="import-review-list" class="flex-grow overflow-y-auto border rounded p-2 bg-gray-50 text-xs mb-4">
-                <!-- Lista dei segnaposto trovati -->
+    <div id="rename-map-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <h3 class="text-lg font-bold mb-4">Archivia Mappa Business</h3>
+            <p class="text-sm text-gray-600 mb-4">Dai un nuovo nome alla mappa per salvarla in "Le tue Mappe".</p>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nuovo Nome Mappa</label>
+                <input type="text" id="rename-map-input" class="w-full p-2 border rounded">
             </div>
             <div class="flex justify-end gap-4">
-                <button id="cancel-import-review" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
-                <button id="confirm-import-review" class="bg-green-600 text-white font-bold py-2 px-6 rounded hover:bg-green-700">Crea Mappa e Inizia</button>
+                <button id="cancel-rename" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
+                <button id="confirm-rename" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700">Archivia</button>
             </div>
         </div>
     </div>
@@ -346,7 +345,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
@@ -787,12 +786,17 @@
              businessMaps.forEach(map => {
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'bg-white p-4 rounded-lg shadow mb-3';
-                mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3><div class="flex justify-around flex-wrap gap-2 items-center">
+                mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3>
+                <div class="flex justify-around flex-wrap gap-2 items-center">
                     <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                     <button data-id="${map.id}" class="edit-btn bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500">Modifica</button>
                     <button data-id="${map.id}" class="show-all-btn bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600">Visualizza dati</button>
+                </div>
+                <div class="border-t mt-3 pt-3 flex justify-end gap-2">
+                    <button data-id="${map.id}" data-name="${map.name}" class="archive-btn bg-teal-500 text-white font-semibold py-1 px-3 rounded hover:bg-teal-600">Archivia</button>
                     <button data-id="${map.id}" data-name="${map.name}" class="delete-btn bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600">Elimina</button>
-                </div>`;
+                </div>
+                `;
                 containers.businessMapList.appendChild(mapDiv);
             });
         };
@@ -892,34 +896,64 @@
         };
 
         const renderAllMarkersList = (markers) => {
-            containers.allMarkersList.innerHTML = '';
+            const container = containers.allMarkersList;
+            container.innerHTML = '';
             if(markers.length === 0) {
-                containers.allMarkersList.innerHTML = '<p class="text-center text-gray-500 p-8">Nessun civico in questa mappa.</p>';
+                container.innerHTML = '<p class="text-center text-gray-500 p-8">Nessun civico in questa mappa.</p>';
                 return;
             }
-            const list = document.createElement('ul');
-            list.className = 'divide-y divide-gray-200';
-            markers.forEach(marker => {
-                const li = document.createElement('li');
-                li.className = 'p-3 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
-                const isSelected = businessSelection.some(item => item.mapId === currentMapData.mapId && item.markerId === marker.id);
-                if (isSelected) {
-                    li.classList.add('business-selected');
+
+            const groupedByStreet = markers.reduce((acc, marker) => {
+                const street = marker.street || 'Senza Via';
+                if (!acc[street]) {
+                    acc[street] = [];
                 }
-                li.dataset.markerId = marker.id;
-                li.innerHTML = `
-                    <div class="flex-grow">
-                        <p class="font-bold pointer-events-none">${marker.street}, ${marker.houseNumber}</p>
-                        <p class="text-sm text-gray-600 pointer-events-none">${marker.city}</p>
-                        ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
-                    </div>
-                    <button class="business-toggle-btn p-2 rounded-full hover:bg-orange-200 flex-shrink-0" data-marker-id="${marker.id}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isSelected ? '#f97316' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none text-gray-500"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    </button>
+                acc[street].push(marker);
+                return acc;
+            }, {});
+
+            const sortedStreets = Object.keys(groupedByStreet).sort();
+
+            sortedStreets.forEach(street => {
+                const streetMarkers = groupedByStreet[street];
+                
+                const streetContainer = document.createElement('div');
+                streetContainer.className = 'mb-4';
+
+                const header = document.createElement('div');
+                header.className = 'flex justify-between items-center bg-gray-200 p-2 rounded-t-lg sticky top-0 z-10';
+                header.innerHTML = `
+                    <h3 class="font-bold text-gray-700">${street}</h3>
+                    <button class="toggle-street-selection-btn text-xs bg-blue-500 text-white font-semibold py-1 px-2 rounded hover:bg-blue-600" data-street="${street}">Seleziona Via</button>
                 `;
-                list.appendChild(li);
+                streetContainer.appendChild(header);
+
+                const list = document.createElement('ul');
+                list.className = 'divide-y divide-gray-100 border rounded-b-lg';
+                
+                streetMarkers.forEach(marker => {
+                    const li = document.createElement('li');
+                    li.className = 'p-3 hover:bg-gray-100 cursor-pointer flex justify-between items-center';
+                    const isSelected = businessSelection.some(item => item.mapId === currentMapData.mapId && item.markerId === marker.id);
+                    if (isSelected) {
+                        li.classList.add('business-selected');
+                    }
+                    li.dataset.markerId = marker.id;
+                    li.innerHTML = `
+                        <div class="flex-grow">
+                            <p class="font-bold pointer-events-none">${marker.street}, ${marker.houseNumber}</p>
+                            <p class="text-sm text-gray-600 pointer-events-none">${marker.city}</p>
+                            ${marker.notes ? `<p class="text-sm text-blue-600 italic mt-1 pointer-events-none">${marker.notes}</p>` : ''}
+                        </div>
+                        <button class="business-toggle-btn p-2 rounded-full hover:bg-orange-200 flex-shrink-0" data-marker-id="${marker.id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isSelected ? '#f97316' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none text-gray-500"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        </button>
+                    `;
+                    list.appendChild(li);
+                });
+                streetContainer.appendChild(list);
+                container.appendChild(streetContainer);
             });
-            containers.allMarkersList.appendChild(list);
         };
         
         inputs.searchMarkers.addEventListener('input', (e) => {
@@ -1381,28 +1415,30 @@
             }
             event.target.value = null;
         };
-
-        const parseKmlName = (name) => {
-            const parts = name.split(';').map(p => p.trim());
-            if (parts.length < 4) return null;
-            return {
-                city: parts[0].toUpperCase() || 'DA DEFINIRE',
-                street: parts[1].toUpperCase() || 'VIA SCONOSCIUTA',
-                houseNumber: parts[3] || 'SNC',
-                notes: parts[4] || ''
-            };
+        
+        const createMapWithMarkers = async (mapName, markers) => {
+            const userId = auth.currentUser.uid;
+            const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
+            
+            try {
+                await addDoc(collection(db, mapsCollectionPath), { 
+                    name: mapName, 
+                    createdAt: new Date(), 
+                    markers: markers,
+                    isBusiness: false
+                });
+                importFeedback.textContent = `Mappa "${mapName}" creata con successo!`;
+                importFeedback.classList.remove('text-red-500');
+                importFeedback.classList.add('text-green-700');
+                setTimeout(() => {
+                    importFeedback.textContent = '';
+                    showScreen('mapList');
+                }, 3000);
+            } catch(e) {
+                console.error("Errore salvataggio mappa:", e);
+                throw new Error("Impossibile salvare la mappa nel database.");
+            }
         };
-
-        const parseCsvLine = (line) => {
-            const parts = line.split(';').map(p => p.trim());
-            if (parts.length < 4) return null;
-            return {
-                city: parts[0].toUpperCase() || 'DA DEFINIRE',
-                street: parts[1].toUpperCase() || 'VIA SCONOSCIUTA',
-                houseNumber: parts[3] || 'SNC',
-                notes: parts[4] || ''
-            };
-        }
 
         const handleFileImport = async (file) => {
             const userId = auth.currentUser?.uid;
@@ -1411,200 +1447,86 @@
                 return;
             }
             importFeedback.textContent = 'Lettura file...';
-            loadingView.classList.remove('hidden');
+            importFeedback.classList.remove('text-red-500', 'text-green-700');
 
             try {
-                let parsedAddresses = [];
-                const fileName = file.name.toLowerCase();
-                const mapName = file.name.replace(/\.(kml|kmz|csv)$/i, '');
+                let markersToCreate = [];
+                const mapName = file.name.replace(/\.(csv)$/i, '');
 
-                if (fileName.endsWith('.kmz') || fileName.endsWith('.kml')) {
-                    let kmlContent;
-                    if (fileName.endsWith('.kmz')) {
-                        const jszip = new JSZip();
-                        const zip = await jszip.loadAsync(file);
-                        const kmlFile = Object.values(zip.files).find(f => f.name.toLowerCase().endsWith('.kml'));
-                        if (!kmlFile) throw new Error("Nessun file KML trovato nel KMZ.");
-                        kmlContent = await kmlFile.async('string');
-                    } else {
-                        kmlContent = await file.text();
-                    }
-                    const parser = new DOMParser();
-                    const kml = parser.parseFromString(kmlContent, 'text/xml');
-                    const placemarks = kml.getElementsByTagName('Placemark');
-                    for (const item of placemarks) {
-                        const nameTag = item.getElementsByTagName('name')[0];
-                        if (nameTag) {
-                            const parsedData = parseKmlName(nameTag.textContent);
-                            if (parsedData) parsedAddresses.push(parsedData);
-                        }
-                    }
-                } else if (fileName.endsWith('.csv')) {
+                if (file.name.toLowerCase().endsWith('.csv')) {
                     const csvContent = await file.text();
-                    const lines = csvContent.split(/\r?\n/);
-                    lines.forEach(line => {
-                        if (line.trim()) {
-                            const parsedData = parseCsvLine(line);
-                            if (parsedData) parsedAddresses.push(parsedData);
+                    const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
+                    if (lines.length < 2) throw new Error("Il file CSV deve contenere almeno una riga di intestazione e una di dati.");
+
+                    const delimiter = lines[0].includes(';') ? ';' : ',';
+                    const headers = lines[0].split(delimiter).map(h => h.trim().toUpperCase().replace(/"/g, ''));
+                    
+                    const findIndex = (possibleNames) => {
+                        for (const name of possibleNames) {
+                            const index = headers.indexOf(name.toUpperCase());
+                            if (index !== -1) return index;
                         }
-                    });
+                        return -1;
+                    };
+
+                    const latIndex = findIndex(['LATITUDINE', 'LAT', 'LATITUDE']);
+                    const lonIndex = findIndex(['LONGITUDINE', 'LON', 'LONGITUDE']);
+                    const cityIndex = findIndex(['COMUNE', 'CITTA', 'CITTÀ']);
+                    const streetIndex = findIndex(['VIA', 'INDIRIZZO']);
+                    const numberIndex = findIndex(['NUMEROCIVICO', 'CIVICO', 'NUMERO CIVICO', 'N°']);
+                    const extIndex = findIndex(['ESTENSIONE']);
+                    const intIndex = findIndex(['INTERNO']);
+                    const notesIndex = findIndex(['NOTE', 'NOTA']);
+
+                    if (latIndex === -1 || lonIndex === -1 || cityIndex === -1 || streetIndex === -1 || numberIndex === -1 ) {
+                         throw new Error("Colonne CSV mancanti! Assicurati che ci siano almeno: COMUNE, VIA, NUMEROCIVICO, LATITUDINE, LONGITUDINE.");
+                    }
+
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(delimiter).map(v => v.trim().replace(/"/g, ''));
+                        if (values.length < headers.length) continue;
+                        
+                        let houseNumberParts = [];
+                        if (values[numberIndex]) houseNumberParts.push(values[numberIndex].trim());
+                        if (values[extIndex] && values[extIndex].trim() !== '') houseNumberParts.push(values[extIndex].trim().toUpperCase());
+                        if (values[intIndex] && values[intIndex].trim() !== '') houseNumberParts.push(`int. ${values[intIndex].trim()}`);
+                        
+                        const houseNumber = houseNumberParts.join(' ') || 'SNC';
+                        const notes = notesIndex !== -1 ? (values[notesIndex]?.trim() || '') : '';
+                        
+                        const lat = parseFloat(values[latIndex]?.replace(',', '.'));
+                        const lon = parseFloat(values[lonIndex]?.replace(',', '.'));
+
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            markersToCreate.push({
+                                id: Date.now().toString() + i,
+                                latitude: lat,
+                                longitude: lon,
+                                city: values[cityIndex].toUpperCase(),
+                                street: values[streetIndex].toUpperCase(),
+                                houseNumber: houseNumber,
+                                notes: notes
+                            });
+                        }
+                    }
                 } else {
-                    throw new Error("Formato file non supportato. Usa KML, KMZ o CSV.");
+                     throw new Error("Formato file non supportato. Per ora, usa solo file .CSV con coordinate.");
                 }
 
-                if (parsedAddresses.length === 0) {
-                    throw new Error("Nessun indirizzo valido trovato nel file.");
+                if (markersToCreate.length === 0) {
+                    throw new Error("Nessun indirizzo valido con coordinate trovato nel file.");
                 }
-                
-                showImportReviewModal(mapName, parsedAddresses);
+
+                await createMapWithMarkers(mapName, markersToCreate);
 
             } catch (error) {
                 console.error("Errore durante l'importazione:", error);
                 importFeedback.textContent = `Errore: ${error.message}`;
-                setTimeout(() => { importFeedback.textContent = ''; }, 4000);
-            } finally {
-                loadingView.classList.add('hidden');
-            }
-        };
-
-        const showImportReviewModal = (mapName, addresses) => {
-            const modal = document.getElementById('import-review-modal');
-            const listContainer = document.getElementById('import-review-list');
-            document.getElementById('import-count').textContent = addresses.length;
-            document.getElementById('import-map-name-input').value = mapName;
-            
-            listContainer.innerHTML = addresses.map(m => 
-                `<p class="border-b py-1">${m.street}, ${m.houseNumber} <span class="text-gray-500">(${m.city})</span></p>`
-            ).join('');
-            
-            modal.style.display = 'flex';
-
-            document.getElementById('cancel-import-review').onclick = () => {
-                    modal.style.display = 'none';
-            };
-            document.getElementById('confirm-import-review').onclick = () => {
-                const newMapName = document.getElementById('import-map-name-input').value.trim();
-                if (!newMapName) {
-                    alert("Per favore, inserisci un nome per la mappa.");
-                    return;
-                }
-                modal.style.display = 'none';
-                startImportPlacement(newMapName, addresses);
-            };
-        };
-
-        const startImportPlacement = async (mapName, addresses) => {
-            loadingView.classList.remove('hidden');
-
-            try {
-                const userId = auth.currentUser.uid;
-                const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
-                const docRef = await addDoc(collection(db, mapsCollectionPath), { 
-                    name: mapName, 
-                    createdAt: new Date(), 
-                    markers: []
-                });
-                
-                importSessionData = {
-                    active: true,
-                    markersToPlace: addresses,
-                    mapId: docRef.id
-                };
-
-                openMapEditor('edit', docRef.id);
-                
-            } catch (error) {
-                console.error("Errore creazione mappa per import:", error);
-                alert("Impossibile creare la nuova mappa.");
-            } finally {
-                loadingView.classList.add('hidden');
+                importFeedback.classList.add('text-red-500');
+                setTimeout(() => { importFeedback.textContent = ''; }, 5000);
             }
         };
         
-        const renderImportHelper = () => {
-            const container = document.getElementById('import-helper-container');
-            const list = document.getElementById('import-list');
-            
-            if (!importSessionData.active || importSessionData.markersToPlace.length === 0) {
-                container.classList.add('hidden');
-                if (importSessionData.active) { // Se era attiva e ora è vuota, la sessione è finita
-                    infoText.textContent = 'Importazione completata!';
-                }
-                importSessionData = { active: false, markersToPlace: [], mapId: null };
-                return;
-            }
-            
-            container.classList.remove('hidden');
-            list.innerHTML = importSessionData.markersToPlace.map((marker, index) => {
-                const fullAddress = `${marker.street}, ${marker.houseNumber}, ${marker.city}`;
-                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
-                return `<div data-index="${index}" class="p-2 border rounded bg-yellow-100 hover:bg-yellow-200 cursor-pointer flex justify-between items-center">
-                    <div>
-                        <b>${marker.street}, ${marker.houseNumber}</b><br>
-                        <span class="text-gray-700">${marker.city}</span>
-                        ${marker.notes ? `<br><i class="text-blue-600">${marker.notes}</i>` : ''}
-                    </div>
-                    <a href="${googleMapsUrl}" target="_blank" class="bg-blue-500 text-white text-xs font-semibold py-1 px-2 rounded hover:bg-blue-600" onclick="event.stopPropagation();">
-                        Trova con Google
-                    </a>
-                </div>`;
-            }).join('');
-        };
-
-        buttons.pasteCoords.onclick = async () => {
-            try {
-                const text = await navigator.clipboard.readText();
-                const coords = text.match(/-?\d+\.\d+/g);
-                if (coords && coords.length >= 2) {
-                    const lat = parseFloat(coords[0]);
-                    const lng = parseFloat(coords[1]);
-                    
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        if (temporaryMarker) map.removeLayer(temporaryMarker);
-                        const latLng = {lat, lng};
-                        temporaryMarker = L.circleMarker(latLng, { radius: 8, color: 'red', weight: 3, fillColor: '#f03', fillOpacity: 0.5 }).addTo(map);
-                        map.setView(latLng, 18);
-                        infoText.textContent = 'Coordinate incollate! Salva il segnaposto.';
-                    } else {
-                       infoText.textContent = 'Testo non valido negli appunti.';
-                    }
-                } else {
-                    infoText.textContent = 'Nessuna coordinata trovata negli appunti.';
-                }
-            } catch (err) {
-                console.error('Failed to read clipboard contents: ', err);
-                infoText.textContent = 'Impossibile leggere gli appunti.';
-            }
-        };
-
-        document.getElementById('import-list').addEventListener('click', (e) => {
-            const item = e.target.closest('[data-index]');
-            if (item && !e.target.closest('a')) { // Assicurati di non attivare se si clicca sul link
-                const index = parseInt(item.dataset.index, 10);
-                const markerData = importSessionData.markersToPlace[index];
-                if (markerData) {
-                    inputs.city.value = markerData.city;
-                    inputs.street.value = markerData.street;
-                    inputs.houseNumber.value = markerData.houseNumber;
-                    inputs.notes.value = markerData.notes;
-                    
-                    document.querySelectorAll('#import-list > div').forEach(div => div.classList.remove('ring-2', 'ring-blue-500'));
-                    item.classList.add('ring-2', 'ring-blue-500');
-                    
-                    infoText.textContent = `Incolla le coordinate per: ${markerData.street}, ${markerData.houseNumber}`;
-                }
-            }
-        });
-
-        document.getElementById('cancel-import-session').onclick = async () => {
-            const confirmed = await showConfirm('Annullare l\'importazione?', 'I segnaposti non posizionati andranno persi. La mappa creata rimarrà.');
-            if(confirmed){
-                importSessionData = { active: false, markersToPlace: [], mapId: null };
-                renderImportHelper();
-                infoText.textContent = 'Importazione annullata.';
-            }
-        }
-
         // --- FINE LOGICA IMPORTAZIONE ---
 
 
