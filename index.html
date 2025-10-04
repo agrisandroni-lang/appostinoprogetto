@@ -45,7 +45,7 @@
             border-color: #FFD700; 
             transform-origin: center; 
             z-index: 1000;
-            animation: bounce 1.5s infinite;
+            animation: bounce 1.s infinite;
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
@@ -1268,7 +1268,7 @@
             if (displayDelivery.notes) {
                 currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${displayDelivery.notes}</p>`;
             }
-            if (displayDelivery.count > 0) {
+             if ((currentMapData.mapType === 'business' || selectionInfo) && displayDelivery.count > 0) {
                 currentDeliveryHtml += `<p class="font-bold text-orange-600">OGGETTI: ${displayDelivery.count}</p>`;
             }
             currentDeliveryHtml += `</div></div>`;
@@ -1307,7 +1307,7 @@
                     if (displayNextDelivery.notes) {
                         deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${displayNextDelivery.notes}</span>`;
                     }
-                    if (displayNextDelivery.count > 0) {
+                    if ((currentMapData.mapType === 'business' || nextSelectionInfo) && displayNextDelivery.count > 0) {
                         deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${displayNextDelivery.count}</span>`;
                     }
                     deliveryHtml += `</div></div>`;
