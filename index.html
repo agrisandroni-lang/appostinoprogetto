@@ -389,6 +389,7 @@
         let currentMapData = null;
         let unsubscribeMapDocListener = null;
         let unsubscribeMarkersListener = null;
+        let unsubscribeMapsListListener = null;
         let repositioningState = { active: false, markerId: null };
         let locationWatcher = null;
         let allMarkersForList = [];
@@ -2094,23 +2095,41 @@
             let feedbackMsg = '';
             try {
                  const totalItems = allSelectedMarkers.reduce((sum, marker) => sum + (marker.count || 0), 0);
+                 const timeString = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                 const mapName = `Business - ${dateString} ${timeString} (${allSelectedMarkers.length} civici - ${totalItems} oggetti)`;
+                 
                 if (!querySnapshot.empty) { 
-                    const existingMapDoc = querySnapshot.docs[0];
-                    await updateDoc(existingMapDoc.ref, { 
-                        markers: allSelectedMarkers,
-                        name: `Business - ${dateString} ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} (${allSelectedMarkers.length} civici - ${totalItems} oggetti)`
+                    const existingMapRef = querySnapshot.docs[0].ref;
+                    await updateDoc(existingMapRef, { name: mapName });
+
+                    const markersCollectionRef = collection(existingMapRef, 'markers');
+                    const oldMarkersSnap = await getDocs(markersCollectionRef);
+                    const batchDelete = writeBatch(db);
+                    oldMarkersSnap.forEach(doc => batchDelete.delete(doc.ref));
+                    await batchDelete.commit();
+
+                    const batchAdd = writeBatch(db);
+                    allSelectedMarkers.forEach(markerData => {
+                        const newMarkerRef = doc(markersCollectionRef);
+                        batchAdd.set(newMarkerRef, { ...markerData, id: newMarkerRef.id });
                     });
+                    await batchAdd.commit();
                     feedbackMsg = "Mappa Business di oggi aggiornata!";
 
                 } else { 
-                    const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                    const mapName = `Business - ${dateString} ${timeString} (${allSelectedMarkers.length} civici - ${totalItems} oggetti)`;
-                    await addDoc(mapsCollectionRef, {
+                    const newMapRef = await addDoc(mapsCollectionRef, {
                         name: mapName,
                         createdAt: new Date(),
-                        markers: allSelectedMarkers,
                         mapType: 'business'
                     });
+
+                    const markersCollectionRef = collection(newMapRef, 'markers');
+                    const batch = writeBatch(db);
+                    allSelectedMarkers.forEach(markerData => {
+                         const newMarkerRef = doc(markersCollectionRef);
+                         batch.set(newMarkerRef, { ...markerData, id: newMarkerRef.id });
+                    });
+                    await batch.commit();
                     feedbackMsg = 'Mappa Business creata con successo!';
                 }
                 
@@ -2158,23 +2177,27 @@
 
             try {
                 // Get business map markers and remove business-specific data
-                const businessMapSnap = await getDoc(mapRef);
-                if (businessMapSnap.exists()) {
-                    const businessMapData = businessMapSnap.data();
-                    const cleanedMarkers = (businessMapData.markers || []).map(({ count, type, ...rest }) => rest);
-                    
-                    await updateDoc(mapRef, {
-                        mapType: 'zone',
-                        name: newName,
-                        markers: cleanedMarkers // Save cleaned markers
-                    });
+                const markersRef = collection(mapRef, 'markers');
+                const markersSnapshot = await getDocs(markersRef);
+                
+                const batch = writeBatch(db);
+                markersSnapshot.forEach(markerDoc => {
+                    const markerData = markerDoc.data();
+                    const { count, type, ...cleanedMarkerData } = markerData;
+                    batch.set(markerDoc.ref, cleanedMarkerData);
+                });
 
-                    feedbackP.textContent = 'Mappa archiviata con successo!';
-                    feedbackP.classList.add('text-green-700');
-                    setTimeout(() => feedbackP.textContent = '', 3000);
-                } else {
-                    throw new Error("Mappa business non trovata");
-                }
+                // Update the main map document
+                batch.update(mapRef, {
+                    mapType: 'zone',
+                    name: newName
+                });
+                
+                await batch.commit();
+
+                feedbackP.textContent = 'Mappa archiviata con successo!';
+                feedbackP.classList.add('text-green-700');
+                setTimeout(() => feedbackP.textContent = '', 3000);
             } catch (error) {
                 console.error("Errore durante l'archiviazione della mappa:", error);
                 feedbackP.textContent = 'Errore durante l\'archiviazione.';
