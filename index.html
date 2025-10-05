@@ -622,7 +622,8 @@
             markers.forEach(markerData => {
                 const streetColor = getStreetColor(markerData.street || 'default');
                 const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
-                const displayType = currentMapData.mapType === 'business' ? markerData.type : (selectionInfo ? selectionInfo.type : null);
+                const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
+                const displayType = isBusinessContext ? (selectionInfo ? selectionInfo.type : markerData.type) : null;
                 const typeIconForMap = getDeliveryTypeIcon(displayType, 'map');
 
                 const customIcon = L.divIcon({ 
@@ -1559,8 +1560,10 @@
                         const houseNumber = houseNumberParts.join(' ') || 'SNC';
                         const notes = notesIndex !== -1 ? (values[notesIndex]?.trim() || '') : '';
                         
-                        const lat = parseFloat(values[latIndex]?.replace(',', '.'));
-                        const lon = parseFloat(values[lonIndex]?.replace(',', '.'));
+                        const latVal = values[latIndex] ? values[latIndex].trim() : '';
+                        const lonVal = values[lonIndex] ? values[lonIndex].trim() : '';
+                        const lat = parseFloat(latVal.replace(',', '.'));
+                        const lon = parseFloat(lonVal.replace(',', '.'));
 
                         if (!isNaN(lat) && !isNaN(lon)) {
                             markersToCreate.push({
