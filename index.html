@@ -387,8 +387,8 @@
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
         let currentMapData = null;
-        let unsubscribeMapListener = null;
-        let unsubscribeMapsListListener = null;
+        let unsubscribeMapDocListener = null;
+        let unsubscribeMarkersListener = null;
         let repositioningState = { active: false, markerId: null };
         let locationWatcher = null;
         let allMarkersForList = [];
@@ -737,36 +737,54 @@
 
         const attachMapListener = (mapId) => {
             const userId = auth.currentUser?.uid; if (!userId) return;
-            if (unsubscribeMapListener) unsubscribeMapListener();
+            
+            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
+            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
+
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
-            unsubscribeMapListener = onSnapshot(mapRef, (docSnap) => {
+            unsubscribeMapDocListener = onSnapshot(mapRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const markers = data.markers || [];
-                    currentMapData = { ...currentMapData, ...data, markers: markers };
-                    renderMarkers(markers);
-                    populateDatalists(markers); 
-                    if (currentMapData.mode !== 'create' && markers.length > 0) {
-                        const lastMarker = markers[markers.length - 1];
-                        inputs.city.value = lastMarker.city; inputs.street.value = lastMarker.street;
+                    currentMapData = { ...currentMapData, ...data, markers: currentMapData?.markers || [] };
+                    
+                    if (currentMapData.mode !== 'create' && currentMapData.markers.length > 0) {
+                        const lastMarker = currentMapData.markers[currentMapData.markers.length - 1];
+                        inputs.city.value = lastMarker.city;
+                        inputs.street.value = lastMarker.street;
                     }
-                     if (screens.allMarkers.classList.contains('active')) {
-                         allMarkersForList = markers;
-                         const searchTerm = inputs.searchMarkers.value.toLowerCase();
-                         if (!searchTerm) {
-                             renderAllMarkersList(allMarkersForList);
-                         } else {
-                             const filteredMarkers = allMarkersForList.filter(m => 
-                                 m.street.toLowerCase().includes(searchTerm) ||
-                                 m.houseNumber.toLowerCase().includes(searchTerm) ||
-                                 (m.notes && m.notes.toLowerCase().includes(searchTerm))
-                             );
-                             renderAllMarkersList(filteredMarkers);
-                         }
-                     }
                 } else {
-                    if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
+                     if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
                         goBackToListScreen();
+                    }
+                }
+            });
+
+            const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`));
+            unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
+                const markers = [];
+                snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
+                
+                if (currentMapData) {
+                    currentMapData.markers = markers;
+                } else {
+                    currentMapData = { markers: markers };
+                }
+
+                renderMarkers(markers);
+                populateDatalists(markers);
+
+                if (screens.allMarkers.classList.contains('active')) {
+                    allMarkersForList = markers;
+                    const searchTerm = inputs.searchMarkers.value.toLowerCase();
+                    if (!searchTerm) {
+                        renderAllMarkersList(allMarkersForList);
+                    } else {
+                        const filteredMarkers = allMarkersForList.filter(m => 
+                            m.street.toLowerCase().includes(searchTerm) ||
+                            m.houseNumber.toLowerCase().includes(searchTerm) ||
+                            (m.notes && m.notes.toLowerCase().includes(searchTerm))
+                        );
+                        renderAllMarkersList(filteredMarkers);
                     }
                 }
             });
@@ -872,7 +890,8 @@
             Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
             if (temporaryMarker && map) { map.removeLayer(temporaryMarker); temporaryMarker = null; }
-            if (unsubscribeMapListener) unsubscribeMapListener();
+            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
+            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
             if (!map) initMap({ latitude: 43.464, longitude: 13.074 }); 
             
             toggleWakeLock(mode === 'view');
@@ -1159,18 +1178,33 @@
             
             const userId = auth.currentUser.uid;
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId);
-            const feedbackP = document.getElementById('save-order-feedback');
+            
             try {
-                await setDoc(mapRef, { markers: currentMarkersToOrder }, { merge: true });
+                // To avoid hitting the 1MB limit on a single doc, we update markers individually in a batch
+                const batch = writeBatch(db);
+                // First, delete all existing markers in the subcollection
+                const markersSnapshot = await getDocs(collection(mapRef, 'markers'));
+                markersSnapshot.forEach(markerDoc => {
+                    batch.delete(markerDoc.ref);
+                });
+                // Then, add the new ordered markers
+                newOrderedMarkers.forEach((markerData) => {
+                    const newMarkerRef = doc(collection(mapRef, 'markers'));
+                    batch.set(newMarkerRef, markerData);
+                });
+                
+                await batch.commit();
+
+                const feedbackP = document.getElementById('save-order-feedback');
                 feedbackP.textContent = 'Ordine salvato con successo!';
-                allMarkersForList = [...currentMarkersToOrder]; 
-                renderAllMarkersList(allMarkersForList);
                 setTimeout(() => {
                     feedbackP.textContent = '';
                     showScreen('allMarkers');
                 }, 1500);
+
             } catch (error) {
                 console.error("Errore salvataggio ordine:", error);
+                const feedbackP = document.getElementById('save-order-feedback');
                 feedbackP.textContent = 'Errore nel salvataggio.';
                 setTimeout(() => { feedbackP.textContent = ''; }, 2000);
             }
@@ -1226,7 +1260,7 @@
             const userId = auth.currentUser.uid;
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId);
             try {
-                await setDoc(mapRef, { lastGitaIndex: currentGitaIndex }, { merge: true });
+                await updateDoc(mapRef, { lastGitaIndex: currentGitaIndex });
             } catch (error) {
                 console.error("Errore nel salvataggio dei progressi del giro:", error);
             }
@@ -1342,33 +1376,42 @@
 
         const handleSaveMarker = async () => {
             if (!temporaryMarker) return alert("Prima posiziona un segnaposto sulla mappa.");
-            if (!currentMapData.mapId && !inputs.mapName.value) return alert("Dai un nome alla mappa.");
+            if (!currentMapData.mapId) {
+                if(!inputs.mapName.value) return alert("Dai un nome alla mappa.");
+            }
             
             const userId = auth.currentUser.uid;
+            
+            let mapIdToSaveTo = currentMapData.mapId;
+            let markersCollectionRef;
+
+            // Handle new map creation
+            if (!mapIdToSaveTo) {
+                const newMapRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/maps`), { 
+                    name: inputs.mapName.value, 
+                    createdAt: new Date(), 
+                    mapType: 'main'
+                });
+                mapIdToSaveTo = newMapRef.id;
+                currentMapData.mapId = mapIdToSaveTo;
+                inputs.mapName.style.display = 'none';
+                attachMapListener(mapIdToSaveTo);
+            }
+            
+            markersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps/${mapIdToSaveTo}/markers`);
+
             const newMarker = { 
-                id: Date.now().toString(), latitude: temporaryMarker.getLatLng().lat, longitude: temporaryMarker.getLatLng().lng, 
+                latitude: temporaryMarker.getLatLng().lat, 
+                longitude: temporaryMarker.getLatLng().lng, 
                 city: inputs.city.value.trim().toUpperCase(), 
                 street: inputs.street.value.trim().toUpperCase() || 'VIA SCONOSCIUTA', 
                 houseNumber: inputs.houseNumber.value.trim() || 'SNC',
                 notes: inputs.notes.value.trim()
             };
-            const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
-            
+
             try {
-                if (currentMapData.mapId) {
-                    const updatedMarkers = [...(currentMapData.markers || []), newMarker];
-                    await setDoc(doc(db, mapsCollectionPath, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
-                } else {
-                    const docRef = await addDoc(collection(db, mapsCollectionPath), { 
-                        name: inputs.mapName.value, 
-                        createdAt: new Date(), 
-                        markers: [newMarker],
-                        mapType: 'main' // NUOVO
-                    });
-                    currentMapData.mapId = docRef.id;
-                    inputs.mapName.style.display = 'none';
-                    attachMapListener(docRef.id);
-                }
+                await addDoc(markersCollectionRef, newMarker);
+                
                 const newMarkerCoords = temporaryMarker.getLatLng();
                 map.removeLayer(temporaryMarker);
                 temporaryMarker = null;
@@ -1401,22 +1444,23 @@
 
         const handleUpdateMarker = async (markerId) => {
             const userId = auth.currentUser.uid;
+            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
+            
             const houseNumberInput = document.getElementById('edit-house-number-input');
             const notesInput = document.getElementById('edit-notes-input');
             const updatedData = { 
                 houseNumber: houseNumberInput.value, 
                 notes: notesInput.value.trim()
             };
-            const updatedMarkers = currentMapData.markers.map(m => m.id === markerId ? { ...m, ...updatedData } : m);
-            await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
+            await updateDoc(markerRef, updatedData);
             document.getElementById('edit-marker-modal').style.display = 'none';
             map.closePopup();
         };
 
         const handleDeleteMarker = async (markerId) => {
             const userId = auth.currentUser.uid;
-            const updatedMarkers = currentMapData.markers.filter(m => m.id !== markerId);
-            await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
+            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
+            await deleteDoc(markerRef);
             map.closePopup();
         };
         
@@ -1430,8 +1474,12 @@
         const finishRepositioning = async (newLatLng) => {
             const { markerId } = repositioningState;
             const userId = auth.currentUser.uid;
-            const updatedMarkers = currentMapData.markers.map(m => m.id === markerId ? { ...m, latitude: newLatLng.lat, longitude: newLatLng.lng } : m);
-            await setDoc(doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId), { markers: updatedMarkers }, { merge: true });
+            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
+
+            await updateDoc(markerRef, {
+                latitude: newLatLng.lat,
+                longitude: newLatLng.lng
+            });
             repositioningState = { active: false, markerId: null };
             infoText.textContent = 'Segnaposto riposizionato!';
             document.getElementById('map-container').style.cursor = '';
@@ -1455,14 +1503,16 @@
         };
 
         const goBackToListScreen = () => {
-            if (unsubscribeMapListener) unsubscribeMapListener();
+            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
+            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
             currentMapData = null;
             showScreen(cameFromScreen);
         };
 
         const handleBackAction = () => {
             toggleWakeLock(false);
-            if(unsubscribeMapListener) unsubscribeMapListener();
+             if (unsubscribeMapDocListener) unsubscribeMapDocListener();
+            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
             currentMapData = null;
             currentGitaIndex = -1;
             document.getElementById('current-location-street').classList.add('hidden');
@@ -1484,15 +1534,35 @@
         
         const createMapWithMarkers = async (mapName, markers) => {
             const userId = auth.currentUser.uid;
-            const mapsCollectionPath = `artifacts/${appId}/users/${userId}/maps`;
+            const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
             
             try {
-                await addDoc(collection(db, mapsCollectionPath), { 
+                // 1. Create the main map document (without markers)
+                const mapRef = await addDoc(mapsCollectionRef, { 
                     name: mapName, 
                     createdAt: new Date(), 
-                    markers: markers,
                     mapType: 'main'
                 });
+
+                // 2. Add markers in batches to the subcollection
+                const markersCollectionRef = collection(mapRef, 'markers');
+                let batch = writeBatch(db);
+                let count = 0;
+
+                for (const marker of markers) {
+                    const newMarkerRef = doc(markersCollectionRef);
+                    batch.set(newMarkerRef, { ...marker, id: newMarkerRef.id }); // Add ID for future reference
+                    count++;
+                    if (count === 499) { // Firestore batch limit is 500
+                        await batch.commit();
+                        batch = writeBatch(db);
+                        count = 0;
+                    }
+                }
+                if (count > 0) {
+                    await batch.commit();
+                }
+
                 importFeedback.textContent = `Mappa "${mapName}" creata con successo!`;
                 importFeedback.classList.remove('text-red-500');
                 importFeedback.classList.add('text-green-700');
@@ -1567,7 +1637,7 @@
 
                         if (!isNaN(lat) && !isNaN(lon)) {
                             markersToCreate.push({
-                                id: Date.now().toString() + i,
+                                // id: Date.now().toString() + i, // ID will be generated by Firestore now
                                 latitude: lat,
                                 longitude: lon,
                                 city: values[cityIndex].toUpperCase(),
@@ -2009,18 +2079,16 @@
 
             for (const [mapId, markerIds] of mapsToFetch.entries()) {
                  const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
-                const docSnap = await getDoc(mapRef);
-                if (docSnap.exists()) {
-                    const mapData = docSnap.data();
-                    if(mapData && mapData.markers) {
-                        const foundMarkers = mapData.markers.filter(m => markerIds.includes(m.id));
-                        const markersWithCountAndType = foundMarkers.map(m => {
-                            const sel = selection.find(s => s.mapId === mapId && s.markerId === m.id);
-                            return {...m, count: sel ? sel.count : 1, type: sel ? sel.type : 'standard' };
-                        });
-                        allSelectedMarkers.push(...markersWithCountAndType);
-                    }
-                }
+                 const markersSnapshot = await getDocs(collection(mapRef, 'markers'));
+                 const allMarkers = [];
+                 markersSnapshot.forEach(doc => allMarkers.push({ id: doc.id, ...doc.data() }));
+
+                 const foundMarkers = allMarkers.filter(m => markerIds.includes(m.id));
+                 const markersWithCountAndType = foundMarkers.map(m => {
+                    const sel = selection.find(s => s.mapId === mapId && s.markerId === m.id);
+                    return {...m, count: sel ? sel.count : 1, type: sel ? sel.type : 'standard' };
+                });
+                allSelectedMarkers.push(...markersWithCountAndType);
             }
             
             let feedbackMsg = '';
@@ -2028,23 +2096,10 @@
                  const totalItems = allSelectedMarkers.reduce((sum, marker) => sum + (marker.count || 0), 0);
                 if (!querySnapshot.empty) { 
                     const existingMapDoc = querySnapshot.docs[0];
-                    const existingMapData = existingMapDoc.data();
-                    const existingMarkers = existingMapData.markers || [];
-                    
-                    const updatedMarkers = [...existingMarkers];
-                    const existingMarkerIds = new Set(existingMarkers.map(m => m.id));
-
-                    allSelectedMarkers.forEach(selectedMarker => {
-                        if (!existingMarkerIds.has(selectedMarker.id)) {
-                            updatedMarkers.push(selectedMarker);
-                        }
+                    await updateDoc(existingMapDoc.ref, { 
+                        markers: allSelectedMarkers,
+                        name: `Business - ${dateString} ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} (${allSelectedMarkers.length} civici - ${totalItems} oggetti)`
                     });
-
-                    const totalItemsCombined = updatedMarkers.reduce((sum, marker) => sum + (marker.count || 0), 0);
-                    const timeString = today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                    const newName = `Business - ${dateString} ${timeString} (${updatedMarkers.length} civici - ${totalItemsCombined} oggetti)`;
-                    
-                    await setDoc(existingMapDoc.ref, { markers: updatedMarkers, name: newName }, { merge: true });
                     feedbackMsg = "Mappa Business di oggi aggiornata!";
 
                 } else { 
@@ -2102,13 +2157,24 @@
             const feedbackP = document.getElementById('business-map-list-feedback');
 
             try {
-                await updateDoc(mapRef, {
-                    mapType: 'zone',
-                    name: newName
-                });
-                feedbackP.textContent = 'Mappa archiviata con successo!';
-                feedbackP.classList.add('text-green-700');
-                setTimeout(() => feedbackP.textContent = '', 3000);
+                // Get business map markers and remove business-specific data
+                const businessMapSnap = await getDoc(mapRef);
+                if (businessMapSnap.exists()) {
+                    const businessMapData = businessMapSnap.data();
+                    const cleanedMarkers = (businessMapData.markers || []).map(({ count, type, ...rest }) => rest);
+                    
+                    await updateDoc(mapRef, {
+                        mapType: 'zone',
+                        name: newName,
+                        markers: cleanedMarkers // Save cleaned markers
+                    });
+
+                    feedbackP.textContent = 'Mappa archiviata con successo!';
+                    feedbackP.classList.add('text-green-700');
+                    setTimeout(() => feedbackP.textContent = '', 3000);
+                } else {
+                    throw new Error("Mappa business non trovata");
+                }
             } catch (error) {
                 console.error("Errore durante l'archiviazione della mappa:", error);
                 feedbackP.textContent = 'Errore durante l\'archiviazione.';
