@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -216,7 +217,7 @@
              </div>
         </div>
         <p id="save-order-feedback" class="text-center text-sm text-green-700 h-4"></p>
-        <div id="civici-order-list" class="overflow-y-auto p-2 space-y-2 bg-gray-100">
+        <div id="civici-order-list" class="overflow-y-auto p-2 bg-gray-100">
             <!-- La lista ordinabile verrà inserita qui -->
         </div>
     </div>
@@ -954,18 +955,21 @@
 
             sortedStreets.forEach(street => {
                 const streetMarkers = groupedByStreet[street];
+                const allSelected = streetMarkers.every(m => businessSelection.some(s => s.mapId === currentMapData.mapId && s.markerId === m.id));
                 
                 const details = document.createElement('details');
                 details.className = 'mb-2 border rounded-lg bg-white shadow-sm';
                 
                 const summary = document.createElement('summary');
-                summary.className = 'flex justify-between items-center bg-gray-100 p-3 rounded-t-lg cursor-pointer';
+                summary.className = 'flex justify-between items-center p-3 rounded-t-lg cursor-pointer';
+                summary.classList.add(allSelected ? 'bg-blue-100' : 'bg-gray-100'); // Add highlight
+                
                 summary.innerHTML = `
                     <div class="flex items-center gap-2">
                          <svg class="details-arrow w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                          <h3 class="font-bold text-gray-800">${street}</h3>
                     </div>
-                    <button class="toggle-street-selection-btn text-xs bg-blue-500 text-white font-semibold py-1 px-2 rounded hover:bg-blue-600" data-street="${street}">Seleziona Via</button>
+                    <button class="toggle-street-selection-btn text-xs font-semibold py-1 px-2 rounded ${allSelected ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-blue-500 text-white hover:bg-blue-600'}" data-street="${street}">${allSelected ? 'Deseleziona Via' : 'Seleziona Via'}</button>
                 `;
                 details.appendChild(summary);
 
@@ -1059,7 +1063,8 @@
             const container = containers.civiciOrderList;
             container.innerHTML = '';
             
-            // Group markers by street
+            currentMarkersToOrder.forEach((marker, index) => { marker.originalIndex = index; });
+
             groupedMarkersToOrder = currentMarkersToOrder.reduce((acc, marker) => {
                 const street = marker.street || 'Senza Via';
                 const existingStreet = acc.find(s => s.street === street);
@@ -1072,14 +1077,20 @@
             }, []);
 
             groupedMarkersToOrder.forEach((group, groupIndex) => {
-                const streetContainer = document.createElement('div');
-                streetContainer.className = 'bg-white rounded-lg border border-gray-300 mb-3 street-group';
-                streetContainer.dataset.groupIndex = groupIndex;
+                const details = document.createElement('details');
+                details.className = 'bg-white rounded-lg border border-gray-300 mb-3 street-group';
+                details.dataset.groupIndex = groupIndex;
+                details.open = true;
 
-                const header = document.createElement('div');
-                header.className = 'flex items-center justify-between bg-gray-200 p-2 rounded-t-lg cursor-grab active:cursor-grabbing handle';
-                header.innerHTML = `<h4 class="font-bold text-gray-700">${group.street}</h4>`;
-                streetContainer.appendChild(header);
+                const summary = document.createElement('summary');
+                summary.className = 'flex items-center justify-between bg-gray-200 p-3 rounded-t-lg cursor-grab active:cursor-grabbing handle';
+                summary.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <svg class="details-arrow w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        <h4 class="font-bold text-gray-700">${group.street}</h4>
+                    </div>
+                `;
+                details.appendChild(summary);
 
                 const civicList = document.createElement('div');
                 civicList.className = 'p-2 space-y-2 civic-list';
@@ -1088,7 +1099,7 @@
                 group.markers.forEach(marker => {
                     const listItem = document.createElement('div');
                     listItem.className = 'flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200 cursor-grab active:cursor-grabbing';
-                    listItem.dataset.id = marker.id; // Use unique marker ID
+                    listItem.dataset.id = marker.id;
                     listItem.innerHTML = `
                         <div class="flex items-center space-x-3 pointer-events-none">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M9 18v-6l-2 2M9 6v6l-2-2"/><path d="m15 12 2-2v6l-2-2"/><path d="m15 6 2 2v-6l-2 2"/></svg>
@@ -1097,8 +1108,8 @@
                     `;
                     civicList.appendChild(listItem);
                 });
-                streetContainer.appendChild(civicList);
-                container.appendChild(streetContainer);
+                details.appendChild(civicList);
+                container.appendChild(details);
             });
 
             setupSortables();
