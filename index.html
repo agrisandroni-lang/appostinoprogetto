@@ -45,7 +45,7 @@
             border-color: #FFD700; 
             transform-origin: center; 
             z-index: 1000;
-            animation: bounce 1.s infinite;
+            animation: bounce 1.5s infinite;
         }
 
         .leaflet-marker-icon.closest .custom-marker-label {
@@ -1273,7 +1273,9 @@
                 displayDelivery.type = selectionInfo.type;
             }
             
-            const typeIcon = getDeliveryTypeIcon(displayDelivery.type);
+            const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
+            const typeIcon = getDeliveryTypeIcon(isBusinessContext ? displayDelivery.type : null);
+            
             let currentDeliveryHtml = `
             <div class="flex items-start gap-3">
                 ${typeIcon ? `<div class="flex-shrink-0 mt-1">${typeIcon}</div>` : ''}
@@ -1283,7 +1285,7 @@
             if (displayDelivery.notes) {
                 currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${displayDelivery.notes}</p>`;
             }
-             if ((currentMapData.mapType === 'business' || selectionInfo) && displayDelivery.count > 0) {
+             if (isBusinessContext && displayDelivery.count > 0) {
                 currentDeliveryHtml += `<p class="font-bold text-orange-600">OGGETTI: ${displayDelivery.count}</p>`;
             }
             currentDeliveryHtml += `</div></div>`;
@@ -1312,17 +1314,18 @@
                         displayNextDelivery.count = nextSelectionInfo.count;
                         displayNextDelivery.type = nextSelectionInfo.type;
                     }
+                    const isNextBusinessContext = currentMapData.mapType === 'business' || !!nextSelectionInfo;
 
                     let deliveryHtml = `
                         <div class="flex items-start gap-2">
-                            <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(displayNextDelivery.type)}</div>
+                            <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(isNextBusinessContext ? displayNextDelivery.type : null)}</div>
                             <div class="flex-grow">
                                 <b>${displayNextDelivery.houseNumber}</b>, ${displayNextDelivery.street}`;
 
                     if (displayNextDelivery.notes) {
                         deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${displayNextDelivery.notes}</span>`;
                     }
-                    if ((currentMapData.mapType === 'business' || nextSelectionInfo) && displayNextDelivery.count > 0) {
+                    if (isNextBusinessContext && displayNextDelivery.count > 0) {
                         deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${displayNextDelivery.count}</span>`;
                     }
                     deliveryHtml += `</div></div>`;
