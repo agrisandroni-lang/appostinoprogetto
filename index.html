@@ -746,46 +746,42 @@
             unsubscribeMapDocListener = onSnapshot(mapRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    currentMapData = { ...currentMapData, ...data, markers: currentMapData?.markers || [] };
                     
-                    if (currentMapData.mode !== 'create' && currentMapData.markers.length > 0) {
-                        const lastMarker = currentMapData.markers[currentMapData.markers.length - 1];
-                        inputs.city.value = lastMarker.city;
-                        inputs.street.value = lastMarker.street;
+                    if (data.markers && data.markers.length > 0) {
+                        currentMapData = { ...currentMapData, ...data, markers: data.markers };
+                        allMarkersForList = data.markers;
+                        renderMarkers(data.markers);
+                        populateDatalists(data.markers);
+                        if (screens.allMarkers.classList.contains('active')) {
+                            renderAllMarkersList(data.markers);
+                        }
+                    } else {
+                        currentMapData = { ...currentMapData, ...data, markers: currentMapData?.markers || [] };
+                        
+                        if (!unsubscribeMarkersListener) {
+                            const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`));
+                            unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
+                                const markers = [];
+                                snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
+                                
+                                if (currentMapData) {
+                                    currentMapData.markers = markers;
+                                } else {
+                                    currentMapData = { markers: markers };
+                                }
+                                allMarkersForList = markers;
+                                renderMarkers(markers);
+                                populateDatalists(markers);
+
+                                if (screens.allMarkers.classList.contains('active')) {
+                                    renderAllMarkersList(allMarkersForList);
+                                }
+                            });
+                        }
                     }
                 } else {
                      if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
                         goBackToListScreen();
-                    }
-                }
-            });
-
-            const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`));
-            unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
-                const markers = [];
-                snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
-                
-                if (currentMapData) {
-                    currentMapData.markers = markers;
-                } else {
-                    currentMapData = { markers: markers };
-                }
-
-                renderMarkers(markers);
-                populateDatalists(markers);
-
-                if (screens.allMarkers.classList.contains('active')) {
-                    allMarkersForList = markers;
-                    const searchTerm = inputs.searchMarkers.value.toLowerCase();
-                    if (!searchTerm) {
-                        renderAllMarkersList(allMarkersForList);
-                    } else {
-                        const filteredMarkers = allMarkersForList.filter(m => 
-                            m.street.toLowerCase().includes(searchTerm) ||
-                            m.houseNumber.toLowerCase().includes(searchTerm) ||
-                            (m.notes && m.notes.toLowerCase().includes(searchTerm))
-                        );
-                        renderAllMarkersList(filteredMarkers);
                     }
                 }
             });
