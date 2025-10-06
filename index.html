@@ -1512,6 +1512,7 @@
             const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
             
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+            importFeedback.textContent = 'Creazione mappa...';
 
             try {
                 const mapRef = await addDoc(mapsCollectionRef, { 
@@ -1538,7 +1539,7 @@
                     
                     importFeedback.textContent = `Importazione in corso... (${totalWritten} di ${markers.length})`;
                     
-                    await sleep(1000); // Pausa di 1 secondo per non superare la quota
+                    await sleep(1200); // Pausa di 1.2 secondi per non superare la quota
                 }
 
                 importFeedback.textContent = `Mappa "${mapName}" creata con successo!`;
@@ -1550,7 +1551,7 @@
                 }, 3000);
             } catch(e) {
                 console.error("Errore salvataggio mappa:", e);
-                throw new Error("Impossibile salvare la mappa nel database.");
+                throw new Error("Impossibile salvare la mappa. Potresti aver superato la quota di scrittura. Riprova più tardi.");
             }
         };
 
