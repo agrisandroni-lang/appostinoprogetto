@@ -136,7 +136,7 @@
                 <button id="import-file-button" class="w-full bg-green-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors">
                     Importa Mappa da File
                 </button>
-                <input type="file" id="file-input" class="hidden" accept=".kml,.kmz,.csv">
+                <input type="file" id="file-input" class="hidden" accept=".csv">
                 <p id="import-feedback" class="text-center text-sm h-4 mt-4"></p>
                 <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
@@ -444,7 +444,24 @@
         const importFeedback = document.getElementById('import-feedback');
         const fileInput = document.getElementById('file-input');
 
+        // NUOVA FUNZIONE PER CHIUDERE TUTTI GLI ASCOLTATORI ATTIVI
+        const cleanupListeners = () => {
+            if (unsubscribeMapDocListener) {
+                unsubscribeMapDocListener();
+                unsubscribeMapDocListener = null;
+            }
+            if (unsubscribeMarkersListener) {
+                unsubscribeMarkersListener();
+                unsubscribeMarkersListener = null;
+            }
+        };
+
         const showScreen = (screenName) => {
+            // Pulisce i listener delle mappe quando si cambia schermata, tranne se si va alla home
+            if (screenName !== 'mapEditor' && screenName !== 'allMarkers' && screenName !== 'civiciOrder') {
+                cleanupListeners();
+            }
+
             Object.values(screens).forEach(screen => screen.classList.remove('active'));
             screens[screenName].classList.add('active');
             
@@ -736,17 +753,14 @@
             });
         };
 
-        // --- FUNZIONE CORRETTA E OTTIMIZZATA ---
         const attachMapListener = (mapId) => {
             const userId = auth.currentUser?.uid;
             if (!userId) return;
 
-            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
-            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
+            cleanupListeners();
 
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
 
-            // Listener per i dati della mappa (nome, etc.)
             unsubscribeMapDocListener = onSnapshot(mapRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const mapData = docSnap.data();
@@ -765,7 +779,6 @@
                 goBackToListScreen();
             });
 
-            // Listener per i civici, con ordinamento
             const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`), orderBy("order"));
             unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
                 const markers = [];
@@ -803,7 +816,7 @@
             const zoneMaps = [];
 
             mapsListData.forEach(map => {
-                const mapType = map.mapType || 'main'; // Default to 'main' if not specified
+                const mapType = map.mapType || 'main';
                 if (mapType === 'business') {
                     businessMaps.push(map);
                 } else if (mapType === 'zone') {
@@ -817,7 +830,6 @@
             businessMaps.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
             zoneMaps.sort((a,b) => a.name.localeCompare(b.name));
 
-            // Render Main Maps
             containers.mapList.innerHTML = mainMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa.</p>' : '';
             mainMaps.forEach(map => {
                 const selectionCount = businessSelection.filter(item => item.mapId === map.id).length;
@@ -836,7 +848,6 @@
                 containers.mapList.appendChild(mapDiv);
             });
 
-            // Render Business Maps
             containers.businessMapList.innerHTML = businessMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa Business.</p>' : '';
              businessMaps.forEach(map => {
                 const mapDiv = document.createElement('div');
@@ -854,7 +865,6 @@
                 containers.businessMapList.appendChild(mapDiv);
             });
 
-            // Render Zone Maps
             containers.zoneMapList.innerHTML = zoneMaps.length === 0 ? '<p class="text-center text-gray-500 mt-10">Non hai ancora creato nessuna mappa di zona.</p>' : '';
              zoneMaps.forEach(map => {
                 const mapDiv = document.createElement('div');
@@ -897,8 +907,7 @@
             Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
             if (temporaryMarker && map) { map.removeLayer(temporaryMarker); temporaryMarker = null; }
-            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
-            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
+            cleanupListeners();
             if (!map) initMap({ latitude: 43.464, longitude: 13.074 }); 
             
             toggleWakeLock(mode === 'view');
@@ -940,24 +949,11 @@
         };
         
         const showAllMarkersList = (mapData) => {
-            attachMapListener(currentMapData.mapId);
-            allMarkersForList = mapData.markers || [];
+            cleanupListeners();
+            attachMapListener(mapData.id);
             document.getElementById('all-markers-map-name').textContent = mapData.name;
             inputs.searchMarkers.value = '';
-            renderAllMarkersList(allMarkersForList);
             showScreen('allMarkers');
-
-            if (cameFromGita) {
-                setTimeout(() => {
-                    if (currentGitaIndex >= 0 && currentMapData.markers[currentGitaIndex]) {
-                        const currentMarkerId = currentMapData.markers[currentGitaIndex].id;
-                        const targetElement = document.querySelector(`#all-markers-list li[data-marker-id="${currentMarkerId}"]`);
-                        if (targetElement) {
-                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }
-                }, 100); 
-            }
         };
 
         const renderAllMarkersList = (markers) => {
@@ -977,7 +973,6 @@
                 return acc;
             }, {});
 
-            // Usa l'ordine dei marker per ordinare le strade
             const streetOrder = [...new Set(markers.map(m => m.street || 'Senza Via'))];
 
             streetOrder.forEach(street => {
@@ -1160,7 +1155,6 @@
             });
         }
         
-        // --- FUNZIONE SALVATAGGIO ORDINE OTTIMIZZATA ---
         const handleSaveOrder = async () => {
             const newOrderedMarkers = [];
             containers.civiciOrderList.querySelectorAll('.street-group').forEach(group => {
@@ -1364,7 +1358,6 @@
             buttons.nextGita.disabled = currentGitaIndex >= markers.length - 1;
         };
 
-        // --- FUNZIONE SALVATAGGIO MARKER CON CAMPO 'order' ---
         const handleSaveMarker = async () => {
             if (!temporaryMarker) return alert("Prima posiziona un segnaposto sulla mappa.");
             if (!currentMapData.mapId) {
@@ -1396,7 +1389,7 @@
                 street: inputs.street.value.trim().toUpperCase() || 'VIA SCONOSCIUTA', 
                 houseNumber: inputs.houseNumber.value.trim() || 'SNC',
                 notes: inputs.notes.value.trim(),
-                order: currentMapData.markers.length // Aggiunge il nuovo marker alla fine
+                order: currentMapData.markers ? currentMapData.markers.length : 0
             };
 
             try {
@@ -1418,7 +1411,7 @@
         };
         
         const openEditModal = (markerId) => {
-            const markerToEdit = currentMapData.markers.find(m => m.id === markerId);
+            const markerToEdit = allMarkersForList.find(m => m.id === markerId);
             if (!markerToEdit) return;
             const modal = document.getElementById('edit-marker-modal');
             const houseNumberInput = document.getElementById('edit-house-number-input');
@@ -1452,7 +1445,6 @@
             const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
             await deleteDoc(markerRef);
             map.closePopup();
-            // Potrebbe essere necessario riordinare dopo l'eliminazione, ma per ora lo lasciamo così per semplicità
         };
         
         const startRepositioning = (markerId) => {
@@ -1494,16 +1486,14 @@
         };
 
         const goBackToListScreen = () => {
-            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
-            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
+            cleanupListeners();
             currentMapData = null;
             showScreen(cameFromScreen);
         };
 
         const handleBackAction = () => {
             toggleWakeLock(false);
-             if (unsubscribeMapDocListener) unsubscribeMapDocListener();
-            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
+            cleanupListeners();
             currentMapData = null;
             currentGitaIndex = -1;
             document.getElementById('current-location-street').classList.add('hidden');
@@ -1516,10 +1506,13 @@
             event.target.value = null;
         };
         
+        // --- NUOVA FUNZIONE DI IMPORTAZIONE A BLOCCHI ---
         const createMapWithMarkers = async (mapName, markers) => {
             const userId = auth.currentUser.uid;
             const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
             
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
             try {
                 const mapRef = await addDoc(mapsCollectionRef, { 
                     name: mapName, 
@@ -1528,21 +1521,24 @@
                 });
 
                 const markersCollectionRef = collection(mapRef, 'markers');
-                let batch = writeBatch(db);
-                let count = 0;
+                const BATCH_SIZE = 200; // Scrive 200 civici alla volta
+                let totalWritten = 0;
 
-                for (const [index, marker] of markers.entries()) {
-                    const newMarkerRef = doc(markersCollectionRef);
-                    batch.set(newMarkerRef, {...marker, order: index}); // Aggiunge campo 'order'
-                    count++;
-                    if (count === 499) {
-                        await batch.commit();
-                        batch = writeBatch(db);
-                        count = 0;
-                    }
-                }
-                if (count > 0) {
+                for (let i = 0; i < markers.length; i += BATCH_SIZE) {
+                    const batch = writeBatch(db);
+                    const chunk = markers.slice(i, i + BATCH_SIZE);
+                    
+                    chunk.forEach((marker, index) => {
+                        const newMarkerRef = doc(markersCollectionRef);
+                        batch.set(newMarkerRef, {...marker, order: i + index});
+                    });
+                    
                     await batch.commit();
+                    totalWritten += chunk.length;
+                    
+                    importFeedback.textContent = `Importazione in corso... (${totalWritten} di ${markers.length})`;
+                    
+                    await sleep(1000); // Pausa di 1 secondo per non superare la quota
                 }
 
                 importFeedback.textContent = `Mappa "${mapName}" creata con successo!`;
@@ -1629,7 +1625,7 @@
                         }
                     }
                 } else {
-                     throw new Error("Formato file non supportato. Per ora, usa solo file .CSV con coordinate.");
+                     throw new Error("Formato file non supportato. Per ora, usa solo file .CSV.");
                 }
 
                 if (markersToCreate.length === 0) {
@@ -1653,7 +1649,11 @@
                 authStatus.textContent = "Errore durante l'accesso. Riprova.";
             });
         };
-        buttons.signOut.onclick = () => signOut(auth);
+        buttons.signOut.onclick = () => {
+            cleanupListeners();
+            if(unsubscribeMapsListListener) unsubscribeMapsListListener();
+            signOut(auth);
+        };
         buttons.goToCreate.onclick = () => openMapEditor('create');
         buttons.goToList.onclick = () => showScreen('mapList');
         buttons.backToHomeFromList.onclick = () => showScreen('home');
@@ -1714,7 +1714,7 @@
                     temporaryMarker = L.circleMarker(latLng, { radius: 8, color: 'red', weight: 3, fillColor: '#f03', fillOpacity: 0.5 }).addTo(map);
                     map.setView(latLng, 18);
                     infoText.textContent = 'Coordinate posizionate! Compila i dati e salva.';
-                    inputs.coordsPaste.value = ''; // Clear the input
+                    inputs.coordsPaste.value = '';
                 } else {
                    infoText.textContent = 'Formato coordinate non valido. Usa "lat, lon".';
                 }
@@ -1802,7 +1802,7 @@
             if(target.classList.contains('show-all-btn')) {
                 const mapData = mapsListData.get(mapId);
                 if (mapData) {
-                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name, mapType: mapData.mapType };
+                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name, mapType: mapData.mapType || 'main' };
                     showAllMarkersList(mapData);
                 }
             }
@@ -1832,6 +1832,7 @@
                 authStatus.classList.remove('text-green-600');
                 loggedInView.classList.add('hidden');
                 loggedOutView.classList.remove('hidden');
+                cleanupListeners();
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
@@ -1857,7 +1858,6 @@
             }
         });
 
-        // --- FUNZIONI LINEA BUSINESS ---
         const loadSelectionFromStorage = () => {
             const stored = localStorage.getItem(SELECTION_STORAGE_KEY);
             businessSelection = stored ? JSON.parse(stored) : [];
