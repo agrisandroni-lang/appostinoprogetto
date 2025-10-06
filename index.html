@@ -365,7 +365,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/modular/sortable.esm.js";
 
         const firebaseConfig = {
@@ -748,6 +748,7 @@
                     const data = docSnap.data();
                     
                     if (data.markers && data.markers.length > 0) {
+                        // Vecchia struttura dati
                         currentMapData = { ...currentMapData, ...data, markers: data.markers };
                         allMarkersForList = data.markers;
                         renderMarkers(data.markers);
@@ -755,7 +756,12 @@
                         if (screens.allMarkers.classList.contains('active')) {
                             renderAllMarkersList(data.markers);
                         }
+                        if (unsubscribeMarkersListener) {
+                            unsubscribeMarkersListener();
+                            unsubscribeMarkersListener = null;
+                        }
                     } else {
+                        // Nuova struttura dati
                         currentMapData = { ...currentMapData, ...data, markers: currentMapData?.markers || [] };
                         
                         if (!unsubscribeMarkersListener) {
