@@ -736,60 +736,71 @@
             });
         };
 
+        // --- FUNZIONE CORRETTA ---
         const attachMapListener = (mapId) => {
-            const userId = auth.currentUser?.uid; if (!userId) return;
-            
+            const userId = auth.currentUser?.uid;
+            if (!userId) return;
+
+            // Pulisce sempre i listener precedenti per evitare duplicati
             if (unsubscribeMapDocListener) unsubscribeMapDocListener();
             if (unsubscribeMarkersListener) unsubscribeMarkersListener();
 
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
+
+            // 1. PRIMO LISTENER: si occupa solo dei dati della MAPPA (nome, tipo, ecc.)
             unsubscribeMapDocListener = onSnapshot(mapRef, (docSnap) => {
                 if (docSnap.exists()) {
-                    const data = docSnap.data();
+                    const mapData = docSnap.data();
                     
-                    if (data.markers && data.markers.length > 0) {
-                        // Vecchia struttura dati
-                        currentMapData = { ...currentMapData, ...data, markers: data.markers };
-                        allMarkersForList = data.markers;
-                        renderMarkers(data.markers);
-                        populateDatalists(data.markers);
-                        if (screens.allMarkers.classList.contains('active')) {
-                            renderAllMarkersList(data.markers);
-                        }
-                        if (unsubscribeMarkersListener) {
-                            unsubscribeMarkersListener();
-                            unsubscribeMarkersListener = null;
-                        }
-                    } else {
-                        // Nuova struttura dati
-                        currentMapData = { ...currentMapData, ...data, markers: currentMapData?.markers || [] };
-                        
-                        if (!unsubscribeMarkersListener) {
-                            const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`));
-                            unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
-                                const markers = [];
-                                snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
-                                
-                                if (currentMapData) {
-                                    currentMapData.markers = markers;
-                                } else {
-                                    currentMapData = { markers: markers };
-                                }
-                                allMarkersForList = markers;
-                                renderMarkers(markers);
-                                populateDatalists(markers);
+                    // Inizializza o aggiorna i dati base della mappa, MA NON TOCCA I MARKERS
+                    // Mantiene i markers esistenti se già caricati, altrimenti li imposta a []
+                    currentMapData = { 
+                        ...currentMapData, // Mantiene lo stato precedente
+                        ...mapData,        // Aggiorna con i dati della mappa
+                        mapId: docSnap.id,
+                        markers: currentMapData?.markers || [] // Non azzera i markers!
+                    };
 
-                                if (screens.allMarkers.classList.contains('active')) {
-                                    renderAllMarkersList(allMarkersForList);
-                                }
-                            });
+                    // 2. SECONDO LISTENER: parte solo dopo aver ricevuto i dati della mappa e si occupa SOLO dei MARKERS
+                    if (unsubscribeMarkersListener) unsubscribeMarkersListener(); // Pulisce il listener dei marker se già attivo
+
+                    const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`));
+                    unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
+                        const markers = [];
+                        snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
+                        
+                        if (currentMapData) {
+                             // AGGIORNA *SOLO* LA PROPRIETÀ markers
+                            currentMapData.markers = markers;
+                        } else {
+                            // Caso limite in cui questo listener arrivi prima
+                            currentMapData = { markers: markers, mapId: mapId };
                         }
-                    }
+                        
+                        allMarkersForList = markers;
+                        renderMarkers(markers);
+                        populateDatalists(markers);
+
+                        if (screens.allMarkers.classList.contains('active')) {
+                            renderAllMarkersList(allMarkersForList);
+                        }
+                        if (screens.civiciOrder.classList.contains('active')) {
+                            currentMarkersToOrder = [...markers];
+                            renderOrderList();
+                        }
+                         if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
+                            updateGitaView();
+                        }
+                    });
+
                 } else {
-                     if (screens.mapEditor.classList.contains('active') || screens.allMarkers.classList.contains('active')) {
-                        goBackToListScreen();
-                    }
+                    // La mappa non esiste più, torna alla lista
+                    console.log("La mappa è stata eliminata.");
+                    goBackToListScreen();
                 }
+            }, (error) => {
+                console.error("Errore nell'ascolto della mappa:", error);
+                goBackToListScreen();
             });
         };
 
@@ -959,7 +970,7 @@
         const renderAllMarkersList = (markers) => {
             const container = containers.allMarkersList;
             container.innerHTML = '';
-            if(markers.length === 0) {
+            if(!markers || markers.length === 0) {
                 container.innerHTML = '<p class="text-center text-gray-500 p-8">Nessun civico in questa mappa.</p>';
                 return;
             }
@@ -1554,7 +1565,7 @@
 
                 for (const marker of markers) {
                     const newMarkerRef = doc(markersCollectionRef);
-                    batch.set(newMarkerRef, { ...marker, id: newMarkerRef.id }); // Add ID for future reference
+                    batch.set(newMarkerRef, marker); // CORRETTO: Salva l'oggetto marker così com'è
                     count++;
                     if (count === 499) { // Firestore batch limit is 500
                         await batch.commit();
@@ -1640,7 +1651,6 @@
 
                         if (!isNaN(lat) && !isNaN(lon)) {
                             markersToCreate.push({
-                                // id: Date.now().toString() + i, // ID will be generated by Firestore now
                                 latitude: lat,
                                 longitude: lon,
                                 city: values[cityIndex].toUpperCase(),
@@ -2113,7 +2123,7 @@
                     const batchAdd = writeBatch(db);
                     allSelectedMarkers.forEach(markerData => {
                         const newMarkerRef = doc(markersCollectionRef);
-                        batchAdd.set(newMarkerRef, { ...markerData, id: newMarkerRef.id });
+                        batchAdd.set(newMarkerRef, markerData); // CORRETTO
                     });
                     await batchAdd.commit();
                     feedbackMsg = "Mappa Business di oggi aggiornata!";
@@ -2129,7 +2139,7 @@
                     const batch = writeBatch(db);
                     allSelectedMarkers.forEach(markerData => {
                          const newMarkerRef = doc(markersCollectionRef);
-                         batch.set(newMarkerRef, { ...markerData, id: newMarkerRef.id });
+                         batch.set(newMarkerRef, markerData); // CORRETTO
                     });
                     await batch.commit();
                     feedbackMsg = 'Mappa Business creata con successo!';
@@ -2219,4 +2229,3 @@
     </script>
 </body>
 </html>
-
