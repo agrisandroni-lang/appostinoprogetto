@@ -404,7 +404,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let map, userMarker, temporaryMarker, markerClusterGroup;
+        let map, userMarker, temporaryMarker, markerClusterGroup, gitaMarkersLayer;
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -585,6 +585,8 @@
 
             markerClusterGroup = L.markerClusterGroup();
             map.addLayer(markerClusterGroup);
+            
+            gitaMarkersLayer = L.layerGroup(); // Non aggiungerlo alla mappa di default
 
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
@@ -659,13 +661,16 @@
             highlightClosestMarker({ latitude: coords.latitude, longitude: coords.longitude });
         };
         
-        const renderMarkers = (markers) => {
-            if (!map || !markerClusterGroup) return;
+        const renderMarkers = (markersToRender, useClustering = true) => {
+            if (!map) return;
             
             markerClusterGroup.clearLayers();
+            gitaMarkersLayer.clearLayers();
             currentMarkers = [];
 
-            markers.forEach(markerData => {
+            const targetLayer = useClustering ? markerClusterGroup : gitaMarkersLayer;
+
+            markersToRender.forEach(markerData => {
                 const streetColor = getStreetColor(markerData.street || 'default');
                 const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
                 const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
@@ -700,11 +705,7 @@
                 currentMarkers.push(marker);
             });
 
-            markerClusterGroup.addLayers(currentMarkers);
-
-             if (currentMapData?.mode === 'view') {
-                updateGitaUI();
-            }
+            targetLayer.addLayers(currentMarkers);
         };
         
         const getDistance = (coord1, coord2) => {
@@ -760,20 +761,21 @@
             });
         };
         
-        const updateGitaUI = () => {
-             const markers = allMarkersForList;
-            if (!markers || markers.length === 0 || currentGitaIndex < 0) return;
+        const updateGitaMarkerStyles = () => {
+             const markersOnMap = allMarkersForList;
+            if (!markersOnMap || markersOnMap.length === 0 || currentGitaIndex < 0) return;
             
-            const currentDelivery = markers[currentGitaIndex];
+            const currentDelivery = markersOnMap[currentGitaIndex];
             if (!currentDelivery) return;
 
+            // currentMarkers ora contiene solo la finestra di civici visibili
             currentMarkers.forEach(m => {
-                const markerIndex = markers.findIndex(marker => marker.id === m.markerData.id);
+                const markerDataIndex = markersOnMap.findIndex(marker => marker.id === m.markerData.id);
                 const isActive = m.markerData.id === currentDelivery.id;
                 
                 m.getElement()?.classList.toggle('gita-active', isActive);
                 
-                if (markerIndex < currentGitaIndex) {
+                if (markerDataIndex < currentGitaIndex) {
                     m.getElement()?.classList.add('opacity-40');
                 } else {
                     m.getElement()?.classList.remove('opacity-40');
@@ -786,7 +788,6 @@
                 }
             });
         }
-
 
         const populateDatalists = (markers = []) => {
             const citiesDatalist = document.getElementById('cities-list');
@@ -836,8 +837,13 @@
                 snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
                 
                 allMarkersForList = markers;
-                renderMarkers(markers);
                 populateDatalists(markers);
+
+                if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
+                    updateGitaView();
+                } else if (screens.mapEditor.classList.contains('active')) {
+                     renderMarkers(allMarkersForList, true);
+                }
 
                 if (screens.allMarkers.classList.contains('active')) {
                     renderAllMarkersList(allMarkersForList);
@@ -845,9 +851,6 @@
                 if (screens.civiciOrder.classList.contains('active')) {
                     currentMarkersToOrder = [...markers];
                     renderOrderList();
-                }
-                 if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
-                    updateGitaView();
                 }
             }, (error) => {
                 console.error("Errore nell'ascolto dei civici:", error);
@@ -958,6 +961,8 @@
             toggleWakeLock(mode === 'view');
             
             if (mode === 'view') {
+                map.removeLayer(markerClusterGroup);
+                map.addLayer(gitaMarkersLayer);
                 const mapData = mapsListData.get(mapId); 
                 currentGitaIndex = mapData?.lastGitaIndex || 0;
                 containers.gitaMode.classList.remove('hidden');
@@ -965,6 +970,8 @@
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
             } else {
+                map.removeLayer(gitaMarkersLayer);
+                map.addLayer(markerClusterGroup);
                 containers.gitaMode.classList.add('hidden');
                 containers.form.style.display = 'block';
                 buttons.backToMapListFromView.classList.add('hidden');
@@ -973,7 +980,7 @@
             }
 
             if (mode === 'create') {
-                renderMarkers([]);
+                renderMarkers([], true);
                 populateDatalists(); 
             } else {
                 attachMapListener(mapId); 
@@ -983,18 +990,19 @@
             
             setTimeout(() => { 
                 if (map) map.invalidateSize();
-                if (focusMarkerId) {
+                if (focusMarkerId && mode !== 'view') {
                    const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
                    if (leafletMarker) {
                        markerClusterGroup.zoomToShowLayer(leafletMarker, () => {
                            leafletMarker.openPopup();
                        });
                    }
+                } else if (mode === 'view') {
+                    adjustGitaMapView();
                 }
             }, 100);
         };
         
-        // --- FUNZIONE CORRETTA PER VISUALIZZA DATI ---
         const showAllMarkersList = (mapData) => {
             cleanupListeners(); 
             currentMapData = { ...mapData, id: mapData.id };
@@ -1299,42 +1307,39 @@
         };
 
         const updateGitaView = () => {
-            // Get new containers
             const progressTextEl = document.getElementById('gita-progress-text');
             const currentCardEl = document.getElementById('current-delivery-card');
             const nextListContainer = document.getElementById('next-deliveries-list');
             
-            // Handle empty/end of list
-            if (currentGitaIndex < 0 || !allMarkersForList || allMarkersForList.length === 0) {
-                 progressTextEl.textContent = 'Nessuna consegna';
-                 currentCardEl.innerHTML = '<p class="text-center text-gray-500 py-4">Nessun civico in questa mappa.</p>';
-                 nextListContainer.innerHTML = '';
-                 buttons.prevGita.disabled = true;
-                 buttons.nextGita.disabled = true;
+            if (currentGitaIndex < 0 || !allMarkersForList) {
                  return;
             }
-            
+
+            // 1. Calcola la finestra di civici da mostrare sulla mappa
+            const startIndex = Math.max(0, currentGitaIndex - 10);
+            const endIndex = Math.min(allMarkersForList.length, currentGitaIndex + 21); // 10 prima, attuale, 20 dopo
+            const markersToRender = allMarkersForList.slice(startIndex, endIndex);
+
+            // 2. Renderizza solo la finestra di civici
+            renderMarkers(markersToRender, false);
+            updateGitaMarkerStyles();
+            adjustGitaMapView();
+
+            // 3. Aggiorna i pannelli UI (card, lista, etc.)
             const markers = allMarkersForList;
             const totalMarkers = markers.length;
             const currentDelivery = markers[currentGitaIndex];
             
-            // This part should be safe to run even if currentDelivery is undefined (end of list)
             progressTextEl.textContent = `Civico ${Math.min(currentGitaIndex + 1, totalMarkers)} di ${totalMarkers}`;
             buttons.prevGita.disabled = currentGitaIndex === 0;
             buttons.nextGita.disabled = currentGitaIndex >= totalMarkers - 1;
 
             if (!currentDelivery) {
-                // This happens when currentGitaIndex === totalMarkers
                 currentCardEl.innerHTML = '<p class="text-center text-green-600 font-bold py-4">Giro completato!</p>';
                 nextListContainer.innerHTML = '';
                 return;
             }
             
-            // --- Update map markers UI and view ---
-            updateGitaUI();
-            adjustGitaMapView();
-            
-            // --- Build Current Delivery Card ---
             const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === currentDelivery.id);
             const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
             
@@ -1343,11 +1348,11 @@
                 displayDelivery.count = selectionInfo.count;
                 displayDelivery.type = selectionInfo.type;
             }
-            const typeIcon = getDeliveryTypeIcon(isBusinessContext ? displayDelivery.type : null, 'list'); // 'list' for bigger icon
+            const typeIcon = getDeliveryTypeIcon(isBusinessContext ? displayDelivery.type : null, 'list');
             
             const navLink = `https://www.google.com/maps/dir/?api=1&destination=${displayDelivery.latitude},${displayDelivery.longitude}`;
 
-            let currentDeliveryHtml = `
+            currentCardEl.innerHTML = `
                 <a href="${navLink}" target="_blank" class="block w-full bg-blue-50 hover:bg-blue-100 p-3 rounded-lg">
                     <div class="flex items-start gap-4">
                         ${typeIcon ? `<div class="flex-shrink-0 text-2xl">${typeIcon}</div>` : ''}
@@ -1359,11 +1364,9 @@
                     </div>
                      ${isBusinessContext && displayDelivery.count > 0 ? `<p class="mt-2 text-right font-bold text-orange-600 border-t pt-2">OGGETTI: ${displayDelivery.count}</p>` : ''}
                 </a>`;
-            currentCardEl.innerHTML = currentDeliveryHtml;
 
-            // --- Build Next Deliveries List ---
-            nextListContainer.innerHTML = ''; // Clear previous list
-            const nextDeliveries = markers.slice(currentGitaIndex + 1, currentGitaIndex + 6); // Show next 5
+            nextListContainer.innerHTML = '';
+            const nextDeliveries = markers.slice(currentGitaIndex + 1, currentGitaIndex + 6);
             
             if (nextDeliveries.length > 0) {
                 const list = document.createElement('ul');
@@ -1375,7 +1378,7 @@
                     const nextSelectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === m.id);
                     const isNextBusinessContext = currentMapData.mapType === 'business' || !!nextSelectionInfo;
 
-                    let deliveryHtml = `
+                    li.innerHTML = `
                         <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center font-bold text-gray-400">${currentGitaIndex + 2 + index}</div>
                         <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(isNextBusinessContext ? m.type : null)}</div>
                         <div class="flex-grow">
@@ -1383,7 +1386,6 @@
                             ${isNextBusinessContext && m.count > 0 ? `<span class="text-xs font-semibold text-orange-500 ml-2">(x${m.count})</span>` : ''}
                         </div>
                     `;
-                    li.innerHTML = deliveryHtml;
                     list.appendChild(li);
                 });
                 nextListContainer.appendChild(list);
