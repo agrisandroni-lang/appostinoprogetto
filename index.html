@@ -14,6 +14,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
+    <!-- NUOVO: Leaflet MarkerCluster JS & CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.js"></script>
+
     <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
@@ -43,31 +48,6 @@
             align-items: center;
             gap: 4px;
         }
-
-        .street-cluster-label {
-            background-color: rgba(255, 255, 255, 0.85);
-            border: 2px solid #333;
-            border-radius: 8px;
-            padding: 4px 8px;
-            font-weight: bold;
-            font-size: 14px;
-            text-align: center;
-            white-space: nowrap;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .street-cluster-label:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        .street-cluster-label .civic-count {
-            font-size: 11px;
-            font-weight: normal;
-            color: #555;
-            display: block;
-        }
-
 
         .leaflet-marker-icon.gita-active .custom-marker-label {
             border-color: #FFD700; 
@@ -410,8 +390,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let map, userMarker, temporaryMarker;
-        let streetClusterLayer, individualMarkersLayer;
+        let map, userMarker, temporaryMarker, markerClusterGroup;
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -433,8 +412,6 @@
         let groupedMarkersToOrder = [];
         let mainSortable = null;
         let streetSortables = [];
-
-        const ZOOM_THRESHOLD = 17;
         
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
@@ -592,10 +569,8 @@
                 maxNativeZoom: 19
             }).addTo(map);
 
-            streetClusterLayer = L.layerGroup().addTo(map);
-            individualMarkersLayer = L.layerGroup().addTo(map);
-
-            map.on('zoomend', () => updateMapView(allMarkersForList));
+            markerClusterGroup = L.markerClusterGroup();
+            map.addLayer(markerClusterGroup);
 
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
@@ -670,6 +645,54 @@
             highlightClosestMarker({ latitude: coords.latitude, longitude: coords.longitude });
         };
         
+        const renderMarkers = (markers) => {
+            if (!map || !markerClusterGroup) return;
+            
+            markerClusterGroup.clearLayers();
+            currentMarkers = [];
+
+            markers.forEach(markerData => {
+                const streetColor = getStreetColor(markerData.street || 'default');
+                const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
+                const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
+                const displayType = isBusinessContext ? (selectionInfo ? selectionInfo.type : markerData.type) : null;
+                const typeIconForMap = getDeliveryTypeIcon(displayType, 'map');
+
+                const customIcon = L.divIcon({ 
+                    className: 'custom-marker-container', 
+                    html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${typeIconForMap}<span>${markerData.houseNumber}</span></div>`,
+                });
+
+                let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
+                if(markerData.notes) {
+                    popupContent += `<br><small class="text-gray-600 italic">${markerData.notes}</small>`
+                }
+                
+                const navLink = `https://www.google.com/maps/dir/?api=1&destination=${markerData.latitude},${markerData.longitude}`;
+
+                popupContent += `<div class="flex justify-around items-center gap-2 mt-2">`;
+                if(currentMapData?.mode !== 'view') {
+                    popupContent += `
+                            <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
+                            <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
+                            <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
+                        `;
+                }
+                popupContent += `<a href="${navLink}" target="_blank" class="bg-green-500 text-white text-xs py-1 px-2 rounded">Naviga</a></div>`;
+
+                const marker = L.marker([markerData.latitude, markerData.longitude], { icon: customIcon });
+                marker.bindPopup(popupContent);
+                marker.markerData = markerData;
+                currentMarkers.push(marker);
+            });
+
+            markerClusterGroup.addLayers(currentMarkers);
+
+             if (currentMapData?.mode === 'view') {
+                updateGitaUI();
+            }
+        };
+        
         const getDistance = (coord1, coord2) => {
             const toRad = x => (x * Math.PI) / 180;
             const R = 6371e3;
@@ -721,98 +744,6 @@
             currentMarkers.forEach(marker => {
                 marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
             });
-        };
-
-        // --- NUOVO SISTEMA DI RENDERING A ZOOM DIFFERENZIATO ---
-
-        const updateMapView = (markers) => {
-            if (!map) return;
-            const zoom = map.getZoom();
-
-            streetClusterLayer.clearLayers();
-            individualMarkersLayer.clearLayers();
-            currentMarkers = [];
-
-            if (zoom < ZOOM_THRESHOLD) {
-                renderStreetClusters(markers);
-            } else {
-                renderIndividualMarkers(markers);
-            }
-        };
-
-        const renderStreetClusters = (markers) => {
-            const streets = {};
-            markers.forEach(marker => {
-                const street = marker.street || 'Senza Via';
-                if (!streets[street]) {
-                    streets[street] = [];
-                }
-                streets[street].push(marker);
-            });
-
-            for (const streetName in streets) {
-                const streetMarkers = streets[streetName];
-                const count = streetMarkers.length;
-                
-                const avgLat = streetMarkers.reduce((sum, m) => sum + m.latitude, 0) / count;
-                const avgLng = streetMarkers.reduce((sum, m) => sum + m.longitude, 0) / count;
-
-                const icon = L.divIcon({
-                    className: 'street-cluster-container',
-                    html: `<div class="street-cluster-label">${streetName}<span class="civic-count">${count} civici</span></div>`,
-                });
-
-                const marker = L.marker([avgLat, avgLng], { icon });
-                
-                marker.on('click', () => {
-                    const bounds = L.latLngBounds(streetMarkers.map(m => [m.latitude, m.longitude]));
-                    map.fitBounds(bounds.pad(0.1));
-                });
-                
-                streetClusterLayer.addLayer(marker);
-            }
-        };
-
-        const renderIndividualMarkers = (markers) => {
-            markers.forEach(markerData => {
-                const streetColor = getStreetColor(markerData.street || 'default');
-                const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
-                const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
-                const displayType = isBusinessContext ? (selectionInfo ? selectionInfo.type : markerData.type) : null;
-                const typeIconForMap = getDeliveryTypeIcon(displayType, 'map');
-
-                const customIcon = L.divIcon({ 
-                    className: 'custom-marker-container', 
-                    html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${typeIconForMap}<span>${markerData.houseNumber}</span></div>`,
-                });
-
-                let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
-                if(markerData.notes) {
-                    popupContent += `<br><small class="text-gray-600 italic">${markerData.notes}</small>`
-                }
-                
-                const navLink = `https://www.google.com/maps/dir/?api=1&destination=${markerData.latitude},${markerData.longitude}`;
-
-                popupContent += `<div class="flex justify-around items-center gap-2 mt-2">`;
-                if(currentMapData?.mode !== 'view') {
-                    popupContent += `
-                            <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
-                            <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
-                            <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
-                        `;
-                }
-                popupContent += `<a href="${navLink}" target="_blank" class="bg-green-500 text-white text-xs py-1 px-2 rounded">Naviga</a></div>`;
-
-                const marker = L.marker([markerData.latitude, markerData.longitude], { icon: customIcon });
-                marker.bindPopup(popupContent);
-                marker.markerData = markerData;
-                
-                currentMarkers.push(marker);
-                individualMarkersLayer.addLayer(marker);
-            });
-            if (currentMapData?.mode === 'view') {
-                updateGitaUI();
-            }
         };
         
         const updateGitaUI = () => {
@@ -891,7 +822,7 @@
                 snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
                 
                 allMarkersForList = markers;
-                updateMapView(markers); // Unica funzione di rendering
+                renderMarkers(markers);
                 populateDatalists(markers);
 
                 if (screens.allMarkers.classList.contains('active')) {
@@ -1028,7 +959,7 @@
             }
 
             if (mode === 'create') {
-                updateMapView([]);
+                renderMarkers([]);
                 populateDatalists(); 
             } else {
                 attachMapListener(mapId); 
@@ -1039,16 +970,11 @@
             setTimeout(() => { 
                 if (map) map.invalidateSize();
                 if (focusMarkerId) {
-                   const focusMarker = allMarkersForList.find(m => m.id === focusMarkerId);
-                   if (focusMarker) {
-                       map.setView([focusMarker.latitude, focusMarker.longitude], ZOOM_THRESHOLD + 1);
-                       // We need a small delay for the individual marker to be rendered
-                       setTimeout(() => {
-                            const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
-                            if (leafletMarker) {
-                                leafletMarker.openPopup();
-                            }
-                       }, 200);
+                   const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
+                   if (leafletMarker) {
+                       markerClusterGroup.zoomToShowLayer(leafletMarker, () => {
+                           leafletMarker.openPopup();
+                       });
                    }
                 }
             }, 100);
