@@ -7,10 +7,13 @@
     <!-- Icona Personalizzata App -->
     <link rel="icon" href="https://raw.githubusercontent.com/agrisandroni-lang/appostinoprogetto/main/icona-appostino.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/agrisandroni-lang/appostinoprogetto/main/icona-appostino.svg">
-    <!-- Fine Icona -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
     <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
@@ -40,6 +43,31 @@
             align-items: center;
             gap: 4px;
         }
+
+        .street-cluster-label {
+            background-color: rgba(255, 255, 255, 0.85);
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 4px 8px;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .street-cluster-label:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .street-cluster-label .civic-count {
+            font-size: 11px;
+            font-weight: normal;
+            color: #555;
+            display: block;
+        }
+
 
         .leaflet-marker-icon.gita-active .custom-marker-label {
             border-color: #FFD700; 
@@ -383,6 +411,7 @@
         const auth = getAuth(app);
 
         let map, userMarker, temporaryMarker;
+        let streetClusterLayer, individualMarkersLayer;
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -399,11 +428,13 @@
         let currentGitaIndex = -1; 
         let cameFromGita = false; 
         let businessSelection = [];
-        let cameFromScreen = 'mapList'; // 'mapList', 'businessMaps', 'zoneMaps'
+        let cameFromScreen = 'mapList';
         
         let groupedMarkersToOrder = [];
         let mainSortable = null;
         let streetSortables = [];
+
+        const ZOOM_THRESHOLD = 17;
         
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
@@ -444,7 +475,6 @@
         const importFeedback = document.getElementById('import-feedback');
         const fileInput = document.getElementById('file-input');
 
-        // NUOVA FUNZIONE PER CHIUDERE TUTTI GLI ASCOLTATORI ATTIVI
         const cleanupListeners = () => {
             if (unsubscribeMapDocListener) {
                 unsubscribeMapDocListener();
@@ -457,7 +487,6 @@
         };
 
         const showScreen = (screenName) => {
-            // Pulisce i listener delle mappe quando si cambia schermata, tranne se si va alla home
             if (screenName !== 'mapEditor' && screenName !== 'allMarkers' && screenName !== 'civiciOrder') {
                 cleanupListeners();
             }
@@ -548,7 +577,10 @@
         };
 
         const initMap = (coords) => {
-            if (map) return map.setView([coords.latitude, coords.longitude], 16);
+            if (map) {
+                map.setView([coords.latitude, coords.longitude], 16);
+                return;
+            };
             map = L.map('map-container', {maxZoom: 20}).setView([coords.latitude, coords.longitude], 16);
             
             map.createPane('userPane');
@@ -559,6 +591,11 @@
                 maxZoom: 20,
                 maxNativeZoom: 19
             }).addTo(map);
+
+            streetClusterLayer = L.layerGroup().addTo(map);
+            individualMarkersLayer = L.layerGroup().addTo(map);
+
+            map.on('zoomend', () => updateMapView(allMarkersForList));
 
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
@@ -582,11 +619,11 @@
         };
 
         const adjustGitaMapView = () => {
-            if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !currentMapData.markers || currentMapData.markers.length === 0 || !userMarker) {
+            if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !allMarkersForList || allMarkersForList.length === 0 || !userMarker) {
                 return;
             }
 
-            const currentDelivery = currentMapData.markers[currentGitaIndex];
+            const currentDelivery = allMarkersForList[currentGitaIndex];
             if (!currentDelivery) return;
 
             const leafletMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
@@ -633,10 +670,110 @@
             highlightClosestMarker({ latitude: coords.latitude, longitude: coords.longitude });
         };
         
-        const renderMarkers = (markers) => {
+        const getDistance = (coord1, coord2) => {
+            const toRad = x => (x * Math.PI) / 180;
+            const R = 6371e3;
+            const φ1 = toRad(coord1.latitude); const φ2 = toRad(coord2.latitude);
+            const Δφ = toRad(coord2.latitude - coord1.latitude); const Δλ = toRad(coord2.longitude - coord1.longitude);
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        };
+
+        const highlightClosestMarker = (userCoords) => {
+            const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
+            const currentLocationStreetDiv = document.getElementById('current-location-street');
+            
+            if (currentMarkers.length === 0 || !currentLocationStreetDiv) {
+                if(currentLocationStreetDiv) currentLocationStreetDiv.textContent = '';
+                return;
+            }
+
+            let closestForStreetName = { marker: null, distance: Infinity };
+            allMarkersForList.forEach(markerData => {
+                 const markerLatLng = L.latLng(markerData.latitude, markerData.longitude);
+                const distance = userLatLng.distanceTo(markerLatLng);
+                if (distance < closestForStreetName.distance) {
+                    closestForStreetName = { marker: { markerData }, distance };
+                }
+            });
+
+            if (closestForStreetName.marker && closestForStreetName.distance < 70) {
+                currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closestForStreetName.marker.markerData.street}`;
+            } else {
+                currentLocationStreetDiv.textContent = '';
+            }
+
+            let markerToHighlight = null;
+            if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
+                const currentDelivery = allMarkersForList[currentGitaIndex];
+                if(currentDelivery) {
+                     const activeMarkerLatLng = L.latLng(currentDelivery.latitude, currentDelivery.longitude);
+                    if (userLatLng.distanceTo(activeMarkerLatLng) < 20) {
+                        markerToHighlight = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+                    }
+                }
+            } else {
+                if (closestForStreetName.distance < 20) {
+                    markerToHighlight = currentMarkers.find(m => m.markerData.id === closestForStreetName.marker.markerData.id);
+                }
+            }
+
+            currentMarkers.forEach(marker => {
+                marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
+            });
+        };
+
+        // --- NUOVO SISTEMA DI RENDERING A ZOOM DIFFERENZIATO ---
+
+        const updateMapView = (markers) => {
             if (!map) return;
-            currentMarkers.forEach(m => map.removeLayer(m));
+            const zoom = map.getZoom();
+
+            streetClusterLayer.clearLayers();
+            individualMarkersLayer.clearLayers();
             currentMarkers = [];
+
+            if (zoom < ZOOM_THRESHOLD) {
+                renderStreetClusters(markers);
+            } else {
+                renderIndividualMarkers(markers);
+            }
+        };
+
+        const renderStreetClusters = (markers) => {
+            const streets = {};
+            markers.forEach(marker => {
+                const street = marker.street || 'Senza Via';
+                if (!streets[street]) {
+                    streets[street] = [];
+                }
+                streets[street].push(marker);
+            });
+
+            for (const streetName in streets) {
+                const streetMarkers = streets[streetName];
+                const count = streetMarkers.length;
+                
+                const avgLat = streetMarkers.reduce((sum, m) => sum + m.latitude, 0) / count;
+                const avgLng = streetMarkers.reduce((sum, m) => sum + m.longitude, 0) / count;
+
+                const icon = L.divIcon({
+                    className: 'street-cluster-container',
+                    html: `<div class="street-cluster-label">${streetName}<span class="civic-count">${count} civici</span></div>`,
+                });
+
+                const marker = L.marker([avgLat, avgLng], { icon });
+                
+                marker.on('click', () => {
+                    const bounds = L.latLngBounds(streetMarkers.map(m => [m.latitude, m.longitude]));
+                    map.fitBounds(bounds.pad(0.1));
+                });
+                
+                streetClusterLayer.addLayer(marker);
+            }
+        };
+
+        const renderIndividualMarkers = (markers) => {
             markers.forEach(markerData => {
                 const streetColor = getStreetColor(markerData.street || 'default');
                 const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
@@ -647,8 +784,6 @@
                 const customIcon = L.divIcon({ 
                     className: 'custom-marker-container', 
                     html: `<div class="custom-marker-label" style="background-color: ${streetColor};">${typeIconForMap}<span>${markerData.houseNumber}</span></div>`,
-                    iconSize: [0, 0], 
-                    iconAnchor: [0, 0] 
                 });
 
                 let popupContent = `<b>${markerData.street}, ${markerData.houseNumber}</b>`;
@@ -668,73 +803,45 @@
                 }
                 popupContent += `<a href="${navLink}" target="_blank" class="bg-green-500 text-white text-xs py-1 px-2 rounded">Naviga</a></div>`;
 
-                const marker = L.marker([markerData.latitude, markerData.longitude], { icon: customIcon }).addTo(map).bindPopup(popupContent);
+                const marker = L.marker([markerData.latitude, markerData.longitude], { icon: customIcon });
+                marker.bindPopup(popupContent);
                 marker.markerData = markerData;
+                
                 currentMarkers.push(marker);
+                individualMarkersLayer.addLayer(marker);
             });
-             if (currentMapData?.mode === 'view') {
-                updateGitaView();
+            if (currentMapData?.mode === 'view') {
+                updateGitaUI();
             }
         };
         
-        const getDistance = (coord1, coord2) => {
-            const toRad = x => (x * Math.PI) / 180;
-            const R = 6371e3;
-            const φ1 = toRad(coord1.latitude); const φ2 = toRad(coord2.latitude);
-            const Δφ = toRad(coord2.latitude - coord1.latitude); const Δλ = toRad(coord2.longitude - coord1.longitude);
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-        };
-
-        const highlightClosestMarker = (userCoords) => {
-            const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
-            const currentLocationStreetDiv = document.getElementById('current-location-street');
+        const updateGitaUI = () => {
+             const markers = allMarkersForList;
+            if (!markers || markers.length === 0 || currentGitaIndex < 0) return;
             
-            if (currentMarkers.length === 0 || !currentLocationStreetDiv) {
-                if(currentLocationStreetDiv) currentLocationStreetDiv.textContent = '';
-                return;
-            }
+            const currentDelivery = markers[currentGitaIndex];
+            if (!currentDelivery) return;
 
-            // 1. Trova sempre il marcatore fisicamente più vicino per mostrare il nome della via
-            let closestForStreetName = { marker: null, distance: Infinity };
-            currentMarkers.forEach(marker => {
-                const distance = userLatLng.distanceTo(marker.getLatLng());
-                if (distance < closestForStreetName.distance) {
-                    closestForStreetName = { marker, distance };
+            currentMarkers.forEach(m => {
+                const markerIndex = markers.findIndex(marker => marker.id === m.markerData.id);
+                const isActive = m.markerData.id === currentDelivery.id;
+                
+                m.getElement()?.classList.toggle('gita-active', isActive);
+                
+                if (markerIndex < currentGitaIndex) {
+                    m.getElement()?.classList.add('opacity-40');
+                } else {
+                    m.getElement()?.classList.remove('opacity-40');
+                }
+
+                if (isActive) {
+                    m.setZIndexOffset(1000);
+                } else {
+                    m.setZIndexOffset(0);
                 }
             });
+        }
 
-            // 2. Aggiorna il testo della via se sei abbastanza vicino (soglia: 70 metri)
-            if (closestForStreetName.marker && closestForStreetName.distance < 70) {
-                currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closestForStreetName.marker.markerData.street}`;
-            } else {
-                currentLocationStreetDiv.textContent = '';
-            }
-
-            // 3. Separatamente, determina quale marcatore evidenziare in rosso
-            let markerToHighlight = null;
-            if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
-                // In modalità Gita, l'obiettivo è il marcatore della consegna ATTIVA
-                const currentDelivery = currentMapData.markers[currentGitaIndex];
-                if(currentDelivery) {
-                    const activeMarker = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
-                    // Evidenzialo se sei a meno di 20m da LUI
-                    if (activeMarker && userLatLng.distanceTo(activeMarker.getLatLng()) < 20) {
-                        markerToHighlight = activeMarker;
-                    }
-                }
-            } else {
-                // Nelle altre modalità, l'obiettivo è il marcatore fisicamente più vicino
-                if (closestForStreetName.distance < 20) {
-                    markerToHighlight = closestForStreetName.marker;
-                }
-            }
-
-            // 4. Applica la classe '.closest' solo al marcatore da evidenziare
-            currentMarkers.forEach(marker => {
-                marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
-            });
-        };
 
         const populateDatalists = (markers = []) => {
             const citiesDatalist = document.getElementById('cities-list');
@@ -767,8 +874,7 @@
                     currentMapData = { 
                         ...currentMapData,
                         ...mapData,
-                        mapId: docSnap.id,
-                        markers: currentMapData?.markers || []
+                        mapId: docSnap.id
                     };
                 } else {
                     console.log("La mappa è stata eliminata.");
@@ -784,14 +890,8 @@
                 const markers = [];
                 snapshot.forEach(doc => markers.push({ id: doc.id, ...doc.data() }));
                 
-                if (currentMapData) {
-                    currentMapData.markers = markers;
-                } else {
-                    currentMapData = { markers: markers, mapId: mapId };
-                }
-                
                 allMarkersForList = markers;
-                renderMarkers(markers);
+                updateMapView(markers); // Unica funzione di rendering
                 populateDatalists(markers);
 
                 if (screens.allMarkers.classList.contains('active')) {
@@ -805,8 +905,8 @@
                     updateGitaView();
                 }
             }, (error) => {
-                console.error("Errore nell'ascolto dei civici (potrebbe mancare un indice in Firestore):", error);
-                alert("Errore nel caricamento dei civici. Controlla la console per creare l'indice mancante in Firestore.");
+                console.error("Errore nell'ascolto dei civici:", error);
+                alert("Errore nel caricamento dei civici. Potrebbe mancare un indice in Firestore. Controlla la console per il link per crearlo.");
             });
         };
 
@@ -928,7 +1028,7 @@
             }
 
             if (mode === 'create') {
-                renderMarkers([]);
+                updateMapView([]);
                 populateDatalists(); 
             } else {
                 attachMapListener(mapId); 
@@ -939,20 +1039,29 @@
             setTimeout(() => { 
                 if (map) map.invalidateSize();
                 if (focusMarkerId) {
-                    const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
-                    if (leafletMarker) {
-                        map.setView(leafletMarker.getLatLng(), 20);
-                        leafletMarker.openPopup();
-                    }
+                   const focusMarker = allMarkersForList.find(m => m.id === focusMarkerId);
+                   if (focusMarker) {
+                       map.setView([focusMarker.latitude, focusMarker.longitude], ZOOM_THRESHOLD + 1);
+                       // We need a small delay for the individual marker to be rendered
+                       setTimeout(() => {
+                            const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
+                            if (leafletMarker) {
+                                leafletMarker.openPopup();
+                            }
+                       }, 200);
+                   }
                 }
             }, 100);
         };
         
+        // --- FUNZIONE CORRETTA PER VISUALIZZA DATI ---
         const showAllMarkersList = (mapData) => {
-            cleanupListeners();
-            attachMapListener(mapData.id);
+            cleanupListeners(); 
+            currentMapData = { ...mapData, id: mapData.id };
+            attachMapListener(mapData.id); 
             document.getElementById('all-markers-map-name').textContent = mapData.name;
             inputs.searchMarkers.value = '';
+            containers.allMarkersList.innerHTML = '<div class="flex justify-center items-center p-8"><div class="spinner"></div></div>';
             showScreen('allMarkers');
         };
 
@@ -979,7 +1088,7 @@
                 const streetMarkers = groupedByStreet[street];
                 if (!streetMarkers) return;
                 
-                const allSelected = streetMarkers.every(m => businessSelection.some(s => s.mapId === currentMapData.mapId && s.markerId === m.id));
+                const allSelected = streetMarkers.every(m => businessSelection.some(s => s.mapId === currentMapData.id && s.markerId === m.id));
                 
                 const details = document.createElement('details');
                 details.className = 'mb-2 border rounded-lg bg-white shadow-sm';
@@ -1003,7 +1112,7 @@
                 streetMarkers.forEach(marker => {
                     const li = document.createElement('li');
                     li.className = 'p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center';
-                    const isSelected = businessSelection.some(item => item.mapId === currentMapData.mapId && item.markerId === marker.id);
+                    const isSelected = businessSelection.some(item => item.mapId === currentMapData.id && item.markerId === marker.id);
                     if (isSelected) {
                         li.classList.add('business-selected');
                     }
@@ -1051,7 +1160,7 @@
 
             document.getElementById('action-view').onclick = () => {
                 modal.style.display = 'none';
-                openMapEditor(currentMapData.mode, currentMapData.mapId, markerId);
+                openMapEditor('edit', currentMapData.id, markerId);
             };
             document.getElementById('action-edit').onclick = () => {
                 modal.style.display = 'none';
@@ -1168,7 +1277,7 @@
             });
 
             const userId = auth.currentUser.uid;
-            const mapId = currentMapData.mapId;
+            const mapId = currentMapData.id;
             const feedbackP = document.getElementById('save-order-feedback');
             
             try {
@@ -1239,9 +1348,9 @@
         };
 
         const saveGitaProgress = async () => {
-            if (currentMapData?.mode !== 'view' || !currentMapData?.mapId || auth.currentUser == null || currentGitaIndex < 0) return;
+            if (currentMapData?.mode !== 'view' || !currentMapData?.id || auth.currentUser == null || currentGitaIndex < 0) return;
             const userId = auth.currentUser.uid;
-            const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.mapId);
+            const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, currentMapData.id);
             try {
                 await updateDoc(mapRef, { lastGitaIndex: currentGitaIndex });
             } catch (error) {
@@ -1251,41 +1360,23 @@
 
         const updateGitaView = () => {
             const currentStreetNameEl = document.getElementById('current-street-name');
-            if (currentGitaIndex < 0 || !currentMapData || !currentMapData.markers || currentMapData.markers.length === 0) {
+            if (currentGitaIndex < 0 || !allMarkersForList || allMarkersForList.length === 0) {
                  currentStreetNameEl.innerHTML = '<p class="text-lg font-bold text-gray-800">Nessun civico</p>';
                  document.getElementById('next-deliveries-list').innerHTML = '';
                  return;
             }
             
-            const markers = currentMapData.markers;
+            const markers = allMarkersForList;
             const currentDelivery = markers[currentGitaIndex];
             if (!currentDelivery) return;
             
             const navLink = `https://www.google.com/maps/dir/?api=1&destination=${currentDelivery.latitude},${currentDelivery.longitude}`;
             currentStreetNameEl.href = navLink;
 
-            currentMarkers.forEach(m => {
-                const markerIndex = currentMapData.markers.findIndex(marker => marker.id === m.markerData.id);
-                const isActive = m.markerData.id === currentDelivery.id;
-                
-                m.getElement()?.classList.toggle('gita-active', isActive);
-                
-                if (markerIndex < currentGitaIndex) {
-                    m.getElement()?.classList.add('opacity-40');
-                } else {
-                    m.getElement()?.classList.remove('opacity-40');
-                }
-
-                if (isActive) {
-                    m.setZIndexOffset(1000);
-                } else {
-                    m.setZIndexOffset(0);
-                }
-            });
-
+            updateGitaUI();
             adjustGitaMapView();
             
-            const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === currentDelivery.id);
+            const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === currentDelivery.id);
             const displayDelivery = {...currentDelivery };
             if(selectionInfo){
                 displayDelivery.count = selectionInfo.count;
@@ -1327,7 +1418,7 @@
                     const li = document.createElement('li');
                     li.className = 'p-2 text-sm';
                     
-                    const nextSelectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === m.id);
+                    const nextSelectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === m.id);
                     const displayNextDelivery = {...m };
                      if(nextSelectionInfo){
                         displayNextDelivery.count = nextSelectionInfo.count;
@@ -1360,8 +1451,8 @@
 
         const handleSaveMarker = async () => {
             if (!temporaryMarker) return alert("Prima posiziona un segnaposto sulla mappa.");
-            if (!currentMapData.mapId) {
-                if(!inputs.mapName.value) return alert("Dai un nome alla mappa.");
+            if (!currentMapData.mapId && !inputs.mapName.value) {
+                 return alert("Dai un nome alla mappa.");
             }
             
             const userId = auth.currentUser.uid;
@@ -1389,7 +1480,7 @@
                 street: inputs.street.value.trim().toUpperCase() || 'VIA SCONOSCIUTA', 
                 houseNumber: inputs.houseNumber.value.trim() || 'SNC',
                 notes: inputs.notes.value.trim(),
-                order: currentMapData.markers ? currentMapData.markers.length : 0
+                order: allMarkersForList ? allMarkersForList.length : 0
             };
 
             try {
@@ -1427,7 +1518,7 @@
 
         const handleUpdateMarker = async (markerId) => {
             const userId = auth.currentUser.uid;
-            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
+            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.id}/markers`, markerId);
             
             const houseNumberInput = document.getElementById('edit-house-number-input');
             const notesInput = document.getElementById('edit-notes-input');
@@ -1442,7 +1533,7 @@
 
         const handleDeleteMarker = async (markerId) => {
             const userId = auth.currentUser.uid;
-            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
+            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.id}/markers`, markerId);
             await deleteDoc(markerRef);
             map.closePopup();
         };
@@ -1457,7 +1548,7 @@
         const finishRepositioning = async (newLatLng) => {
             const { markerId } = repositioningState;
             const userId = auth.currentUser.uid;
-            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.mapId}/markers`, markerId);
+            const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.id}/markers`, markerId);
 
             await updateDoc(markerRef, {
                 latitude: newLatLng.lat,
@@ -1506,7 +1597,6 @@
             event.target.value = null;
         };
         
-        // --- NUOVA FUNZIONE DI IMPORTAZIONE A BLOCCHI ---
         const createMapWithMarkers = async (mapName, markers) => {
             const userId = auth.currentUser.uid;
             const mapsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps`);
@@ -1522,7 +1612,7 @@
                 });
 
                 const markersCollectionRef = collection(mapRef, 'markers');
-                const BATCH_SIZE = 200; // Scrive 200 civici alla volta
+                const BATCH_SIZE = 200;
                 let totalWritten = 0;
 
                 for (let i = 0; i < markers.length; i += BATCH_SIZE) {
@@ -1539,7 +1629,7 @@
                     
                     importFeedback.textContent = `Importazione in corso... (${totalWritten} di ${markers.length})`;
                     
-                    await sleep(1200); // Pausa di 1.2 secondi per non superare la quota
+                    await sleep(1200);
                 }
 
                 importFeedback.textContent = `Mappa "${mapName}" creata con successo!`;
@@ -1665,7 +1755,7 @@
         buttons.backToMapListFromAll.onclick = () => {
              if (cameFromGita) {
                  cameFromGita = false;
-                 openMapEditor('view', currentMapData.mapId); 
+                 openMapEditor('view', currentMapData.id); 
              } else {
                  goBackToListScreen();
              }
@@ -1678,7 +1768,7 @@
         buttons.backToAllMarkersList.onclick = () => showScreen('allMarkers');
 
         buttons.nextGita.onclick = () => {
-            if (currentMapData && currentGitaIndex < currentMapData.markers.length - 1) {
+            if (allMarkersForList && currentGitaIndex < allMarkersForList.length - 1) {
                 currentGitaIndex++;
                 updateGitaView();
                 saveGitaProgress();
@@ -1753,17 +1843,17 @@
             const streetMarkers = allMarkersForList.filter(m => m.street === streetName);
             const streetMarkerIds = streetMarkers.map(m => m.id);
 
-            const areAnySelected = streetMarkers.some(m => businessSelection.some(s => s.mapId === currentMapData.mapId && s.markerId === m.id));
+            const areAnySelected = streetMarkers.some(m => businessSelection.some(s => s.mapId === currentMapData.id && s.markerId === m.id));
 
             if (areAnySelected) {
                 businessSelection = businessSelection.filter(s => {
-                    return s.mapId !== currentMapData.mapId || !streetMarkerIds.includes(s.markerId);
+                    return s.mapId !== currentMapData.id || !streetMarkerIds.includes(s.markerId);
                 });
             } else {
                 streetMarkers.forEach(marker => {
-                    const isAlreadyIn = businessSelection.some(s => s.mapId === currentMapData.mapId && s.markerId === marker.id);
+                    const isAlreadyIn = businessSelection.some(s => s.mapId === currentMapData.id && s.markerId === marker.id);
                     if (!isAlreadyIn) {
-                        businessSelection.push({ mapId: currentMapData.mapId, markerId: marker.id, count: 1, type: 'pacco' });
+                        businessSelection.push({ mapId: currentMapData.id, markerId: marker.id, count: 1, type: 'pacco' });
                     }
                 });
             }
@@ -1803,7 +1893,6 @@
             if(target.classList.contains('show-all-btn')) {
                 const mapData = mapsListData.get(mapId);
                 if (mapData) {
-                    currentMapData = { mode: 'edit', mapId: mapData.id, name: mapData.name, mapType: mapData.mapType || 'main' };
                     showAllMarkersList(mapData);
                 }
             }
@@ -1921,7 +2010,7 @@
             
             titleEl.textContent = `${marker.street}, ${marker.houseNumber}`;
 
-            const selection = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
+            const selection = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === markerId);
             let currentCount = selection ? selection.count : 1;
             const selectedType = selection ? selection.type : 'pacco';
             countDisplay.textContent = currentCount;
@@ -1974,14 +2063,14 @@
         });
 
         const updateBusinessItem = (markerId, count, type) => {
-             const selectionIndex = businessSelection.findIndex(item => item.mapId === currentMapData.mapId && item.markerId === markerId);
+             const selectionIndex = businessSelection.findIndex(item => item.mapId === currentMapData.id && item.markerId === markerId);
 
             if (count > 0) {
                 if (selectionIndex > -1) {
                     businessSelection[selectionIndex].count = count;
                     businessSelection[selectionIndex].type = type;
                 } else {
-                    businessSelection.push({ mapId: currentMapData.mapId, markerId: markerId, count: count, type: type });
+                    businessSelection.push({ mapId: currentMapData.id, markerId: markerId, count: count, type: type });
                 }
             } else {
                 if (selectionIndex > -1) {
