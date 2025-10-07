@@ -672,7 +672,7 @@
 
             markersToRender.forEach(markerData => {
                 const streetColor = getStreetColor(markerData.street || 'default');
-                const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.mapId && item.markerId === markerData.id);
+                const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === markerData.id);
                 const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
                 const displayType = isBusinessContext ? (selectionInfo ? selectionInfo.type : markerData.type) : null;
                 const typeIconForMap = getDeliveryTypeIcon(displayType, 'map');
@@ -705,7 +705,13 @@
                 currentMarkers.push(marker);
             });
 
-            targetLayer.addLayers(currentMarkers);
+            if (targetLayer.addLayers) { // MarkerClusterGroup has this method
+                targetLayer.addLayers(currentMarkers);
+            } else { // LayerGroup does not, so iterate
+                currentMarkers.forEach(marker => {
+                    targetLayer.addLayer(marker);
+                });
+            }
         };
         
         const getDistance = (coord1, coord2) => {
@@ -820,7 +826,7 @@
                     currentMapData = { 
                         ...currentMapData,
                         ...mapData,
-                        mapId: docSnap.id
+                        id: docSnap.id
                     };
                 } else {
                     console.log("La mappa è stata eliminata.");
@@ -951,7 +957,7 @@
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
             streetColorMap.clear();
             currentHue = Math.random() * 360;
-            currentMapData = { mode, mapId };
+            currentMapData = { mode, id: mapId };
             Object.values(inputs).forEach(i => { if(i) i.value = ''; });
             infoText.textContent = 'Tocca la mappa per posizionare un segnaposto.';
             if (temporaryMarker && map) { map.removeLayer(temporaryMarker); temporaryMarker = null; }
@@ -1394,13 +1400,13 @@
 
         const handleSaveMarker = async () => {
             if (!temporaryMarker) return alert("Prima posiziona un segnaposto sulla mappa.");
-            if (!currentMapData.mapId && !inputs.mapName.value) {
+            if (!currentMapData.id && !inputs.mapName.value) {
                  return alert("Dai un nome alla mappa.");
             }
             
             const userId = auth.currentUser.uid;
             
-            let mapIdToSaveTo = currentMapData.mapId;
+            let mapIdToSaveTo = currentMapData.id;
 
             if (!mapIdToSaveTo) {
                 const newMapRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/maps`), { 
@@ -1409,7 +1415,7 @@
                     mapType: 'main'
                 });
                 mapIdToSaveTo = newMapRef.id;
-                currentMapData.mapId = mapIdToSaveTo;
+                currentMapData.id = mapIdToSaveTo;
                 inputs.mapName.style.display = 'none';
                 attachMapListener(mapIdToSaveTo);
             }
