@@ -239,23 +239,37 @@
         </div>
         
         <!-- Contenitore per Gita Mode -->
-        <div id="gita-mode-container" class="hidden flex-shrink-0 flex flex-col" style="height: 45vh;">
-             <!-- RIGA 1 (NUOVA): Navigazione e Via Vicina -->
-             <div class="p-2 bg-gray-50 border-b">
-                 <div id="current-location-street" class="text-center text-base font-bold text-gray-700 mb-2 h-5"></div>
-                 <div id="gita-nav-buttons" class="flex justify-between items-center">
-                     <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-xl disabled:bg-gray-400 aspect-square">&lt;</button>
-                     <button id="next-gita-btn" class="bg-blue-600/75 text-white font-bold py-3 px-6 rounded-full shadow-lg text-lg disabled:bg-gray-400">SUCCESSIVO</button>
-                 </div>
-             </div>
-             <!-- RIGA 2: Titolo e Reset -->
-             <div class="p-2 bg-white shadow-lg flex justify-between items-center border-b min-h-[60px]">
-                 <a id="current-street-name" href="#" target="_blank" class="block w-full"></a>
-                 <button id="reset-gita-btn" class="text-xs bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
-             </div>
-             <!-- RIGA 3: Lista Consegne -->
-             <div id="next-deliveries-list" class="bg-white p-1 flex-grow overflow-y-auto">
-                 <!-- Lista prossime 10 consegne -->
+        <div id="gita-mode-container" class="hidden flex-shrink-0 flex-col bg-gray-100" style="height: 45vh;">
+            <!-- RIGA 1: Navigazione -->
+            <div class="p-2 bg-gray-800 text-white flex justify-between items-center shadow-md">
+                <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-2xl disabled:bg-gray-400 aspect-square flex items-center justify-center leading-none">&lt;</button>
+                <div class="text-center">
+                    <h3 class="text-lg font-bold">Gita in corso</h3>
+                    <div id="gita-progress-text" class="text-sm text-gray-300"></div>
+                </div>
+                <button id="next-gita-btn" class="bg-blue-500 text-white font-bold p-3 rounded-full shadow-lg text-2xl disabled:bg-gray-400 aspect-square flex items-center justify-center leading-none">&gt;</button>
+            </div>
+
+            <!-- RIGA 2: Card Consegna Attuale -->
+            <div id="current-delivery-card" class="p-3 bg-white border-b border-gray-200 shadow-lg">
+                <!-- Contenuto inserito da JS -->
+            </div>
+
+            <!-- RIGA 3: Lista Prossime Consegne -->
+            <div class="flex-grow overflow-y-auto">
+                <div class="p-2 flex justify-between items-center bg-gray-200">
+                    <p class="font-semibold text-gray-700 text-sm">Prossime fermate:</p>
+                    <button id="gita-see-all-btn" class="text-xs bg-gray-300 text-gray-800 py-1 px-2 rounded hover:bg-gray-400">Vedi Lista Completa &rarr;</button>
+                </div>
+                <div id="next-deliveries-list" class="bg-gray-50">
+                    <!-- Contenuto inserito da JS -->
+                </div>
+            </div>
+            
+             <!-- RIGA 4: Reset & Info Posizione -->
+             <div class="p-2 bg-gray-200 border-t flex justify-between items-center text-xs">
+                 <div id="current-location-street" class="text-gray-600 font-semibold h-4"></div>
+                 <button id="reset-gita-btn" class="bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
              </div>
         </div>
 
@@ -1285,94 +1299,95 @@
         };
 
         const updateGitaView = () => {
-            const currentStreetNameEl = document.getElementById('current-street-name');
+            // Get new containers
+            const progressTextEl = document.getElementById('gita-progress-text');
+            const currentCardEl = document.getElementById('current-delivery-card');
+            const nextListContainer = document.getElementById('next-deliveries-list');
+            
+            // Handle empty/end of list
             if (currentGitaIndex < 0 || !allMarkersForList || allMarkersForList.length === 0) {
-                 currentStreetNameEl.innerHTML = '<p class="text-lg font-bold text-gray-800">Nessun civico</p>';
-                 document.getElementById('next-deliveries-list').innerHTML = '';
+                 progressTextEl.textContent = 'Nessuna consegna';
+                 currentCardEl.innerHTML = '<p class="text-center text-gray-500 py-4">Nessun civico in questa mappa.</p>';
+                 nextListContainer.innerHTML = '';
+                 buttons.prevGita.disabled = true;
+                 buttons.nextGita.disabled = true;
                  return;
             }
             
             const markers = allMarkersForList;
+            const totalMarkers = markers.length;
             const currentDelivery = markers[currentGitaIndex];
-            if (!currentDelivery) return;
             
-            const navLink = `https://www.google.com/maps/dir/?api=1&destination=${currentDelivery.latitude},${currentDelivery.longitude}`;
-            currentStreetNameEl.href = navLink;
+            // This part should be safe to run even if currentDelivery is undefined (end of list)
+            progressTextEl.textContent = `Civico ${Math.min(currentGitaIndex + 1, totalMarkers)} di ${totalMarkers}`;
+            buttons.prevGita.disabled = currentGitaIndex === 0;
+            buttons.nextGita.disabled = currentGitaIndex >= totalMarkers - 1;
 
+            if (!currentDelivery) {
+                // This happens when currentGitaIndex === totalMarkers
+                currentCardEl.innerHTML = '<p class="text-center text-green-600 font-bold py-4">Giro completato!</p>';
+                nextListContainer.innerHTML = '';
+                return;
+            }
+            
+            // --- Update map markers UI and view ---
             updateGitaUI();
             adjustGitaMapView();
             
+            // --- Build Current Delivery Card ---
             const selectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === currentDelivery.id);
-            const displayDelivery = {...currentDelivery };
+            const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
+            
+            let displayDelivery = {...currentDelivery };
             if(selectionInfo){
                 displayDelivery.count = selectionInfo.count;
                 displayDelivery.type = selectionInfo.type;
             }
+            const typeIcon = getDeliveryTypeIcon(isBusinessContext ? displayDelivery.type : null, 'list'); // 'list' for bigger icon
             
-            const isBusinessContext = currentMapData.mapType === 'business' || !!selectionInfo;
-            const typeIcon = getDeliveryTypeIcon(isBusinessContext ? displayDelivery.type : null);
-            
+            const navLink = `https://www.google.com/maps/dir/?api=1&destination=${displayDelivery.latitude},${displayDelivery.longitude}`;
+
             let currentDeliveryHtml = `
-            <div class="flex items-start gap-3">
-                ${typeIcon ? `<div class="flex-shrink-0 mt-1">${typeIcon}</div>` : ''}
-                <div class="flex-grow">
-                    <p class="text-lg font-bold text-gray-800 break-words whitespace-normal">${displayDelivery.street}, ${displayDelivery.houseNumber}</p>`;
+                <a href="${navLink}" target="_blank" class="block w-full bg-blue-50 hover:bg-blue-100 p-3 rounded-lg">
+                    <div class="flex items-start gap-4">
+                        ${typeIcon ? `<div class="flex-shrink-0 text-2xl">${typeIcon}</div>` : ''}
+                        <div class="flex-grow">
+                            <p class="text-xl font-bold text-gray-800 break-words whitespace-normal">${displayDelivery.street}</p>
+                            <p class="text-2xl font-black text-blue-600">${displayDelivery.houseNumber}</p>
+                            ${displayDelivery.notes ? `<p class="mt-1 text-sm text-gray-600 italic bg-yellow-100 p-1 rounded break-words whitespace-normal">${displayDelivery.notes}</p>` : ''}
+                        </div>
+                    </div>
+                     ${isBusinessContext && displayDelivery.count > 0 ? `<p class="mt-2 text-right font-bold text-orange-600 border-t pt-2">OGGETTI: ${displayDelivery.count}</p>` : ''}
+                </a>`;
+            currentCardEl.innerHTML = currentDeliveryHtml;
+
+            // --- Build Next Deliveries List ---
+            nextListContainer.innerHTML = ''; // Clear previous list
+            const nextDeliveries = markers.slice(currentGitaIndex + 1, currentGitaIndex + 6); // Show next 5
             
-            if (displayDelivery.notes) {
-                currentDeliveryHtml += `<p class="text-sm text-blue-600 italic font-normal break-words whitespace-normal">${displayDelivery.notes}</p>`;
-            }
-             if (isBusinessContext && displayDelivery.count > 0) {
-                currentDeliveryHtml += `<p class="font-bold text-orange-600">OGGETTI: ${displayDelivery.count}</p>`;
-            }
-            currentDeliveryHtml += `</div></div>`;
-            currentStreetNameEl.innerHTML = currentDeliveryHtml;
-            
-            const nextListContainer = document.getElementById('next-deliveries-list');
-            nextListContainer.innerHTML = `
-                <div class="p-2 border-b flex justify-between items-center">
-                    <p class="font-semibold text-gray-700">Prossime consegne:</p>
-                    <button id="gita-see-all-btn" class="text-xs bg-gray-200 text-gray-700 py-1 px-2 rounded hover:bg-gray-300">Vedi tutti &rarr;</button>
-                </div>
-            `;
-            const nextDeliveries = markers.slice(currentGitaIndex + 1, currentGitaIndex + 11);
-            if (nextDeliveries.length === 0) {
-                 nextListContainer.innerHTML += '<p class="p-2 text-sm text-gray-500">Fine del giro!</p>';
-            } else {
+            if (nextDeliveries.length > 0) {
                 const list = document.createElement('ul');
-                list.className = 'divide-y divide-gray-100';
-                nextDeliveries.forEach(m => {
+                list.className = 'divide-y divide-gray-200';
+                nextDeliveries.forEach((m, index) => {
                     const li = document.createElement('li');
-                    li.className = 'p-2 text-sm';
+                    li.className = 'p-2 text-sm flex items-center gap-3';
                     
                     const nextSelectionInfo = businessSelection.find(item => item.mapId === currentMapData.id && item.markerId === m.id);
-                    const displayNextDelivery = {...m };
-                     if(nextSelectionInfo){
-                        displayNextDelivery.count = nextSelectionInfo.count;
-                        displayNextDelivery.type = nextSelectionInfo.type;
-                    }
                     const isNextBusinessContext = currentMapData.mapType === 'business' || !!nextSelectionInfo;
 
                     let deliveryHtml = `
-                        <div class="flex items-start gap-2">
-                            <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(isNextBusinessContext ? displayNextDelivery.type : null)}</div>
-                            <div class="flex-grow">
-                                <b>${displayNextDelivery.houseNumber}</b>, ${displayNextDelivery.street}`;
-
-                    if (displayNextDelivery.notes) {
-                        deliveryHtml += `<br><span class="text-xs text-blue-600 italic pl-1">${displayNextDelivery.notes}</span>`;
-                    }
-                    if (isNextBusinessContext && displayNextDelivery.count > 0) {
-                        deliveryHtml += `<br><span class="text-xs text-orange-600 font-semibold pl-1">OGGETTI: ${displayNextDelivery.count}</span>`;
-                    }
-                    deliveryHtml += `</div></div>`;
+                        <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center font-bold text-gray-400">${currentGitaIndex + 2 + index}</div>
+                        <div class="flex-shrink-0 w-6 h-6 flex items-center justify-center">${getDeliveryTypeIcon(isNextBusinessContext ? m.type : null)}</div>
+                        <div class="flex-grow">
+                            <b>${m.houseNumber}</b>, ${m.street}
+                            ${isNextBusinessContext && m.count > 0 ? `<span class="text-xs font-semibold text-orange-500 ml-2">(x${m.count})</span>` : ''}
+                        </div>
+                    `;
                     li.innerHTML = deliveryHtml;
                     list.appendChild(li);
                 });
                 nextListContainer.appendChild(list);
             }
-
-            buttons.prevGita.disabled = currentGitaIndex === 0;
-            buttons.nextGita.disabled = currentGitaIndex >= markers.length - 1;
         };
 
         const handleSaveMarker = async () => {
