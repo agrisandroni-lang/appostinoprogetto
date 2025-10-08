@@ -240,11 +240,10 @@
         
         <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0 flex-col bg-gray-100" style="height: 45vh;">
-            <!-- Pulsanti di Navigazione in alto -->
-            <div class="p-2 bg-white shadow-md flex justify-between items-center">
-                <button id="prev-gita-btn" class="bg-gray-200 text-gray-800 font-bold p-3 rounded-full shadow-lg text-2xl disabled:opacity-50 flex items-center justify-center aspect-square leading-none">&lt;</button>
-                <div id="gita-progress-text" class="text-sm font-semibold text-gray-600"></div>
-                <button id="next-gita-btn" class="bg-blue-600 text-white font-bold p-3 rounded-full shadow-lg text-2xl disabled:opacity-50 flex items-center justify-center aspect-square leading-none">&gt;</button>
+            <!-- Info Gita e Posizione -->
+            <div class="p-2 bg-gray-800 text-white text-center shadow-md">
+                <div id="gita-progress-text" class="font-bold"></div>
+                <div id="current-location-street" class="text-sm text-gray-300 h-4"></div>
             </div>
 
             <!-- Card Consegna Attuale -->
@@ -254,18 +253,20 @@
 
             <!-- Lista Prossime Consegne -->
             <div class="flex-grow overflow-y-auto">
-                <div class="p-2 flex justify-between items-center bg-gray-200">
-                    <p class="font-semibold text-gray-700 text-sm">Prossime fermate:</p>
-                </div>
                 <div id="next-deliveries-list" class="bg-gray-50">
                     <!-- Contenuto inserito da JS -->
                 </div>
             </div>
             
+            <!-- Pulsanti di Navigazione -->
+             <div class="p-3 bg-gray-200 grid grid-cols-4 gap-3 items-center border-t shadow-inner">
+                <button id="prev-gita-btn" class="col-span-1 bg-white text-gray-800 font-bold py-4 rounded-lg shadow text-2xl disabled:opacity-50 flex items-center justify-center">&lt;</button>
+                <button id="next-gita-btn" class="col-span-3 bg-blue-600 text-white font-bold py-4 rounded-lg shadow text-xl disabled:opacity-50">AVANTI</button>
+            </div>
+            
             <!-- Azioni extra -->
-            <div class="p-2 bg-gray-800 text-white flex justify-between items-center text-xs">
+            <div class="p-1 bg-gray-800 text-white flex justify-around items-center text-xs">
                 <button id="reset-gita-btn" class="bg-red-600/80 font-semibold py-1 px-3 rounded">Reset Giro</button>
-                <div id="current-location-street" class="text-gray-300 font-semibold h-4 text-right truncate"></div>
                 <button id="gita-see-all-btn" class="bg-gray-600 font-semibold py-1 px-3 rounded">Vedi Lista</button>
             </div>
         </div>
@@ -742,9 +743,9 @@
             });
 
             if (closestForStreetName.marker && closestForStreetName.distance < 70) {
-                currentLocationStreetDiv.textContent = `Ora ti trovi in: ${closestForStreetName.marker.markerData.street}`;
+                currentLocationStreetDiv.innerHTML = `Ora sei in: <span class="font-bold">${closestForStreetName.marker.markerData.street}</span>`;
             } else {
-                currentLocationStreetDiv.textContent = '';
+                currentLocationStreetDiv.innerHTML = '';
             }
 
             let markerToHighlight = null;
@@ -1199,12 +1200,12 @@
 
                 markers.forEach(marker => {
                     const listItem = document.createElement('div');
-                    listItem.className = 'flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200 cursor-grab active:cursor-grabbing';
+                    listItem.className = 'flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200';
                     listItem.dataset.id = marker.id;
                     listItem.innerHTML = `
-                        <div class="flex items-center space-x-3 pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M9 18v-6l-2 2M9 6v6l-2-2"/><path d="m15 12 2-2v6l-2-2"/><path d="m15 6 2 2v-6l-2 2"/></svg>
-                            <p class="text-gray-800"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
+                        <div class="flex items-center space-x-3 flex-grow">
+                             <svg class="civic-drag-handle cursor-grab active:cursor-grabbing text-gray-400 w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            <p class="text-gray-800 pointer-events-none"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
                         </div>
                     `;
                     civicList.appendChild(listItem);
@@ -1227,7 +1228,7 @@
 
             document.querySelectorAll('.civic-list').forEach(listEl => {
                 const s = new Sortable(listEl, {
-                    animation: 150, group: 'civic-list', ghostClass: 'ghost',
+                    animation: 150, group: 'civic-list', handle: '.civic-drag-handle', ghostClass: 'ghost',
                 });
                 streetSortables.push(s);
             });
