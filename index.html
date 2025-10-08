@@ -240,38 +240,36 @@
         
         <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0 flex-col bg-gray-100" style="height: 45vh;">
-            <!-- RIGA 1: Navigazione -->
-            <div class="p-2 bg-gray-800 text-white flex justify-between items-center shadow-md">
-                <button id="prev-gita-btn" class="bg-gray-600 text-white font-bold p-3 rounded-full shadow-lg text-2xl disabled:bg-gray-400 aspect-square flex items-center justify-center leading-none">&lt;</button>
-                <div class="text-center">
-                    <h3 class="text-lg font-bold">Gita in corso</h3>
-                    <div id="gita-progress-text" class="text-sm text-gray-300"></div>
-                </div>
-                <button id="next-gita-btn" class="bg-blue-500 text-white font-bold p-3 rounded-full shadow-lg text-2xl disabled:bg-gray-400 aspect-square flex items-center justify-center leading-none">&gt;</button>
-            </div>
-
-            <!-- RIGA 2: Card Consegna Attuale -->
-            <div id="current-delivery-card" class="p-3 bg-white border-b border-gray-200 shadow-lg">
+            <!-- Card Consegna Attuale -->
+            <div id="current-delivery-card" class="p-3 bg-white border-b border-gray-200">
                 <!-- Contenuto inserito da JS -->
             </div>
 
-            <!-- RIGA 3: Lista Prossime Consegne -->
+            <!-- Lista Prossime Consegne -->
             <div class="flex-grow overflow-y-auto">
                 <div class="p-2 flex justify-between items-center bg-gray-200">
                     <p class="font-semibold text-gray-700 text-sm">Prossime fermate:</p>
-                    <button id="gita-see-all-btn" class="text-xs bg-gray-300 text-gray-800 py-1 px-2 rounded hover:bg-gray-400">Vedi Lista Completa &rarr;</button>
+                    <div id="gita-progress-text" class="text-sm text-gray-600"></div>
                 </div>
                 <div id="next-deliveries-list" class="bg-gray-50">
                     <!-- Contenuto inserito da JS -->
                 </div>
             </div>
             
-             <!-- RIGA 4: Reset & Info Posizione -->
-             <div class="p-2 bg-gray-200 border-t flex justify-between items-center text-xs">
-                 <div id="current-location-street" class="text-gray-600 font-semibold h-4"></div>
-                 <button id="reset-gita-btn" class="bg-red-500 text-white font-semibold py-1 px-2 rounded hover:bg-red-600 flex-shrink-0">Reset Giro</button>
-             </div>
+            <!-- Pulsanti di Navigazione -->
+            <div class="p-3 bg-gray-200 grid grid-cols-4 gap-3 items-center border-t shadow-inner">
+                <button id="prev-gita-btn" class="col-span-1 bg-white text-gray-800 font-bold py-4 rounded-lg shadow text-2xl disabled:opacity-50 flex items-center justify-center">&lt;</button>
+                <button id="next-gita-btn" class="col-span-3 bg-blue-600 text-white font-bold py-4 rounded-lg shadow text-xl disabled:opacity-50">AVANTI</button>
+            </div>
+            
+            <!-- Azioni extra -->
+            <div class="p-2 bg-gray-800 text-white flex justify-between items-center text-xs">
+                <button id="reset-gita-btn" class="bg-red-600/80 font-semibold py-1 px-3 rounded">Reset Giro</button>
+                <div id="current-location-street" class="text-gray-300 font-semibold h-4 text-right truncate"></div>
+                <button id="gita-see-all-btn" class="bg-gray-600 font-semibold py-1 px-3 rounded">Vedi Lista</button>
+            </div>
         </div>
+
 
         <!-- Form per Edit/Create Mode -->
         <div id="form-container" class="p-3 bg-white shadow-lg flex-shrink-0">
@@ -454,6 +452,7 @@
             pasteCoords: document.getElementById('paste-coords-button'),
             goToZoneMaps: document.getElementById('go-to-zone-maps-btn'),
             backToMapListFromZone: document.getElementById('back-to-map-list-from-zone'),
+            gitaSeeAll: document.getElementById('gita-see-all-btn'),
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input') };
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container'), zoneMapList: document.getElementById('zone-maps-list-container') };
@@ -1036,7 +1035,15 @@
                 return acc;
             }, {});
 
-            const streetOrder = [...new Set(markers.map(m => m.street || 'Senza Via'))];
+            const streetOrder = [];
+            const seenStreets = new Set();
+            markers.forEach(marker => {
+                const street = marker.street || 'Senza Via';
+                if (!seenStreets.has(street)) {
+                    seenStreets.add(street);
+                    streetOrder.push(street);
+                }
+            });
 
             streetOrder.forEach(street => {
                 const streetMarkers = groupedByStreet[street];
@@ -1157,9 +1164,17 @@
                 return acc;
             }, {});
             
-            const streetOrder = [...new Set(currentMarkersToOrder.map(m => m.street || 'Senza Via'))];
+            const streetOrder = [];
+            const seenStreets = new Set();
+            currentMarkersToOrder.forEach(marker => {
+                const street = marker.street || 'Senza Via';
+                if (!seenStreets.has(street)) {
+                    seenStreets.add(street);
+                    streetOrder.push(street);
+                }
+            });
 
-            streetOrder.forEach((street, groupIndex) => {
+            streetOrder.forEach((street) => {
                 const markers = groupedMarkers[street];
                 if (!markers) return;
 
@@ -1169,12 +1184,13 @@
                 details.open = true;
 
                 const summary = document.createElement('summary');
-                summary.className = 'flex items-center justify-between bg-gray-200 p-3 rounded-t-lg cursor-grab active:cursor-grabbing handle';
+                summary.className = 'flex items-center justify-between bg-gray-200 p-3 rounded-t-lg';
                 summary.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <svg class="details-arrow w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    <div class="flex items-center gap-3">
+                        <svg class="drag-handle cursor-grab active:cursor-grabbing text-gray-500 w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg>
                         <h4 class="font-bold text-gray-700">${street}</h4>
                     </div>
+                    <svg class="details-arrow w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 `;
                 details.appendChild(summary);
 
@@ -1207,7 +1223,7 @@
             streetSortables = [];
             
             mainSortable = new Sortable(containers.civiciOrderList, {
-                animation: 150, group: 'main-list', handle: '.handle', ghostClass: 'ghost',
+                animation: 150, group: 'main-list', handle: '.drag-handle', ghostClass: 'ghost',
             });
 
             document.querySelectorAll('.civic-list').forEach(listEl => {
@@ -1763,14 +1779,12 @@
             }
         };
 
-        containers.gitaMode.addEventListener('click', (e) => {
-            if (e.target && e.target.id === 'gita-see-all-btn') {
-                if (currentMapData) {
-                    cameFromGita = true;
-                    showAllMarkersList(currentMapData);
-                }
+        buttons.gitaSeeAll.onclick = () => {
+            if (currentMapData) {
+                cameFromGita = true;
+                showAllMarkersList(currentMapData);
             }
-        });
+        };
         
         containers.allMarkersList.addEventListener('click', (e) => {
             const markerLi = e.target.closest('[data-marker-id]');
@@ -2231,4 +2245,3 @@
     </script>
 </body>
 </html>
-
