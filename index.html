@@ -715,36 +715,77 @@
             }
         };
 
+        const updateGitaMarkerStyles = () => {
+             const markersOnMap = allMarkersForList;
+            if (!markersOnMap || markersOnMap.length === 0 || currentGitaIndex < 0) return;
+            
+            const currentDelivery = markersOnMap[currentGitaIndex];
+            if (!currentDelivery) return;
+
+            // currentMarkers ora contiene solo la finestra di civici visibili
+            currentMarkers.forEach(m => {
+                const markerDataIndex = markersOnMap.findIndex(marker => marker.id === m.markerData.id);
+                const isActive = m.markerData.id === currentDelivery.id;
+                
+                m.getElement()?.classList.toggle('gita-active', isActive);
+                
+                if (markerDataIndex < currentGitaIndex) {
+                    m.getElement()?.classList.add('opacity-40');
+                } else {
+                    m.getElement()?.classList.remove('opacity-40');
+                }
+
+                if (isActive) {
+                    m.setZIndexOffset(1000);
+                } else {
+                    m.setZIndexOffset(0);
+                }
+            });
+        }
+
+        const populateDatalists = (markers = []) => {
+            const citiesDatalist = document.getElementById('cities-list');
+            const streetsDatalist = document.getElementById('streets-list');
+            citiesDatalist.innerHTML = '';
+            streetsDatalist.innerHTML = '';
+
+            const uniqueCities = [...new Set(markers.map(m => m.city).filter(Boolean))];
+            uniqueCities.forEach(city => {
+                citiesDatalist.innerHTML += `<option value="${city}">`;
+            });
+
+            const uniqueStreets = [...new Set(markers.map(m => m.street).filter(Boolean))];
+            uniqueStreets.forEach(street => {
+                streetsDatalist.innerHTML += `<option value="${street}">`;
+            });
+        };
+
+        const processMarkers = (markers) => {
+            allMarkersForList = markers;
+            populateDatalists(markers);
+
+            if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
+                updateGitaView();
+            } else if (screens.mapEditor.classList.contains('active')) {
+                renderMarkers(allMarkersForList, false);
+            }
+            if (screens.allMarkers.classList.contains('active')) {
+                renderAllMarkersList(allMarkersForList);
+            }
+            if (screens.civiciOrder.classList.contains('active')) {
+                currentMarkersToOrder = [...markers];
+                renderOrderList();
+            }
+        };
+
         const attachMapListener = (mapId) => {
             const userId = auth.currentUser?.uid;
             if (!userId) return;
 
             cleanupListeners();
-            
-            // Check cache first
-            if (mapMarkersCache.has(mapId)) {
-                const markers = mapMarkersCache.get(mapId);
-                allMarkersForList = markers;
-                populateDatalists(markers);
 
-                if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
-                    updateGitaView();
-                } else if (screens.mapEditor.classList.contains('active')) {
-                    renderMarkers(allMarkersForList, false);
-                }
-                if (screens.allMarkers.classList.contains('active')) {
-                    renderAllMarkersList(allMarkersForList);
-                }
-                if (screens.civiciOrder.classList.contains('active')) {
-                    currentMarkersToOrder = [...markers];
-                    renderOrderList();
-                }
-                // Don't attach new listeners if we have cached data
-                return;
-            }
-
+            // Listener for the map document itself
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
-
             unsubscribeMapDocListener = onSnapshot(mapRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const mapData = docSnap.data();
@@ -762,29 +803,22 @@
                 goBackToListScreen();
             });
 
+            // Check cache for markers
+            if (mapMarkersCache.has(mapId)) {
+                const markers = mapMarkersCache.get(mapId);
+                processMarkers(markers); // Use cached data
+                return;
+            }
+
+            // If not in cache, attach listener for markers collection
             const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`), orderBy("order"));
             unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
                 const markers = [];
                 snapshot.forEach(doc => markers.push({ ...doc.data(), id: doc.id }));
                 
-                mapMarkersCache.set(mapId, markers); // Salva i dati nella cache
+                mapMarkersCache.set(mapId, markers); // Save to cache for next time
+                processMarkers(markers);
 
-                allMarkersForList = markers;
-                populateDatalists(markers);
-
-                if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
-                    updateGitaView();
-                } else if (screens.mapEditor.classList.contains('active')) {
-                     renderMarkers(allMarkersForList, false); // SEMPRE false in modifica
-                }
-
-                if (screens.allMarkers.classList.contains('active')) {
-                    renderAllMarkersList(allMarkersForList);
-                }
-                if (screens.civiciOrder.classList.contains('active')) {
-                    currentMarkersToOrder = [...markers];
-                    renderOrderList();
-                }
             }, (error) => {
                 console.error("Errore nell'ascolto dei civici:", error);
                 alert("Errore nel caricamento dei civici. Potrebbe mancare un indice in Firestore. Controlla la console per il link per crearlo.");
@@ -937,11 +971,11 @@
         const showAllMarkersList = (mapData) => {
             cleanupListeners(); 
             currentMapData = { ...mapData, id: mapData.id };
-            attachMapListener(mapData.id); 
             document.getElementById('all-markers-map-name').textContent = mapData.name;
             inputs.searchMarkers.value = '';
             containers.allMarkersList.innerHTML = '<div class="flex justify-center items-center p-8"><div class="spinner"></div></div>';
             showScreen('allMarkers');
+            attachMapListener(mapData.id); 
         };
 
         const renderAllMarkersList = (markers) => {
@@ -2181,3 +2215,4 @@
     </script>
 </body>
 </html>
+
