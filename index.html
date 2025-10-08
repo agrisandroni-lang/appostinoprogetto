@@ -166,8 +166,8 @@
                  Linea Business
              </button>
              <button id="go-to-zone-maps-btn" class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-purple-700 transition-colors flex items-center justify-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
-                Mappe delle Zone
+                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+                 Mappe delle Zone
             </button>
         </div>
         <div id="maps-list-container" class="flex-grow p-4 overflow-y-auto"></div>
@@ -182,8 +182,8 @@
          </div>
          <div class="p-4 border-b">
               <button id="create-update-business-map-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-orange-600 transition-colors flex items-center justify-center gap-3">
-                  Crea / Aggiorna Mappa di Oggi
-                  <span id="business-selection-count" class="bg-white text-orange-600 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
+                   Crea / Aggiorna Mappa di Oggi
+                   <span id="business-selection-count" class="bg-white text-orange-600 text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">0</span>
               </button>
          </div>
           <p id="business-map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
@@ -256,10 +256,10 @@
             </div>
 
             <!-- Lista Prossime Consegne -->
-            <!-- Pulsanti di Navigazione -->
-            <div class="p-3 bg-gray-200 grid grid-cols-3 gap-3 items-center border-t shadow-inner">
-                <button id="prev-gita-btn" class="col-span-1 bg-white text-gray-800 font-bold py-4 rounded-lg shadow text-2xl disabled:opacity-50 flex items-center justify-center">&lt;</button>
-                <button id="next-gita-btn" class="col-span-2 bg-blue-600 text-white font-bold py-4 rounded-lg shadow text-xl disabled:opacity-50">AVANTI</button>
+            <div class="flex-grow overflow-y-auto">
+                <div id="next-deliveries-list" class="bg-gray-50">
+                    <!-- Contenuto inserito da JS -->
+                </div>
             </div>
             
             <!-- Azioni extra -->
@@ -691,10 +691,10 @@
                 popupContent += `<div class="flex justify-around items-center gap-2 mt-2">`;
                 if(currentMapData?.mode !== 'view') {
                     popupContent += `
-                            <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
-                            <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
-                            <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
-                        `;
+                                <button class="edit-marker-btn bg-blue-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Modifica</button>
+                                <button class="move-marker-btn bg-yellow-500 text-black text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Sposta</button>
+                                <button class="delete-marker-btn bg-red-500 text-white text-xs py-1 px-2 rounded" data-marker-id="${markerData.id}">Elimina</button>
+                            `;
                 }
                 popupContent += `<a href="${navLink}" target="_blank" class="bg-green-500 text-white text-xs py-1 px-2 rounded">Naviga</a></div>`;
 
@@ -995,11 +995,11 @@
             setTimeout(() => { 
                 if (map) map.invalidateSize();
                 if (focusMarkerId && mode !== 'view') {
-                   const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
-                   if (leafletMarker) {
-                        map.setView(leafletMarker.getLatLng(), 20);
-                        leafletMarker.openPopup();
-                   }
+                 const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
+                 if (leafletMarker) {
+                      map.setView(leafletMarker.getLatLng(), 20);
+                      leafletMarker.openPopup();
+                 }
                 } else if (mode === 'view') {
                     adjustGitaMapView();
                 }
@@ -1203,7 +1203,7 @@
                     listItem.innerHTML = `
                         <div class="flex items-center space-x-3 flex-grow">
                              <svg class="civic-drag-handle cursor-grab active:cursor-grabbing text-gray-400 w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                            <p class="text-gray-800 pointer-events-none"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
+                             <p class="text-gray-800 pointer-events-none"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
                         </div>
                     `;
                     civicList.appendChild(listItem);
@@ -2112,8 +2112,8 @@
 
                  const foundMarkers = allMarkers.filter(m => markerIds.includes(m.id));
                  const markersWithCountAndType = foundMarkers.map(m => {
-                    const sel = selection.find(s => s.mapId === mapId && s.markerId === m.id);
-                    return {...m, count: sel ? sel.count : 1, type: sel ? sel.type : 'standard' };
+                     const sel = selection.find(s => s.mapId === mapId && s.markerId === m.id);
+                     return {...m, count: sel ? sel.count : 1, type: sel ? sel.type : 'standard' };
                 });
                 allSelectedMarkers.push(...markersWithCountAndType);
             }
@@ -2123,7 +2123,7 @@
                  const totalItems = allSelectedMarkers.reduce((sum, marker) => sum + (marker.count || 0), 0);
                  const timeString = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
                  const mapName = `Business - ${dateString} ${timeString} (${allSelectedMarkers.length} civici - ${totalItems} oggetti)`;
-                 
+                
                  const newMarkersOrdered = allSelectedMarkers.map((marker, index) => ({...marker, order: index}));
 
                 if (!querySnapshot.empty) { 
