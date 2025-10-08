@@ -402,7 +402,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let map, userMarker, temporaryMarker, markerClusterGroup, gitaMarkersLayer;
+        let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer;
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -585,7 +585,7 @@
             markerClusterGroup = L.markerClusterGroup();
             map.addLayer(markerClusterGroup);
             
-            gitaMarkersLayer = L.layerGroup(); // Non aggiungerlo alla mappa di default
+            individualMarkersLayer = L.layerGroup(); // Non aggiungerlo alla mappa di default
 
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
@@ -664,10 +664,10 @@
             if (!map) return;
             
             markerClusterGroup.clearLayers();
-            gitaMarkersLayer.clearLayers();
+            individualMarkersLayer.clearLayers();
             currentMarkers = [];
 
-            const targetLayer = useClustering ? markerClusterGroup : gitaMarkersLayer;
+            const targetLayer = useClustering ? markerClusterGroup : individualMarkersLayer;
 
             markersToRender.forEach(markerData => {
                 const streetColor = getStreetColor(markerData.street || 'default');
@@ -847,7 +847,7 @@
                 if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
                     updateGitaView();
                 } else if (screens.mapEditor.classList.contains('active')) {
-                     renderMarkers(allMarkersForList, true);
+                     renderMarkers(allMarkersForList, false);
                 }
 
                 if (screens.allMarkers.classList.contains('active')) {
@@ -967,16 +967,15 @@
             
             if (mode === 'view') {
                 map.removeLayer(markerClusterGroup);
-                map.addLayer(gitaMarkersLayer);
+                map.addLayer(individualMarkersLayer);
                 const mapData = mapsListData.get(mapId); 
                 currentGitaIndex = mapData?.lastGitaIndex || 0;
                 containers.gitaMode.classList.remove('hidden');
-                document.getElementById('current-location-street').classList.remove('hidden');
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
             } else {
-                map.removeLayer(gitaMarkersLayer);
-                map.addLayer(markerClusterGroup);
+                map.removeLayer(markerClusterGroup);
+                map.addLayer(individualMarkersLayer);
                 containers.gitaMode.classList.add('hidden');
                 containers.form.style.display = 'block';
                 buttons.backToMapListFromView.classList.add('hidden');
@@ -985,7 +984,7 @@
             }
 
             if (mode === 'create') {
-                renderMarkers([], true);
+                renderMarkers([], false);
                 populateDatalists(); 
             } else {
                 attachMapListener(mapId); 
@@ -998,9 +997,8 @@
                 if (focusMarkerId && mode !== 'view') {
                    const leafletMarker = currentMarkers.find(m => m.markerData.id === focusMarkerId);
                    if (leafletMarker) {
-                       markerClusterGroup.zoomToShowLayer(leafletMarker, () => {
-                           leafletMarker.openPopup();
-                       });
+                        map.setView(leafletMarker.getLatLng(), 20);
+                        leafletMarker.openPopup();
                    }
                 } else if (mode === 'view') {
                     adjustGitaMapView();
@@ -2245,3 +2243,4 @@
     </script>
 </body>
 </html>
+
