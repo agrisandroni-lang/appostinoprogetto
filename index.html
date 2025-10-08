@@ -916,6 +916,18 @@
         };
         
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
+            // ---- NEW CODE: Clear old map state immediately ----
+            allMarkersForList = [];
+            if (map) {
+                renderMarkers([]); // This will clear all current markers from the map layers
+            }
+            if(containers.gitaMode) {
+                 document.getElementById('gita-progress-text').textContent = 'Caricamento...';
+                 document.getElementById('current-delivery-card').innerHTML = '<div class="flex justify-center p-4"><div class="spinner"></div></div>';
+                 document.getElementById('next-deliveries-list').innerHTML = '';
+            }
+            // ---- END NEW CODE ----
+            
             streetColorMap.clear();
             currentHue = Math.random() * 360;
             currentMapData = { mode, id: mapId };
