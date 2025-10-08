@@ -424,6 +424,8 @@
         let mainSortable = null;
         let streetSortables = [];
         
+        let mapMarkersCache = new Map();
+
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen'), zoneMaps: document.getElementById('zone-maps-screen') };
@@ -712,110 +714,34 @@
                 });
             }
         };
-        
-        const getDistance = (coord1, coord2) => {
-            const toRad = x => (x * Math.PI) / 180;
-            const R = 6371e3;
-            const φ1 = toRad(coord1.latitude); const φ2 = toRad(coord2.latitude);
-            const Δφ = toRad(coord2.latitude - coord1.latitude); const Δλ = toRad(coord2.longitude - coord1.longitude);
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-        };
-
-        const highlightClosestMarker = (userCoords) => {
-            const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
-            const currentLocationStreetDiv = document.getElementById('current-location-street');
-            
-            if (currentMarkers.length === 0 || !currentLocationStreetDiv) {
-                if(currentLocationStreetDiv) currentLocationStreetDiv.textContent = '';
-                return;
-            }
-
-            let closestForStreetName = { marker: null, distance: Infinity };
-            allMarkersForList.forEach(markerData => {
-                 const markerLatLng = L.latLng(markerData.latitude, markerData.longitude);
-                const distance = userLatLng.distanceTo(markerLatLng);
-                if (distance < closestForStreetName.distance) {
-                    closestForStreetName = { marker: { markerData }, distance };
-                }
-            });
-
-            if (closestForStreetName.marker && closestForStreetName.distance < 70) {
-                currentLocationStreetDiv.innerHTML = `Ora sei in: <span class="font-bold">${closestForStreetName.marker.markerData.street}</span>`;
-            } else {
-                currentLocationStreetDiv.innerHTML = '';
-            }
-
-            let markerToHighlight = null;
-            if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
-                const currentDelivery = allMarkersForList[currentGitaIndex];
-                if(currentDelivery) {
-                     const activeMarkerLatLng = L.latLng(currentDelivery.latitude, currentDelivery.longitude);
-                    if (userLatLng.distanceTo(activeMarkerLatLng) < 20) {
-                        markerToHighlight = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
-                    }
-                }
-            } else {
-                if (closestForStreetName.distance < 20) {
-                    markerToHighlight = currentMarkers.find(m => m.markerData.id === closestForStreetName.marker.markerData.id);
-                }
-            }
-
-            currentMarkers.forEach(marker => {
-                marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
-            });
-        };
-        
-        const updateGitaMarkerStyles = () => {
-             const markersOnMap = allMarkersForList;
-            if (!markersOnMap || markersOnMap.length === 0 || currentGitaIndex < 0) return;
-            
-            const currentDelivery = markersOnMap[currentGitaIndex];
-            if (!currentDelivery) return;
-
-            // currentMarkers ora contiene solo la finestra di civici visibili
-            currentMarkers.forEach(m => {
-                const markerDataIndex = markersOnMap.findIndex(marker => marker.id === m.markerData.id);
-                const isActive = m.markerData.id === currentDelivery.id;
-                
-                m.getElement()?.classList.toggle('gita-active', isActive);
-                
-                if (markerDataIndex < currentGitaIndex) {
-                    m.getElement()?.classList.add('opacity-40');
-                } else {
-                    m.getElement()?.classList.remove('opacity-40');
-                }
-
-                if (isActive) {
-                    m.setZIndexOffset(1000);
-                } else {
-                    m.setZIndexOffset(0);
-                }
-            });
-        }
-
-        const populateDatalists = (markers = []) => {
-            const citiesDatalist = document.getElementById('cities-list');
-            const streetsDatalist = document.getElementById('streets-list');
-            citiesDatalist.innerHTML = '';
-            streetsDatalist.innerHTML = '';
-
-            const uniqueCities = [...new Set(markers.map(m => m.city).filter(Boolean))];
-            uniqueCities.forEach(city => {
-                citiesDatalist.innerHTML += `<option value="${city}">`;
-            });
-
-            const uniqueStreets = [...new Set(markers.map(m => m.street).filter(Boolean))];
-            uniqueStreets.forEach(street => {
-                streetsDatalist.innerHTML += `<option value="${street}">`;
-            });
-        };
 
         const attachMapListener = (mapId) => {
             const userId = auth.currentUser?.uid;
             if (!userId) return;
 
             cleanupListeners();
+            
+            // Check cache first
+            if (mapMarkersCache.has(mapId)) {
+                const markers = mapMarkersCache.get(mapId);
+                allMarkersForList = markers;
+                populateDatalists(markers);
+
+                if (screens.mapEditor.classList.contains('active') && currentMapData.mode === 'view') {
+                    updateGitaView();
+                } else if (screens.mapEditor.classList.contains('active')) {
+                    renderMarkers(allMarkersForList, false);
+                }
+                if (screens.allMarkers.classList.contains('active')) {
+                    renderAllMarkersList(allMarkersForList);
+                }
+                if (screens.civiciOrder.classList.contains('active')) {
+                    currentMarkersToOrder = [...markers];
+                    renderOrderList();
+                }
+                // Don't attach new listeners if we have cached data
+                return;
+            }
 
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
 
@@ -841,6 +767,8 @@
                 const markers = [];
                 snapshot.forEach(doc => markers.push({ ...doc.data(), id: doc.id }));
                 
+                mapMarkersCache.set(mapId, markers); // Salva i dati nella cache
+
                 allMarkersForList = markers;
                 populateDatalists(markers);
 
@@ -1256,6 +1184,7 @@
                 });
                 
                 await batch.commit();
+                mapMarkersCache.delete(mapId); // Invalida la cache
 
                 feedbackP.textContent = 'Ordine salvato con successo!';
                 setTimeout(() => {
@@ -1449,6 +1378,8 @@
             try {
                 await addDoc(markersCollectionRef, newMarker);
                 
+                mapMarkersCache.delete(mapIdToSaveTo); // Invalida la cache
+
                 const newMarkerCoords = temporaryMarker.getLatLng();
                 map.removeLayer(temporaryMarker);
                 temporaryMarker = null;
@@ -1490,6 +1421,7 @@
                 notes: notesInput.value.trim()
             };
             await updateDoc(markerRef, updatedData);
+            mapMarkersCache.delete(currentMapData.id); // Invalida la cache
             document.getElementById('edit-marker-modal').style.display = 'none';
             map.closePopup();
         };
@@ -1498,6 +1430,7 @@
             const userId = auth.currentUser.uid;
             const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.id}/markers`, markerId);
             await deleteDoc(markerRef);
+            mapMarkersCache.delete(currentMapData.id); // Invalida la cache
             map.closePopup();
         };
         
@@ -1517,6 +1450,7 @@
                 latitude: newLatLng.lat,
                 longitude: newLatLng.lng
             });
+            mapMarkersCache.delete(currentMapData.id); // Invalida la cache
             repositioningState = { active: false, markerId: null };
             infoText.textContent = 'Segnaposto riposizionato!';
             document.getElementById('map-container').style.cursor = '';
@@ -1706,6 +1640,7 @@
         buttons.signOut.onclick = () => {
             cleanupListeners();
             if(unsubscribeMapsListListener) unsubscribeMapsListListener();
+            mapMarkersCache.clear(); // Pulisci la cache al logout
             signOut(auth);
         };
         buttons.goToCreate.onclick = () => openMapEditor('create');
@@ -1888,6 +1823,7 @@
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
                 businessSelection = [];
+                mapMarkersCache.clear(); // Pulisci la cache al logout
                 updateBusinessUI();
             }
         });
@@ -2245,5 +2181,3 @@
     </script>
 </body>
 </html>
-
-
