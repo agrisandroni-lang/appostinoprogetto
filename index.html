@@ -619,9 +619,14 @@
         
         const speak = (text) => {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Interrompe la sintesi precedente
+                window.speechSynthesis.cancel(); 
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'it-IT';
+                const voices = window.speechSynthesis.getVoices();
+                const italianVoice = voices.find(voice => voice.lang === 'it-IT');
+                if (italianVoice) {
+                    utterance.voice = italianVoice;
+                }
                 window.speechSynthesis.speak(utterance);
             }
         };
@@ -643,49 +648,42 @@
 
 
         const drawRoute = () => {
-            if (currentRouteControl) {
-                map.removeControl(currentRouteControl);
-                currentRouteControl = null;
-            }
-            
-            routeInstructions = [];
-            nextInstructionIndex = 0;
-
             if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !userMarker) {
                 return;
             }
-            
+
             const currentDelivery = allMarkersForList[currentGitaIndex];
             if (!currentDelivery) return;
 
             const userLatLng = userMarker.getLatLng();
             const destinationLatLng = L.latLng(currentDelivery.latitude, currentDelivery.longitude);
-
-            currentRouteControl = L.Routing.control({
-                waypoints: [
-                    userLatLng,
-                    destinationLatLng
-                ],
-                routeWhileDragging: false,
-                show: false, 
-                addWaypoints: false, 
-                createMarker: () => null, 
-                lineOptions: {
-                    styles: [{color: '#3B82F6', opacity: 0.8, weight: 7}],
-                    addWaypoints: false
-                }
-            }).addTo(map);
             
-            currentRouteControl.on('routesfound', (e) => {
-                if (e.routes && e.routes.length > 0) {
-                    routeInstructions = e.routes[0].instructions.map(instr => ({
-                        text: instr.text,
-                        latLng: e.routes[0].coordinates[instr.index]
-                    }));
-                    nextInstructionIndex = 0;
-                    checkAndSpeakInstruction(userLatLng);
-                }
-            });
+            if (currentRouteControl) {
+                currentRouteControl.setWaypoints([userLatLng, destinationLatLng]);
+            } else {
+                currentRouteControl = L.Routing.control({
+                    waypoints: [ userLatLng, destinationLatLng ],
+                    routeWhileDragging: false,
+                    show: false, 
+                    addWaypoints: false, 
+                    createMarker: () => null, 
+                    lineOptions: {
+                        styles: [{color: '#3B82F6', opacity: 0.8, weight: 7}],
+                        addWaypoints: false
+                    }
+                }).addTo(map);
+                
+                currentRouteControl.on('routesfound', (e) => {
+                    if (e.routes && e.routes.length > 0) {
+                        routeInstructions = e.routes[0].instructions.map(instr => ({
+                            text: instr.text,
+                            latLng: e.routes[0].coordinates[instr.index]
+                        }));
+                        nextInstructionIndex = 0;
+                        checkAndSpeakInstruction(userLatLng);
+                    }
+                });
+            }
         };
 
         const adjustGitaMapView = () => {
@@ -704,6 +702,59 @@
             
             const bounds = L.latLngBounds([userLatLng, markerLatLng]);
             map.fitBounds(bounds, { padding: [70, 70], maxZoom: 20 });
+        };
+
+        const getDistance = (coord1, coord2) => {
+            const toRad = x => (x * Math.PI) / 180;
+            const R = 6371e3;
+            const φ1 = toRad(coord1.latitude); const φ2 = toRad(coord2.latitude);
+            const Δφ = toRad(coord2.latitude - coord1.latitude); const Δλ = toRad(coord2.longitude - coord1.longitude);
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        };
+
+        const highlightClosestMarker = (userCoords) => {
+            const userLatLng = L.latLng(userCoords.latitude, userCoords.longitude);
+            const currentLocationStreetDiv = document.getElementById('current-location-street');
+            
+            if (currentMarkers.length === 0 || !currentLocationStreetDiv) {
+                if(currentLocationStreetDiv) currentLocationStreetDiv.textContent = '';
+                return;
+            }
+
+            let closestForStreetName = { marker: null, distance: Infinity };
+            allMarkersForList.forEach(markerData => {
+                 const markerLatLng = L.latLng(markerData.latitude, markerData.longitude);
+                const distance = userLatLng.distanceTo(markerLatLng);
+                if (distance < closestForStreetName.distance) {
+                    closestForStreetName = { marker: { markerData }, distance };
+                }
+            });
+
+            if (closestForStreetName.marker && closestForStreetName.distance < 70) {
+                currentLocationStreetDiv.innerHTML = `Ora sei in: <span class="font-bold">${closestForStreetName.marker.markerData.street}</span>`;
+            } else {
+                currentLocationStreetDiv.innerHTML = '';
+            }
+
+            let markerToHighlight = null;
+            if (currentMapData?.mode === 'view' && currentGitaIndex >= 0) {
+                const currentDelivery = allMarkersForList[currentGitaIndex];
+                if(currentDelivery) {
+                     const activeMarkerLatLng = L.latLng(currentDelivery.latitude, currentDelivery.longitude);
+                    if (userLatLng.distanceTo(activeMarkerLatLng) < 20) {
+                        markerToHighlight = currentMarkers.find(m => m.markerData.id === currentDelivery.id);
+                    }
+                }
+            } else {
+                if (closestForStreetName.distance < 20) {
+                    markerToHighlight = currentMarkers.find(m => m.markerData.id === closestForStreetName.marker.markerData.id);
+                }
+            }
+
+            currentMarkers.forEach(marker => {
+                marker.getElement()?.classList.toggle('closest', marker === markerToHighlight);
+            });
         };
 
         const updateUserLocation = (coords) => {
@@ -2310,5 +2361,3 @@
     </script>
 </body>
 </html>
-
-
