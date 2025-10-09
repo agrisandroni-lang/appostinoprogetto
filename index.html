@@ -803,20 +803,12 @@
                 goBackToListScreen();
             });
 
-            // Check cache for markers
-            if (mapMarkersCache.has(mapId)) {
-                const markers = mapMarkersCache.get(mapId);
-                processMarkers(markers); // Use cached data
-                return;
-            }
-
             // If not in cache, attach listener for markers collection
             const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`), orderBy("order"));
             unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
                 const markers = [];
                 snapshot.forEach(doc => markers.push({ ...doc.data(), id: doc.id }));
                 
-                mapMarkersCache.set(mapId, markers); // Save to cache for next time
                 processMarkers(markers);
 
             }, (error) => {
@@ -916,17 +908,17 @@
         };
         
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
-            // ---- NEW CODE: Clear old map state immediately ----
+            // ---- Pulisce lo stato precedente ----
             allMarkersForList = [];
+            currentMarkers = [];
             if (map) {
-                renderMarkers([]); // This will clear all current markers from the map layers
+                renderMarkers([]); 
             }
             if(containers.gitaMode) {
                  document.getElementById('gita-progress-text').textContent = 'Caricamento...';
                  document.getElementById('current-delivery-card').innerHTML = '<div class="flex justify-center p-4"><div class="spinner"></div></div>';
                  document.getElementById('next-deliveries-list').innerHTML = '';
             }
-            // ---- END NEW CODE ----
             
             streetColorMap.clear();
             currentHue = Math.random() * 360;
@@ -1230,7 +1222,6 @@
                 });
                 
                 await batch.commit();
-                mapMarkersCache.delete(mapId); // Invalida la cache
 
                 feedbackP.textContent = 'Ordine salvato con successo!';
                 setTimeout(() => {
@@ -1388,27 +1379,38 @@
         };
 
         const handleSaveMarker = async () => {
-            if (!temporaryMarker) return alert("Prima posiziona un segnaposto sulla mappa.");
-            if (!currentMapData.id && !inputs.mapName.value) {
-                 return alert("Dai un nome alla mappa.");
-            }
+            const mapName = inputs.mapName.value.trim();
             
-            const userId = auth.currentUser.uid;
-            
-            let mapIdToSaveTo = currentMapData.id;
-
-            if (!mapIdToSaveTo) {
+            // 1. Gestisce la creazione della mappa se è una mappa nuova
+            if (!currentMapData.id) {
+                if (!mapName) {
+                    return alert("Dai un nome alla mappa.");
+                }
+                
+                const userId = auth.currentUser.uid;
                 const newMapRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/maps`), { 
-                    name: inputs.mapName.value, 
+                    name: mapName, 
                     createdAt: new Date(), 
                     mapType: 'zone' 
                 });
-                mapIdToSaveTo = newMapRef.id;
-                currentMapData.id = mapIdToSaveTo;
+                currentMapData.id = newMapRef.id;
+                currentMapData.mode = 'edit';
                 inputs.mapName.style.display = 'none';
-                attachMapListener(mapIdToSaveTo);
+                attachMapListener(currentMapData.id);
+            }
+
+            // 2. Gestisce il salvataggio del segnaposto (solo se è stato posizionato)
+            if (!temporaryMarker) {
+                if (mapName) { 
+                     infoText.textContent = `Mappa "${mapName}" creata! Ora puoi aggiungere i civici.`;
+                } else {
+                     alert("Prima posiziona un segnaposto sulla mappa.");
+                }
+                return; 
             }
             
+            const userId = auth.currentUser.uid;
+            const mapIdToSaveTo = currentMapData.id;
             const markersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/maps/${mapIdToSaveTo}/markers`);
 
             const newMarker = { 
@@ -1424,8 +1426,6 @@
             try {
                 await addDoc(markersCollectionRef, newMarker);
                 
-                mapMarkersCache.delete(mapIdToSaveTo); // Invalida la cache
-
                 const newMarkerCoords = temporaryMarker.getLatLng();
                 map.removeLayer(temporaryMarker);
                 temporaryMarker = null;
@@ -1467,7 +1467,6 @@
                 notes: notesInput.value.trim()
             };
             await updateDoc(markerRef, updatedData);
-            mapMarkersCache.delete(currentMapData.id); // Invalida la cache
             document.getElementById('edit-marker-modal').style.display = 'none';
             map.closePopup();
         };
@@ -1476,7 +1475,6 @@
             const userId = auth.currentUser.uid;
             const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${currentMapData.id}/markers`, markerId);
             await deleteDoc(markerRef);
-            mapMarkersCache.delete(currentMapData.id); // Invalida la cache
             map.closePopup();
         };
         
@@ -1496,7 +1494,6 @@
                 latitude: newLatLng.lat,
                 longitude: newLatLng.lng
             });
-            mapMarkersCache.delete(currentMapData.id); // Invalida la cache
             repositioningState = { active: false, markerId: null };
             infoText.textContent = 'Segnaposto riposizionato!';
             document.getElementById('map-container').style.cursor = '';
@@ -1686,7 +1683,6 @@
         buttons.signOut.onclick = () => {
             cleanupListeners();
             if(unsubscribeMapsListListener) unsubscribeMapsListListener();
-            mapMarkersCache.clear(); // Pulisci la cache al logout
             signOut(auth);
         };
         buttons.goToCreate.onclick = () => openMapEditor('create');
@@ -2227,4 +2223,3 @@
     </script>
 </body>
 </html>
-
