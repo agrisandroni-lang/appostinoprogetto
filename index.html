@@ -784,7 +784,11 @@
             
             if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
-                drawRoute();
+                 if (currentRouteControl) {
+                    currentRouteControl.setWaypoints([latLng, currentRouteControl.getWaypoints()[1].latLng]);
+                } else {
+                    drawRoute();
+                }
                 checkAndSpeakInstruction(latLng);
             } else if (currentMapData?.mode !== 'edit' && currentMapData?.mode !== 'create') {
                  map.panTo(latLng);
@@ -2361,3 +2365,4 @@
     </script>
 </body>
 </html>
+
