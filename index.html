@@ -678,7 +678,10 @@
             
             currentRouteControl.on('routesfound', (e) => {
                 if (e.routes && e.routes.length > 0) {
-                    routeInstructions = e.routes[0].instructions;
+                    routeInstructions = e.routes[0].instructions.map(instr => ({
+                        text: instr.text,
+                        latLng: e.routes[0].coordinates[instr.index]
+                    }));
                     nextInstructionIndex = 0;
                     checkAndSpeakInstruction(userLatLng);
                 }
@@ -2307,4 +2310,5 @@
     </script>
 </body>
 </html>
+
 
