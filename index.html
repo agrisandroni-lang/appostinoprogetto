@@ -432,6 +432,9 @@
         let groupedMarkersToOrder = [];
         let mainSortable = null;
         let streetSortables = [];
+
+        let routeInstructions = [];
+        let nextInstructionIndex = 0;
         
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
@@ -613,12 +616,40 @@
                 if (editBtn) editBtn.onclick = () => openEditModal(editBtn.dataset.markerId);
             });
         };
+        
+        const speak = (text) => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Interrompe la sintesi precedente
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'it-IT';
+                window.speechSynthesis.speak(utterance);
+            }
+        };
+
+        const checkAndSpeakInstruction = (userLatLng) => {
+            if (currentMapData?.mode !== 'view' || routeInstructions.length === 0 || nextInstructionIndex >= routeInstructions.length) {
+                return;
+            }
+
+            const instruction = routeInstructions[nextInstructionIndex];
+            const instructionLatLng = L.latLng(instruction.latLng);
+            const distance = userLatLng.distanceTo(instructionLatLng);
+
+            if (distance < 40) { // Soglia di 40 metri per annunciare l'istruzione
+                speak(instruction.text);
+                nextInstructionIndex++;
+            }
+        };
+
 
         const drawRoute = () => {
             if (currentRouteControl) {
                 map.removeControl(currentRouteControl);
                 currentRouteControl = null;
             }
+            
+            routeInstructions = [];
+            nextInstructionIndex = 0;
 
             if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !userMarker) {
                 return;
@@ -636,14 +667,22 @@
                     destinationLatLng
                 ],
                 routeWhileDragging: false,
-                show: false, // Nasconde il pannello delle istruzioni
-                addWaypoints: false, // Impedisce di aggiungere altri punti
-                createMarker: () => null, // Non crea i marker A e B di default
+                show: false, 
+                addWaypoints: false, 
+                createMarker: () => null, 
                 lineOptions: {
                     styles: [{color: '#3B82F6', opacity: 0.8, weight: 7}],
                     addWaypoints: false
                 }
             }).addTo(map);
+            
+            currentRouteControl.on('routesfound', (e) => {
+                if (e.routes && e.routes.length > 0) {
+                    routeInstructions = e.routes[0].instructions;
+                    nextInstructionIndex = 0;
+                    checkAndSpeakInstruction(userLatLng);
+                }
+            });
         };
 
         const adjustGitaMapView = () => {
@@ -666,7 +705,7 @@
 
         const updateUserLocation = (coords) => {
             if (!map) return;
-            const latLng = [coords.latitude, coords.longitude];
+            const latLng = L.latLng(coords.latitude, coords.longitude);
 
             if (!userMarker) {
                 const userIcon = L.divIcon({
@@ -692,6 +731,7 @@
             if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
                 drawRoute();
+                checkAndSpeakInstruction(latLng);
             } else if (currentMapData?.mode !== 'edit' && currentMapData?.mode !== 'create') {
                  map.panTo(latLng);
             }
@@ -820,7 +860,6 @@
 
             cleanupListeners();
 
-            // Listener for the map document itself
             const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
             unsubscribeMapDocListener = onSnapshot(mapRef, (docSnap) => {
                 if (docSnap.exists()) {
@@ -839,7 +878,6 @@
                 goBackToListScreen();
             });
 
-            // If not in cache, attach listener for markers collection
             const markersQuery = query(collection(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`), orderBy("order"));
             unsubscribeMarkersListener = onSnapshot(markersQuery, (snapshot) => {
                 const markers = [];
@@ -1566,6 +1604,9 @@
                 map.removeControl(currentRouteControl);
                 currentRouteControl = null;
             }
+             if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
             cleanupListeners();
             currentMapData = null;
             currentGitaIndex = -1;
@@ -1901,7 +1942,7 @@
                 authStatus.textContent = "";
                 authStatus.classList.remove('text-green-600');
                 loggedInView.classList.add('hidden');
-                loggedOutView.classList.add('hidden');
+                loggedOutView.classList.remove('hidden');
                 cleanupListeners();
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
