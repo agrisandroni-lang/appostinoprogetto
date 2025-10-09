@@ -14,10 +14,14 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
-    <!-- NUOVO: Leaflet MarkerCluster JS & CSS -->
+    <!-- Leaflet MarkerCluster JS & CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.js"></script>
+
+    <!-- NOVITÀ: Leaflet Routing Machine JS & CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
     <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -28,6 +32,11 @@
         .screen.active { display: flex; flex-direction: column; height: 100vh; }
         #map-container { flex-grow: 1; position: relative; background-color: #e0e0e0; }
         
+        /* Stile per nascondere il pannello istruzioni del routing */
+        .leaflet-routing-container {
+            display: none !important;
+        }
+
         .custom-marker-label {
             color: black;
             padding: 2px 6px;
@@ -401,7 +410,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer;
+        let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer, currentRouteControl;
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -424,8 +433,6 @@
         let mainSortable = null;
         let streetSortables = [];
         
-        let mapMarkersCache = new Map();
-
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
         const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen'), zoneMaps: document.getElementById('zone-maps-screen') };
@@ -584,10 +591,7 @@
             }).addTo(map);
 
             markerClusterGroup = L.markerClusterGroup();
-            // Non aggiungerlo di default, lo gestisce openMapEditor
-            
             individualMarkersLayer = L.layerGroup(); 
-            // Non aggiungerlo di default, lo gestisce openMapEditor
 
             map.on('click', async (e) => {
                 if (repositioningState.active) return await finishRepositioning(e.latlng);
@@ -608,6 +612,38 @@
                 const editBtn = popupNode.querySelector('.edit-marker-btn');
                 if (editBtn) editBtn.onclick = () => openEditModal(editBtn.dataset.markerId);
             });
+        };
+
+        const drawRoute = () => {
+            if (currentRouteControl) {
+                map.removeControl(currentRouteControl);
+                currentRouteControl = null;
+            }
+
+            if (currentMapData?.mode !== 'view' || currentGitaIndex < 0 || !userMarker) {
+                return;
+            }
+            
+            const currentDelivery = allMarkersForList[currentGitaIndex];
+            if (!currentDelivery) return;
+
+            const userLatLng = userMarker.getLatLng();
+            const destinationLatLng = L.latLng(currentDelivery.latitude, currentDelivery.longitude);
+
+            currentRouteControl = L.Routing.control({
+                waypoints: [
+                    userLatLng,
+                    destinationLatLng
+                ],
+                routeWhileDragging: false,
+                show: false, // Nasconde il pannello delle istruzioni
+                addWaypoints: false, // Impedisce di aggiungere altri punti
+                createMarker: () => null, // Non crea i marker A e B di default
+                lineOptions: {
+                    styles: [{color: '#3B82F6', opacity: 0.8, weight: 7}],
+                    addWaypoints: false
+                }
+            }).addTo(map);
         };
 
         const adjustGitaMapView = () => {
@@ -655,6 +691,7 @@
             
             if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
+                drawRoute();
             } else if (currentMapData?.mode !== 'edit' && currentMapData?.mode !== 'create') {
                  map.panTo(latLng);
             }
@@ -722,7 +759,6 @@
             const currentDelivery = markersOnMap[currentGitaIndex];
             if (!currentDelivery) return;
 
-            // currentMarkers ora contiene solo la finestra di civici visibili
             currentMarkers.forEach(m => {
                 const markerDataIndex = markersOnMap.findIndex(marker => marker.id === m.markerData.id);
                 const isActive = m.markerData.id === currentDelivery.id;
@@ -908,11 +944,14 @@
         };
         
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
-            // ---- Pulisce lo stato precedente ----
             allMarkersForList = [];
             currentMarkers = [];
             if (map) {
                 renderMarkers([]); 
+                if (currentRouteControl) {
+                    map.removeControl(currentRouteControl);
+                    currentRouteControl = null;
+                }
             }
             if(containers.gitaMode) {
                  document.getElementById('gita-progress-text').textContent = 'Caricamento...';
@@ -1310,6 +1349,7 @@
             renderMarkers(markersToRender, false);
             updateGitaMarkerStyles();
             adjustGitaMapView();
+            drawRoute();
 
             // 3. Aggiorna i pannelli UI (card, lista, etc.)
             const markers = allMarkersForList;
@@ -1381,7 +1421,6 @@
         const handleSaveMarker = async () => {
             const mapName = inputs.mapName.value.trim();
             
-            // 1. Gestisce la creazione della mappa se è una mappa nuova
             if (!currentMapData.id) {
                 if (!mapName) {
                     return alert("Dai un nome alla mappa.");
@@ -1397,15 +1436,14 @@
                 currentMapData.mode = 'edit';
                 inputs.mapName.style.display = 'none';
                 attachMapListener(currentMapData.id);
+                 if (!temporaryMarker) {
+                    infoText.textContent = `Mappa "${mapName}" creata! Ora puoi aggiungere i civici.`;
+                    return;
+                }
             }
 
-            // 2. Gestisce il salvataggio del segnaposto (solo se è stato posizionato)
             if (!temporaryMarker) {
-                if (mapName) { 
-                     infoText.textContent = `Mappa "${mapName}" creata! Ora puoi aggiungere i civici.`;
-                } else {
-                     alert("Prima posiziona un segnaposto sulla mappa.");
-                }
+                 alert("Prima posiziona un segnaposto sulla mappa.");
                 return; 
             }
             
@@ -1524,6 +1562,10 @@
 
         const handleBackAction = () => {
             toggleWakeLock(false);
+            if (currentRouteControl) {
+                map.removeControl(currentRouteControl);
+                currentRouteControl = null;
+            }
             cleanupListeners();
             currentMapData = null;
             currentGitaIndex = -1;
@@ -1865,7 +1907,6 @@
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
                 stopWatchingLocation();
                 businessSelection = [];
-                mapMarkersCache.clear(); // Pulisci la cache al logout
                 updateBusinessUI();
             }
         });
@@ -2096,7 +2137,6 @@
                 allSelectedMarkers.push(...markersWithCountAndType);
             }
             
-            // Ordina i civici selezionati in base al loro 'order' originale
             allSelectedMarkers.sort((a, b) => a.order - b.order);
             
             let feedbackMsg = '';
