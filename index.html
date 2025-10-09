@@ -435,6 +435,16 @@
 
         let routeInstructions = [];
         let nextInstructionIndex = 0;
+        let italianVoice = null;
+
+        // Carica le voci disponibili
+        const loadVoices = () => {
+            const voices = window.speechSynthesis.getVoices();
+            italianVoice = voices.find(voice => voice.lang === 'it-IT');
+        };
+        // L'evento 'voiceschanged' è necessario perché le voci non sono disponibili immediatamente
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices(); // Prova a caricarle subito
         
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
@@ -618,12 +628,10 @@
         };
         
         const speak = (text) => {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
+            if ('speechSynthesis' in window && text) {
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'it-IT';
-                const voices = window.speechSynthesis.getVoices();
-                const italianVoice = voices.find(voice => voice.lang === 'it-IT');
                 if (italianVoice) {
                     utterance.voice = italianVoice;
                 }
@@ -640,7 +648,7 @@
             const instructionLatLng = L.latLng(instruction.latLng);
             const distance = userLatLng.distanceTo(instructionLatLng);
 
-            if (distance < 40) { // Soglia di 40 metri per annunciare l'istruzione
+            if (distance < 40) { // Soglia di 40 metri
                 speak(instruction.text);
                 nextInstructionIndex++;
             }
@@ -680,7 +688,7 @@
                             latLng: e.routes[0].coordinates[instr.index]
                         }));
                         nextInstructionIndex = 0;
-                        checkAndSpeakInstruction(userLatLng);
+                        checkAndSpeakInstruction(userMarker.getLatLng());
                     }
                 });
             }
@@ -784,7 +792,7 @@
             
             if (currentMapData?.mode === 'view') {
                 adjustGitaMapView();
-                 if (currentRouteControl) {
+                if (currentRouteControl) {
                     currentRouteControl.setWaypoints([latLng, currentRouteControl.getWaypoints()[1].latLng]);
                 } else {
                     drawRoute();
