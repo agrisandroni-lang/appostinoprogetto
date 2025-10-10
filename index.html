@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.js"></script>
 
-    <!-- NOVITÀ: Leaflet Routing Machine JS & CSS -->
+    <!-- Leaflet Routing Machine JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
@@ -436,6 +436,7 @@
         let routeInstructions = [];
         let nextInstructionIndex = 0;
         let italianVoice = null;
+        let isNewDestination = false; // NUOVA VARIABILE "SEMAFORO" PER LE ISTRUZIONI
 
         // Carica le voci disponibili
         const loadVoices = () => {
@@ -666,11 +667,14 @@
             const userLatLng = userMarker.getLatLng();
             const destinationLatLng = L.latLng(currentDelivery.latitude, currentDelivery.longitude);
             
+            isNewDestination = true; // Impostiamo il semaforo a "verde" per un nuovo percorso
+
             if (currentRouteControl) {
                 currentRouteControl.setWaypoints([userLatLng, destinationLatLng]);
             } else {
                 currentRouteControl = L.Routing.control({
                     waypoints: [ userLatLng, destinationLatLng ],
+                    language: 'it', // MODIFICA: Imposta la lingua italiana per le indicazioni
                     routeWhileDragging: false,
                     show: false, 
                     addWaypoints: false, 
@@ -682,12 +686,14 @@
                 }).addTo(map);
                 
                 currentRouteControl.on('routesfound', (e) => {
-                    if (e.routes && e.routes.length > 0) {
+                    // MODIFICA: Controlliamo il "semaforo". Se è verde, elaboriamo le istruzioni.
+                    if (e.routes && e.routes.length > 0 && isNewDestination) {
                         routeInstructions = e.routes[0].instructions.map(instr => ({
                             text: instr.text,
                             latLng: e.routes[0].coordinates[instr.index]
                         }));
                         nextInstructionIndex = 0;
+                        isNewDestination = false; // Semaforo "rosso": istruzioni caricate, non ricaricare
                         checkAndSpeakInstruction(userMarker.getLatLng());
                     }
                 });
