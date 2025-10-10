@@ -674,13 +674,13 @@
             } else {
                 currentRouteControl = L.Routing.control({
                     waypoints: [ userLatLng, destinationLatLng ],
-                    language: 'it',
                     routeWhileDragging: false,
                     show: false, 
                     addWaypoints: false, 
                     createMarker: () => null, 
                     router: L.routing.osrmv1({
-                        serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1'
+                        serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1',
+                        language: 'it'
                     }),
                     lineOptions: {
                         styles: [{color: '#3B82F6', opacity: 0.8, weight: 7}],
