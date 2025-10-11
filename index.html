@@ -674,14 +674,14 @@
             } else {
                 currentRouteControl = L.Routing.control({
                     waypoints: [ userLatLng, destinationLatLng ],
+                    router: L.routing.osrmv1({
+                        serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1',
+                        language: 'it' 
+                    }),
                     routeWhileDragging: false,
                     show: false, 
                     addWaypoints: false, 
                     createMarker: () => null, 
-                    router: L.routing.osrmv1({
-                        serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1',
-                        language: 'it'
-                    }),
                     lineOptions: {
                         styles: [{color: '#3B82F6', opacity: 0.8, weight: 7}],
                         addWaypoints: false
@@ -1494,10 +1494,10 @@
                 <a href="${navLink}" target="_blank" class="block w-full bg-blue-50 hover:bg-blue-100 p-3 rounded-lg">
                     <div class="flex items-start gap-4">
                         ${typeIcon ? `<div class="flex-shrink-0 text-2xl">${typeIcon}</div>` : ''}
-                        <div class="flex-grow">
-                            <p class="text-xl font-bold text-gray-800 break-words whitespace-normal">${displayDelivery.street}</p>
+                        <div class="flex-grow min-w-0">
+                            <p class="text-xl font-bold text-gray-800 break-all">${displayDelivery.street}</p>
                             <p class="text-2xl font-black text-blue-600">${displayDelivery.houseNumber}</p>
-                            ${displayDelivery.notes ? `<p class="mt-1 text-sm text-gray-600 italic bg-yellow-100 p-1 rounded break-words whitespace-normal">${displayDelivery.notes}</p>` : ''}
+                            ${displayDelivery.notes ? `<p class="mt-1 text-sm text-gray-600 italic bg-yellow-100 p-1 rounded break-all">${displayDelivery.notes}</p>` : ''}
                         </div>
                     </div>
                      ${isBusinessContext && displayDelivery.count > 0 ? `<p class="mt-2 text-right font-bold text-orange-600 border-t pt-2">OGGETTI: ${displayDelivery.count}</p>` : ''}
