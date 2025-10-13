@@ -1271,62 +1271,19 @@
         function renderOrderList() {
             const container = containers.civiciOrderList;
             container.innerHTML = '';
-            
-            const groupedMarkers = currentMarkersToOrder.reduce((acc, marker) => {
-                const street = marker.street || 'Senza Via';
-                if (!acc[street]) acc[street] = [];
-                acc[street].push(marker);
-                return acc;
-            }, {});
-            
-            const streetOrder = [];
-            const seenStreets = new Set();
+
+            // Non raggruppare più per via, ma mostra una lista unica
             currentMarkersToOrder.forEach(marker => {
-                const street = marker.street || 'Senza Via';
-                if (!seenStreets.has(street)) {
-                    seenStreets.add(street);
-                    streetOrder.push(street);
-                }
-            });
-
-            streetOrder.forEach((street) => {
-                const markers = groupedMarkers[street];
-                if (!markers) return;
-
-                const details = document.createElement('details');
-                details.className = 'bg-white rounded-lg border border-gray-300 mb-3 street-group';
-                details.dataset.street = street;
-                details.open = true;
-
-                const summary = document.createElement('summary');
-                summary.className = 'flex items-center justify-between bg-gray-200 p-3 rounded-t-lg';
-                summary.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <svg class="drag-handle cursor-grab active:cursor-grabbing text-gray-500 w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg>
-                        <h4 class="font-bold text-gray-700">${street}</h4>
+                const listItem = document.createElement('div');
+                listItem.className = 'flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-2';
+                listItem.dataset.id = marker.id;
+                listItem.innerHTML = `
+                    <div class="flex items-center space-x-3 flex-grow">
+                         <svg class="drag-handle cursor-grab active:cursor-grabbing text-gray-500 w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg>
+                         <p class="text-gray-800 pointer-events-none"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}, ${marker.city}</p>
                     </div>
-                    <svg class="details-arrow w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 `;
-                details.appendChild(summary);
-
-                const civicList = document.createElement('div');
-                civicList.className = 'p-2 space-y-2 civic-list';
-                civicList.dataset.street = street;
-
-                markers.forEach(marker => {
-                    const listItem = document.createElement('div');
-                    listItem.className = 'flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200';
-                    listItem.dataset.id = marker.id;
-                    listItem.innerHTML = `
-                        <div class="flex items-center space-x-3 flex-grow">
-                             <svg class="civic-drag-handle cursor-grab active:cursor-grabbing text-gray-400 w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                             <p class="text-gray-800 pointer-events-none"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
-                        </div>
-                    `;
-                    civicList.appendChild(listItem);
-                });
-                details.appendChild(civicList);
-                container.appendChild(details);
+                container.appendChild(listItem);
             });
 
             setupSortables();
@@ -1334,31 +1291,26 @@
 
         function setupSortables() {
             if(mainSortable) mainSortable.destroy();
+            // Rimuovo la logica per le vie multiple
             streetSortables.forEach(s => s.destroy());
             streetSortables = [];
             
             mainSortable = new Sortable(containers.civiciOrderList, {
-                animation: 150, group: 'main-list', handle: '.drag-handle', ghostClass: 'ghost',
-            });
-
-            document.querySelectorAll('.civic-list').forEach(listEl => {
-                const s = new Sortable(listEl, {
-                    animation: 150, group: 'civic-list', handle: '.civic-drag-handle', ghostClass: 'ghost',
-                });
-                streetSortables.push(s);
+                animation: 150,
+                handle: '.drag-handle', // L'handle è ora sull'icona di ogni elemento
+                ghostClass: 'ghost',
             });
         }
         
         const handleSaveOrder = async () => {
             const newOrderedMarkers = [];
-            containers.civiciOrderList.querySelectorAll('.street-group').forEach(group => {
-                group.querySelectorAll('[data-id]').forEach(item => {
-                    const markerId = item.dataset.id;
-                    const originalMarker = allMarkersForList.find(m => m.id === markerId);
-                    if(originalMarker) {
-                        newOrderedMarkers.push(originalMarker);
-                    }
-                });
+            // Modifica per leggere la lista unica
+            containers.civiciOrderList.querySelectorAll('[data-id]').forEach(item => {
+                const markerId = item.dataset.id;
+                const originalMarker = allMarkersForList.find(m => m.id === markerId);
+                if(originalMarker) {
+                    newOrderedMarkers.push(originalMarker);
+                }
             });
 
             const userId = auth.currentUser.uid;
@@ -2381,4 +2333,3 @@
     </script>
 </body>
 </html>
-
