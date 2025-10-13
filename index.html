@@ -71,9 +71,13 @@
              text-shadow: none;
         }
         
-        #all-markers-list-screen #all-markers-list, #civici-order-screen #civici-order-list {
+        #all-markers-list-screen #all-markers-list {
             max-height: none; flex-grow: 1;
         }
+        #civici-order-screen .flex-grow {
+            min-height: 0;
+        }
+
         .spinner {
             border: 4px solid rgba(0, 0, 0, 0.1); width: 36px;
             height: 36px; border-radius: 50%; border-left-color: #09f;
@@ -123,6 +127,9 @@
         }
         details[open] > summary .details-arrow {
             transform: rotate(90deg);
+        }
+        .sortable-chosen {
+            background: #f0f9ff;
         }
     </style>
 </head>
@@ -233,8 +240,24 @@
              </div>
         </div>
         <p id="save-order-feedback" class="text-center text-sm text-green-700 h-4"></p>
-        <div id="civici-order-list" class="overflow-y-auto p-2 bg-gray-100">
-            <!-- La lista ordinabile verrà inserita qui -->
+        <div class="flex-grow flex flex-col overflow-hidden">
+            <!-- Pannello Superiore: Ordine Finale -->
+            <div class="h-1/2 flex flex-col border-b-2 border-gray-300">
+                <h3 class="p-2 bg-gray-200 text-sm font-bold text-gray-700">Il Tuo Ordine Finale (Trascina qui)</h3>
+                <div id="civici-order-list" class="overflow-y-auto p-2 bg-gray-100 flex-grow">
+                    <!-- La lista ordinabile verrà inserita qui -->
+                </div>
+            </div>
+
+            <!-- Pannello Inferiore: Sorgente Civici -->
+            <div class="h-1/2 flex flex-col">
+                 <div class="p-2 bg-gray-200">
+                    <input type="search" id="search-source-markers" placeholder="Cerca via o civico da aggiungere..." class="w-full p-2 border rounded text-sm">
+                 </div>
+                <div id="source-markers-list" class="overflow-y-auto p-2 bg-white flex-grow">
+                    <!-- L'elenco raggruppato per vie verrà inserito qui -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -252,7 +275,7 @@
             <!-- Pulsanti di Navigazione e Info -->
             <div class="p-2 bg-white shadow-md flex justify-between items-center gap-3">
                 <button id="prev-gita-btn" class="bg-gray-200 text-gray-800 font-bold py-3 px-5 rounded-lg shadow-lg text-2xl disabled:opacity-50 flex items-center justify-center leading-none">&lt;</button>
-                <div class="text-center flex-grow">
+                <div class="text-center flex-grow min-w-0">
                     <div id="gita-progress-text" class="font-semibold text-gray-700"></div>
                     <div id="current-location-street" class="text-sm text-blue-600 h-4 truncate"></div>
                 </div>
@@ -394,7 +417,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc, deleteField, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.1/modular/sortable.esm.js";
+        import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/modular/sortable.esm.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
@@ -429,7 +452,6 @@
         let businessSelection = [];
         let cameFromScreen = 'mapList';
         
-        let groupedMarkersToOrder = [];
         let mainSortable = null;
         let streetSortables = [];
 
@@ -476,7 +498,7 @@
             backToMapListFromZone: document.getElementById('back-to-map-list-from-zone'),
             gitaSeeAll: document.getElementById('gita-see-all-btn'),
         };
-        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input') };
+        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input'), searchSourceMarkers: document.getElementById('search-source-markers')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container'), zoneMapList: document.getElementById('zone-maps-list-container') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
@@ -1257,6 +1279,7 @@
         const showCiviciOrderScreen = () => {
             currentMarkersToOrder = [...allMarkersForList];
             document.getElementById('order-screen-map-name').textContent = currentMapData.name;
+            inputs.searchSourceMarkers.value = '';
             
             if (currentMapData.mapType === 'business') {
                 buttons.optimizeRoute.classList.remove('hidden');
@@ -1268,50 +1291,166 @@
             showScreen('civiciOrder');
         };
 
-        function renderOrderList() {
-            const container = containers.civiciOrderList;
-            container.innerHTML = '';
+        function createFinalListItem(marker) {
+            const listItem = document.createElement('div');
+            listItem.className = 'flex items-center justify-between bg-white p-2 rounded-lg border border-gray-300 shadow-sm mb-2';
+            listItem.dataset.id = marker.id;
+            listItem.innerHTML = `
+                <div class="flex items-center space-x-2 flex-grow min-w-0">
+                    <svg class="drag-handle cursor-grab active:cursor-grabbing text-gray-500 w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg>
+                    <p class="text-gray-800 pointer-events-none truncate"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
+                </div>
+                <button class="remove-from-order-btn bg-red-100 text-red-700 p-1 rounded-full hover:bg-red-200 ml-2 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            `;
+            return listItem;
+        }
 
-            // Non raggruppare più per via, ma mostra una lista unica
+        function createSourceListItem(marker) {
+            const listItem = document.createElement('div');
+            listItem.className = 'p-3 hover:bg-gray-50 flex justify-between items-center source-item';
+            listItem.dataset.id = marker.id;
+            listItem.innerHTML = `
+                <p class="font-bold pointer-events-none text-sm"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}</p>
+                <svg class="drag-handle-source cursor-grab active:cursor-grabbing text-gray-400 w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            `;
+            return listItem;
+        }
+
+
+        function renderOrderList() {
+            const finalListContainer = containers.civiciOrderList;
+            const sourceListContainer = document.getElementById('source-markers-list');
+            finalListContainer.innerHTML = '';
+            sourceListContainer.innerHTML = '';
+
+            // 1. Popola la lista finale (superiore)
             currentMarkersToOrder.forEach(marker => {
-                const listItem = document.createElement('div');
-                listItem.className = 'flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-2';
-                listItem.dataset.id = marker.id;
-                listItem.innerHTML = `
-                    <div class="flex items-center space-x-3 flex-grow">
-                         <svg class="drag-handle cursor-grab active:cursor-grabbing text-gray-500 w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle><circle cx="5" cy="5" r="1"></circle><circle cx="5" cy="12" r="1"></circle><circle cx="5" cy="19" r="1"></circle><circle cx="19" cy="5" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="19" cy="19" r="1"></circle></svg>
-                         <p class="text-gray-800 pointer-events-none"><span class="font-bold text-blue-700">${marker.houseNumber}</span>, ${marker.street}, ${marker.city}</p>
-                    </div>
-                `;
-                container.appendChild(listItem);
+                finalListContainer.appendChild(createFinalListItem(marker));
+            });
+            
+            // 2. Popola la lista sorgente (inferiore)
+            const sourceMarkers = [...allMarkersForList];
+            const groupedByStreet = sourceMarkers.reduce((acc, marker) => {
+                const street = marker.street || 'Senza Via';
+                if (!acc[street]) acc[street] = [];
+                acc[street].push(marker);
+                return acc;
+            }, {});
+            
+            const streetOrder = Object.keys(groupedByStreet).sort((a, b) => a.localeCompare(b));
+
+            streetOrder.forEach(street => {
+                const streetMarkers = groupedByStreet[street];
+                
+                const details = document.createElement('details');
+                details.className = 'mb-2 border rounded-lg bg-white shadow-sm source-street-group';
+                details.open = true;
+                
+                const summary = document.createElement('summary');
+                summary.className = 'flex justify-between items-center p-3 rounded-t-lg cursor-pointer bg-gray-50';
+                summary.innerHTML = `<h3 class="font-bold text-gray-800 pointer-events-none">${street}</h3>`;
+                details.appendChild(summary);
+
+                const list = document.createElement('div');
+                list.className = 'divide-y divide-gray-100 p-2 source-street-list';
+                
+                streetMarkers.forEach(marker => {
+                    const li = createSourceListItem(marker);
+                    if (currentMarkersToOrder.some(m => m.id === marker.id)) {
+                        li.style.display = 'none';
+                    }
+                    list.appendChild(li);
+                });
+                details.appendChild(list);
+                sourceListContainer.appendChild(details);
             });
 
             setupSortables();
         }
 
+
         function setupSortables() {
             if(mainSortable) mainSortable.destroy();
-            // Rimuovo la logica per le vie multiple
             streetSortables.forEach(s => s.destroy());
             streetSortables = [];
-            
+
             mainSortable = new Sortable(containers.civiciOrderList, {
+                group: 'shared-civici',
                 animation: 150,
-                handle: '.drag-handle', // L'handle è ora sull'icona di ogni elemento
+                handle: '.drag-handle',
                 ghostClass: 'ghost',
+                onAdd: function (evt) {
+                    const markerId = evt.item.dataset.id;
+                    const sourceItem = document.querySelector(`#source-markers-list [data-id="${markerId}"]`);
+                    if (sourceItem) {
+                        sourceItem.style.display = 'none';
+                    }
+                    const markerData = allMarkersForList.find(m => m.id === markerId);
+                    if(markerData) {
+                        evt.item.parentNode.replaceChild(createFinalListItem(markerData), evt.item);
+                    }
+                }
+            });
+
+            document.querySelectorAll('.source-street-list').forEach(listEl => {
+                const s = new Sortable(listEl, {
+                    group: {
+                        name: 'shared-civici',
+                        pull: 'clone',
+                        put: false
+                    },
+                    animation: 150,
+                    sort: false, 
+                    handle: '.drag-handle-source',
+                });
+                streetSortables.push(s);
             });
         }
         
-        const handleSaveOrder = async () => {
-            const newOrderedMarkers = [];
-            // Modifica per leggere la lista unica
-            containers.civiciOrderList.querySelectorAll('[data-id]').forEach(item => {
-                const markerId = item.dataset.id;
-                const originalMarker = allMarkersForList.find(m => m.id === markerId);
-                if(originalMarker) {
-                    newOrderedMarkers.push(originalMarker);
+        containers.civiciOrderList.addEventListener('click', (e) => {
+            const removeBtn = e.target.closest('.remove-from-order-btn');
+            if (removeBtn) {
+                const itemToRemove = removeBtn.closest('[data-id]');
+                const markerId = itemToRemove.dataset.id;
+                
+                // Rimuovi dalla lista UI
+                itemToRemove.remove();
+
+                // Fai riapparire nella lista sorgente
+                const sourceItem = document.querySelector(`#source-markers-list [data-id="${markerId}"]`);
+                if (sourceItem) {
+                    sourceItem.style.display = 'flex';
                 }
+            }
+        });
+
+        inputs.searchSourceMarkers.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            document.querySelectorAll('#source-markers-list .source-street-group').forEach(details => {
+                let streetVisible = false;
+                details.querySelectorAll('.source-item').forEach(item => {
+                    const itemText = item.textContent.toLowerCase();
+                    const isMatch = itemText.includes(searchTerm);
+                    item.style.display = isMatch ? 'flex' : 'none';
+                    if(isMatch) streetVisible = true;
+                });
+                details.style.display = streetVisible ? 'block' : 'none';
+                if(streetVisible && searchTerm) details.open = true;
             });
+        });
+
+        const handleSaveOrder = async () => {
+            const orderedIds = [];
+            containers.civiciOrderList.querySelectorAll('[data-id]').forEach(item => {
+                orderedIds.push(item.dataset.id);
+            });
+
+            const finalOrderedList = orderedIds.map(id => allMarkersForList.find(m => m.id === id)).filter(Boolean);
+            const remainingMarkers = allMarkersForList.filter(m => !orderedIds.includes(m.id));
+            
+            const newCompleteOrder = [...finalOrderedList, ...remainingMarkers];
 
             const userId = auth.currentUser.uid;
             const mapId = currentMapData.id;
@@ -1319,9 +1458,11 @@
             
             try {
                 const batch = writeBatch(db);
-                newOrderedMarkers.forEach((marker, index) => {
-                    const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`, marker.id);
-                    batch.update(markerRef, { order: index });
+                newCompleteOrder.forEach((marker, index) => {
+                    if (marker && marker.id) {
+                        const markerRef = doc(db, `artifacts/${appId}/users/${userId}/maps/${mapId}/markers`, marker.id);
+                        batch.update(markerRef, { order: index });
+                    }
                 });
                 
                 await batch.commit();
@@ -1344,12 +1485,19 @@
                 alert("Posizione GPS non ancora disponibile. Attendi un momento e riprova.");
                 return;
             }
-            if (currentMarkersToOrder.length < 2) return;
+             const currentFinalIds = new Set();
+             containers.civiciOrderList.querySelectorAll('[data-id]').forEach(item => {
+                currentFinalIds.add(item.dataset.id);
+            });
+
+            let markersToOptimize = currentMarkersToOrder.filter(m => currentFinalIds.has(m.id));
+
+            if (markersToOptimize.length < 2) return;
 
             const feedbackP = document.getElementById('save-order-feedback');
             feedbackP.textContent = 'Ottimizzazione in corso...';
 
-            let remainingMarkers = [...currentMarkersToOrder];
+            let remainingMarkers = [...markersToOptimize];
             let optimizedRoute = [];
             let currentLocation = { 
                 latitude: userMarker.getLatLng().lat, 
@@ -1377,7 +1525,7 @@
                     break; 
                 }
             }
-
+            
             currentMarkersToOrder = optimizedRoute;
             renderOrderList();
             feedbackP.textContent = 'Percorso ottimizzato! Salva le modifiche.';
@@ -1404,18 +1552,15 @@
                  return;
             }
 
-            // 1. Calcola la finestra di civici da mostrare sulla mappa
             const startIndex = Math.max(0, currentGitaIndex - 10);
-            const endIndex = Math.min(allMarkersForList.length, currentGitaIndex + 21); // 10 prima, attuale, 20 dopo
+            const endIndex = Math.min(allMarkersForList.length, currentGitaIndex + 21);
             const markersToRender = allMarkersForList.slice(startIndex, endIndex);
 
-            // 2. Renderizza solo la finestra di civici
             renderMarkers(markersToRender, false);
             updateGitaMarkerStyles();
             adjustGitaMapView();
             drawRoute();
 
-            // 3. Aggiorna i pannelli UI (card, lista, etc.)
             const markers = allMarkersForList;
             const totalMarkers = markers.length;
             const currentDelivery = markers[currentGitaIndex];
@@ -2333,3 +2478,4 @@
     </script>
 </body>
 </html>
+
