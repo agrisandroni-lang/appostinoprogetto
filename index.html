@@ -2524,7 +2524,7 @@
             }
 
             try {
-                const requestsCollectionRef = collection(db, `artifacts/${appId}/public/map_requests`);
+                const requestsCollectionRef = collection(db, `artifacts/${appId}/public/data/map_requests`);
                 await addDoc(requestsCollectionRef, {
                     userId: userId,
                     comune: comune,
@@ -2547,7 +2547,7 @@
         const listenForMapRequests = (userId) => {
             if (unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
             
-            const q = query(collection(db, `artifacts/${appId}/public/map_requests`), where("userId", "==", userId));
+            const q = query(collection(db, `artifacts/${appId}/public/data/map_requests`), where("userId", "==", userId));
             
             unsubscribeMapRequestsListener = onSnapshot(q, (snapshot) => {
                 const requests = [];
@@ -2612,7 +2612,7 @@
         containers.mapRequestsContainer.addEventListener('click', async (e) => {
             if (e.target.classList.contains('import-ready-map-btn')) {
                 const requestId = e.target.dataset.requestId;
-                const requestDocRef = doc(db, `artifacts/${appId}/public/map_requests`, requestId);
+                const requestDocRef = doc(db, `artifacts/${appId}/public/data/map_requests`, requestId);
 
                 try {
                     const docSnap = await getDoc(requestDocRef);
@@ -2658,4 +2658,5 @@
     </script>
 </body>
 </html>
+`
 
