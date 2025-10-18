@@ -419,7 +419,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc, deleteField, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc, deleteField, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/modular/sortable.esm.js";
 
         const firebaseConfig = {
@@ -518,14 +518,10 @@
         const fileInput = document.getElementById('file-input');
 
         const cleanupListeners = () => {
-            if (unsubscribeMapDocListener) {
-                unsubscribeMapDocListener();
-                unsubscribeMapDocListener = null;
-            }
-            if (unsubscribeMarkersListener) {
-                unsubscribeMarkersListener();
-                unsubscribeMarkersListener = null;
-            }
+            if (unsubscribeMapDocListener) unsubscribeMapDocListener();
+            if (unsubscribeMarkersListener) unsubscribeMarkersListener();
+            unsubscribeMapDocListener = null;
+            unsubscribeMarkersListener = null;
         };
 
         const showScreen = (screenName) => {
@@ -1088,7 +1084,90 @@
                 containers.zoneMapList.innerHTML = '<p class="text-center text-red-500">Errore caricamento mappe.</p>';
             });
         };
+
+        // NUOVO: Funzioni per la richiesta mappa
+        const loadMapRequests = (userId) => {
+            if (unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
+            const q = query(collection(db, `artifacts/${appId}/users/${userId}/mapRequests`), orderBy('createdAt', 'desc'));
+            unsubscribeMapRequestsListener = onSnapshot(q, (snapshot) => {
+                const requests = [];
+                snapshot.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
+                renderMapRequests(requests);
+            }, (error) => {
+                console.error("Errore nel caricamento delle richieste:", error);
+                containers.mapRequestsContainer.innerHTML = `<p class="text-red-500 text-sm">Errore nel caricare le richieste.</p>`;
+            });
+        };
         
+        const renderMapRequests = (requests) => {
+            const container = containers.mapRequestsContainer;
+            container.innerHTML = '';
+            if (requests.length === 0) return;
+
+            const title = document.createElement('h3');
+            title.className = 'text-lg font-bold mb-2 text-gray-700';
+            title.textContent = 'Le Tue Richieste';
+            container.appendChild(title);
+
+            requests.forEach(req => {
+                const reqDiv = document.createElement('div');
+                reqDiv.className = 'bg-gray-100 p-3 rounded-lg mb-2 flex justify-between items-center';
+                
+                let statusText, statusColor;
+                switch(req.status) {
+                    case 'pending': statusText = 'In Attesa'; statusColor = 'text-yellow-600'; break;
+                    case 'processing': statusText = 'In Lavorazione'; statusColor = 'text-blue-600'; break;
+                    case 'ready': statusText = 'Pronta'; statusColor = 'text-green-600'; break;
+                    case 'error': statusText = 'Errore'; statusColor = 'text-red-600'; break;
+                    default: statusText = 'Sconosciuto'; statusColor = 'text-gray-500';
+                }
+
+                reqDiv.innerHTML = `
+                    <div>
+                        <p class="font-semibold">${req.comune} (${req.provincia})</p>
+                        <p class="text-sm font-bold ${statusColor}">${statusText}</p>
+                    </div>
+                    ${req.status === 'ready' && req.fileUrl ? 
+                        `<button data-url="${req.fileUrl}" data-name="${req.comune}" class="import-ready-map-btn bg-green-500 text-white text-sm font-bold py-1 px-3 rounded hover:bg-green-600">Importa</button>` :
+                        `<button data-id="${req.id}" class="delete-request-btn text-red-400 hover:text-red-600 p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                         </button>`
+                    }
+                `;
+                container.appendChild(reqDiv);
+            });
+        };
+        
+        containers.mapRequestsContainer.addEventListener('click', async (e) => {
+            const deleteBtn = e.target.closest('.delete-request-btn');
+            const importBtn = e.target.closest('.import-ready-map-btn');
+
+            if (deleteBtn) {
+                const reqId = deleteBtn.dataset.id;
+                const confirmed = await showConfirm("Eliminare questa richiesta?", "Non potrai più seguirne lo stato.");
+                if (confirmed) {
+                    await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/mapRequests`, reqId));
+                }
+            }
+
+            if (importBtn) {
+                const url = importBtn.dataset.url;
+                const name = importBtn.dataset.name;
+                try {
+                    importFeedback.textContent = `Download della mappa ${name}...`;
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('Download fallito.');
+                    const csvContent = await response.text();
+                    await parseAndCreateMap(csvContent, name);
+                } catch (error) {
+                    console.error("Errore importazione mappa pronta:", error);
+                    importFeedback.textContent = `Errore: ${error.message}`;
+                    importFeedback.classList.add('text-red-500');
+                    setTimeout(() => { importFeedback.textContent = ''; }, 5000);
+                }
+            }
+        });
+
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
             allMarkersForList = [];
             currentMarkers = [];
@@ -1532,7 +1611,9 @@
                 }
             }
             
-            currentMarkersToOrder = optimizedRoute; 
+            allMarkersForList = allMarkersForList.filter(m => !currentFinalIds.has(m.id));
+            allMarkersForList.unshift(...optimizedRoute);
+            
             renderOrderList();
             feedbackP.textContent = 'Percorso ottimizzato! Salva le modifiche.';
             setTimeout(() => { feedbackP.textContent = ''; }, 3000);
@@ -1922,7 +2003,37 @@
                 throw new Error("Impossibile salvare la mappa. Potresti aver superato la quota di scrittura. Riprova più tardi.");
             }
         };
+
+        const handleRequestMap = async () => {
+            const comune = inputs.requestComune.value.trim();
+            const provincia = inputs.requestProvincia.value.trim().toUpperCase();
+            if (!comune || !provincia) {
+                alert("Per favore, compila sia il comune che la provincia.");
+                return;
+            }
+
+            const userId = auth.currentUser.uid;
+            const requestsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/mapRequests`);
+            
+            try {
+                await addDoc(requestsCollectionRef, {
+                    comune: comune,
+                    provincia: provincia,
+                    userId: userId,
+                    status: 'pending',
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('request-map-modal').style.display = 'none';
+                importFeedback.textContent = 'Richiesta inviata con successo!';
+                importFeedback.classList.add('text-green-700');
+                setTimeout(() => { importFeedback.textContent = ''; }, 3000);
+            } catch(error) {
+                console.error("Errore invio richiesta:", error);
+                alert("Impossibile inviare la richiesta. Riprova.");
+            }
+        };
         
+        // --- BLOCCO EVENT LISTENERS RIPRISTINATO ---
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider).catch((error) => {
@@ -1933,6 +2044,7 @@
         buttons.signOut.onclick = () => {
             cleanupListeners();
             if(unsubscribeMapsListListener) unsubscribeMapsListListener();
+            if(unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
             signOut(auth);
         };
         buttons.goToCreate.onclick = () => openMapEditor('create');
@@ -1952,6 +2064,12 @@
         };
 
         buttons.saveMarker.onclick = handleSaveMarker;
+        buttons.importFile.onclick = () => fileInput.click();
+        fileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) handleFileImport(file);
+            event.target.value = null; 
+        };
         
         buttons.goToOrder.onclick = showCiviciOrderScreen;
         buttons.saveOrder.onclick = handleSaveOrder;
@@ -2026,6 +2144,7 @@
                 }
             }
         });
+        // --- FINE BLOCCO EVENT LISTENERS RIPRISTINATO ---
 
         const handleToggleStreetSelection = (streetName) => {
             const streetMarkers = allMarkersForList.filter(m => m.street === streetName);
@@ -2096,6 +2215,16 @@
         const forceUppercase = (e) => { e.target.value = e.target.value.toUpperCase(); };
         inputs.city.addEventListener('input', forceUppercase);
         inputs.street.addEventListener('input', forceUppercase);
+        inputs.requestProvincia.addEventListener('input', forceUppercase);
+
+        // NUOVO: Listener per il pulsante Richiesta Mappa
+        buttons.requestMap.onclick = () => {
+            document.getElementById('request-map-modal').style.display = 'flex';
+        };
+        buttons.cancelRequestMap.onclick = () => {
+            document.getElementById('request-map-modal').style.display = 'none';
+        };
+        buttons.confirmRequestMap.onclick = handleRequestMap;
 
         onAuthStateChanged(auth, (user) => {
             loadingView.classList.add('hidden');
@@ -2105,6 +2234,7 @@
                 loggedInView.classList.remove('hidden');
                 loggedOutView.classList.add('hidden');
                 loadMapsList(user.uid);
+                loadMapRequests(user.uid); // Carica le richieste
                 startWatchingLocation();
                 loadSelectionFromStorage();
                 updateBusinessUI();
@@ -2115,7 +2245,9 @@
                 loggedOutView.classList.remove('hidden');
                 cleanupListeners();
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
+                if (unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
+                containers.mapRequestsContainer.innerHTML = '';
                 stopWatchingLocation();
                 businessSelection = [];
                 updateBusinessUI();
@@ -2515,4 +2647,3 @@
     </script>
 </body>
 </html>
-
