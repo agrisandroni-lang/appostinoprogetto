@@ -83,7 +83,7 @@
             background-color: rgba(255, 255, 255, 0.8);
             border-radius: 50%; padding: 8px; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
         }
-        #city-input, #street-input { text-transform: uppercase; }
+        #city-input, #street-input, #request-provincia-input { text-transform: uppercase; }
         .business-selected { background-color: #e0f2fe !important; border-left: 4px solid #3b82f6; }
         .user-location-icon { transition: transform 0.5s linear; }
         .ghost { opacity: 0.4; background: #c8ebfb; }
@@ -122,11 +122,15 @@
                 <button id="import-file-button" class="w-full bg-green-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors">
                     Importa Mappa da File
                 </button>
-                <button id="request-map-button" class="w-full bg-teal-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors mt-4">
+                 <button id="request-map-button" class="w-full bg-teal-500 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-teal-600 transition-colors mt-4">
                     Richiedi Mappa da Comune
                 </button>
                 <input type="file" id="file-input" class="hidden" accept=".csv">
                 <p id="import-feedback" class="text-center text-sm h-4 mt-4"></p>
+
+                <!-- Container per le richieste -->
+                <div id="map-requests-container" class="mt-6 w-full max-w-md text-left"></div>
+
                 <button id="sign-out-button" class="mt-8 text-sm text-red-500 hover:underline">Esci</button>
             </div>
             <div id="auth-status" class="mt-8 text-gray-500 text-sm"></div>
@@ -141,12 +145,6 @@
             <button id="clear-business-main-btn" class="hidden text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200">Svuota Selezione</button>
         </div>
         <p id="map-list-feedback" class="text-center text-sm text-green-700 h-4 p-2"></p>
-        
-        <!-- NUOVO: Contenitore per lo stato delle richieste -->
-        <div id="map-requests-container" class="px-4 pb-2 border-b">
-            <!-- Le richieste mappa verranno inserite qui da JS -->
-        </div>
-
         <div class="p-4 border-b space-y-3">
              <button id="go-to-business-maps-btn" class="w-full bg-gradient-to-br from-orange-400 to-orange-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3">
                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -394,24 +392,26 @@
             </div>
         </div>
     </div>
-    
-    <!-- NUOVO: Modale per la Richiesta Mappa -->
+
+     <!-- Modale Richiesta Mappa da Comune -->
     <div id="request-map-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4 modal-content">
             <h3 class="text-lg font-bold mb-4">Richiedi Mappa da Comune</h3>
-            <p class="text-sm text-gray-600 mb-4">Inserisci il nome del comune. La richiesta verrà processata e riceverai una notifica qui quando la mappa sarà pronta da importare.</p>
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nome Comune</label>
-                <input type="text" id="request-municipality-input" class="w-full p-2 border rounded" placeholder="Es. ANCONA">
+            <p class="text-sm text-gray-600 mb-4">Inserisci il comune e la sigla della provincia. La mappa verrà preparata e sarà disponibile per l'importazione.</p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Comune</label>
+                <input type="text" id="request-comune-input" placeholder="Es. Ancona" class="w-full p-2 border rounded">
             </div>
-            <p id="request-map-feedback" class="text-center text-sm h-4 mb-4"></p>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia (sigla)</label>
+                <input type="text" id="request-provincia-input" placeholder="Es. AN" maxlength="2" class="w-full p-2 border rounded uppercase">
+            </div>
             <div class="flex justify-end gap-4">
                 <button id="cancel-request-map" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla</button>
-                <button id="confirm-request-map" class="bg-teal-600 text-white font-bold py-2 px-6 rounded hover:bg-teal-700">Invia Richiesta</button>
+                <button id="confirm-request-map" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700">Invia Richiesta</button>
             </div>
         </div>
     </div>
-
 
     <datalist id="cities-list"></datalist>
     <datalist id="streets-list"></datalist>
@@ -425,8 +425,8 @@
         const firebaseConfig = {
             apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
             authDomain: "mappapostino.firebaseapp.com",
-            projectId: "mappostino",
-            storageBucket: "mappostino.appspot.com",
+            projectId: "mappapostino",
+            storageBucket: "mappapostino.appspot.com",
             messagingSenderId: "944815179156",
             appId: "1:944815179156:web:0cd86ba2be9eb0f909fb81"
         };
@@ -445,7 +445,7 @@
         let unsubscribeMapDocListener = null;
         let unsubscribeMarkersListener = null;
         let unsubscribeMapsListListener = null;
-        let unsubscribeMapRequestsListener = null; // NUOVO
+        let unsubscribeMapRequestsListener = null;
         let repositioningState = { active: false, markerId: null };
         let locationWatcher = null;
         let allMarkersForList = [];
@@ -502,10 +502,12 @@
             goToZoneMaps: document.getElementById('go-to-zone-maps-btn'),
             backToMapListFromZone: document.getElementById('back-to-map-list-from-zone'),
             gitaSeeAll: document.getElementById('gita-see-all-btn'),
-            requestMap: document.getElementById('request-map-button'), // NUOVO
+            requestMap: document.getElementById('request-map-button'),
+            cancelRequestMap: document.getElementById('cancel-request-map'),
+            confirmRequestMap: document.getElementById('confirm-request-map'),
         };
-        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input'), searchSourceMarkers: document.getElementById('search-source-markers')};
-        const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container'), zoneMapList: document.getElementById('zone-maps-list-container'), mapRequests: document.getElementById('map-requests-container') }; // NUOVO
+        const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input'), searchSourceMarkers: document.getElementById('search-source-markers'), requestComune: document.getElementById('request-comune-input'), requestProvincia: document.getElementById('request-provincia-input')};
+        const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container'), zoneMapList: document.getElementById('zone-maps-list-container'), mapRequestsContainer: document.getElementById('map-requests-container') };
         const infoText = document.getElementById('info-text');
         const authStatus = document.getElementById('auth-status');
         const loadingView = document.getElementById('loading-view');
@@ -523,10 +525,6 @@
             if (unsubscribeMarkersListener) {
                 unsubscribeMarkersListener();
                 unsubscribeMarkersListener = null;
-            }
-            if (unsubscribeMapRequestsListener) { // NUOVO
-                unsubscribeMapRequestsListener();
-                unsubscribeMapRequestsListener = null;
             }
         };
 
@@ -1090,159 +1088,6 @@
                 containers.zoneMapList.innerHTML = '<p class="text-center text-red-500">Errore caricamento mappe.</p>';
             });
         };
-        
-        // --- NUOVE FUNZIONI PER RICHIESTA MAPPA ---
-
-        const renderMapRequests = (requests) => {
-            const container = containers.mapRequests;
-            container.innerHTML = '';
-            if (requests.length === 0) return;
-
-            const title = document.createElement('h3');
-            title.className = 'text-sm font-bold text-gray-600 mb-2';
-            title.textContent = 'Richieste Mappa in Corso';
-            container.appendChild(title);
-
-            const list = document.createElement('ul');
-            list.className = 'space-y-2';
-
-            requests.forEach(req => {
-                const li = document.createElement('li');
-                li.className = 'p-2 rounded-md text-sm';
-
-                if (req.status === 'pending') {
-                    li.className += ' bg-yellow-100 text-yellow-800';
-                    li.innerHTML = `Mappa per <b>${req.municipalityName}</b> in preparazione... <span class="spinner inline-block w-3 h-3 ml-2 border-2 border-yellow-800"></span>`;
-                } else if (req.status === 'ready') {
-                    li.className += ' bg-green-100 text-green-800 flex justify-between items-center';
-                    li.innerHTML = `<span>Mappa per <b>${req.municipalityName}</b> pronta!</span>`;
-                    
-                    const btnGroup = document.createElement('div');
-                    btnGroup.className = 'flex items-center gap-2';
-                    
-                    if (req.fileUrl) {
-                        const downloadBtn = document.createElement('a');
-                        downloadBtn.href = req.fileUrl;
-                        downloadBtn.textContent = 'Scarica';
-                        downloadBtn.className = 'bg-green-600 text-white font-bold py-1 px-2 rounded-md text-xs hover:bg-green-700';
-                        downloadBtn.setAttribute('download', `${req.municipalityName}.csv`);
-                        btnGroup.appendChild(downloadBtn);
-                    }
-                    
-                    const okBtn = document.createElement('button');
-                    okBtn.textContent = 'OK';
-                    okBtn.className = 'bg-gray-200 text-gray-700 font-semibold py-1 px-2 rounded-md text-xs hover:bg-gray-300';
-                    okBtn.onclick = () => handleDismissRequest(req.id);
-                    btnGroup.appendChild(okBtn);
-
-                    li.appendChild(btnGroup);
-                } else if (req.status === 'error') {
-                    li.className += ' bg-red-100 text-red-800 flex justify-between items-center';
-                    li.innerHTML = `<span>Errore mappa <b>${req.municipalityName}</b>: ${req.errorMsg || 'Riprova.'}</span>`;
-                    const okBtn = document.createElement('button');
-                    okBtn.textContent = 'OK';
-                    okBtn.className = 'bg-gray-200 text-gray-700 font-semibold py-1 px-2 rounded-md text-xs hover:bg-gray-300';
-                    okBtn.onclick = () => handleDismissRequest(req.id);
-                    li.appendChild(okBtn);
-                }
-                list.appendChild(li);
-            });
-            container.appendChild(list);
-        };
-
-        const handleDismissRequest = async (requestId) => {
-            const requestRef = doc(db, `artifacts/${appId}/mapRequests`, requestId);
-            try {
-                await deleteDoc(requestRef);
-            } catch (error) {
-                console.error("Errore eliminazione richiesta:", error);
-            }
-        };
-
-        const loadMapRequests = (userId) => {
-            if (unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
-
-            // La collection è pubblica, ma la query filtra per userId
-            const q = query(collection(db, `artifacts/${appId}/mapRequests`), where("userId", "==", userId));
-            
-            unsubscribeMapRequestsListener = onSnapshot(q, (snapshot) => {
-                const requests = [];
-                snapshot.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
-                renderMapRequests(requests);
-            }, (error) => {
-                console.error("Errore ascolto richieste mappa:", error);
-            });
-        };
-
-        const openRequestMapModal = () => {
-            const modal = document.getElementById('request-map-modal');
-            const input = document.getElementById('request-municipality-input');
-            const confirmBtn = document.getElementById('confirm-request-map');
-            const cancelBtn = document.getElementById('cancel-request-map');
-            const feedbackP = document.getElementById('request-map-feedback');
-            
-            input.value = '';
-            feedbackP.textContent = '';
-            modal.style.display = 'flex';
-
-            const close = () => {
-                modal.style.display = 'none';
-                confirmBtn.onclick = null;
-                cancelBtn.onclick = null;
-            }
-
-            cancelBtn.onclick = close;
-
-            confirmBtn.onclick = async () => {
-                const municipalityName = input.value.trim().toUpperCase();
-                if (!municipalityName) {
-                    feedbackP.textContent = 'Inserisci un nome di comune.';
-                    feedbackP.classList.add('text-red-500');
-                    return;
-                }
-                
-                const userId = auth.currentUser?.uid;
-                if (!userId) {
-                    feedbackP.textContent = 'Errore: utente non trovato.';
-                    feedbackP.classList.add('text-red-500');
-                    return;
-                }
-
-                confirmBtn.disabled = true;
-                confirmBtn.textContent = 'Invio...';
-
-                try {
-                    // Scriviamo nella collection pubblica, l'IA leggerà da qui
-                    const requestsCollectionRef = collection(db, `artifacts/${appId}/mapRequests`);
-                    await addDoc(requestsCollectionRef, {
-                        userId: userId,
-                        municipalityName: municipalityName,
-                        status: 'pending', // in preparazione
-                        requestedAt: new Date()
-                    });
-                    
-                    feedbackP.textContent = 'Richiesta inviata!';
-                    feedbackP.classList.remove('text-red-500');
-                    feedbackP.classList.add('text-green-700');
-
-                    setTimeout(() => {
-                        close();
-                        confirmBtn.disabled = false;
-                        confirmBtn.textContent = 'Invia Richiesta';
-                    }, 1500);
-
-                } catch (error) {
-                    console.error("Errore invio richiesta:", error);
-                    feedbackP.textContent = 'Errore. Riprova.';
-                    feedbackP.classList.add('text-red-500');
-                    confirmBtn.disabled = false;
-                    confirmBtn.textContent = 'Invia Richiesta';
-                }
-            };
-        };
-
-
-        // --- FINE FUNZIONI RICHIESTA MAPPA ---
         
         const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
             allMarkersForList = [];
@@ -1945,11 +1790,89 @@
             document.getElementById('current-location-street').classList.add('hidden');
         };
 
-        buttons.importFile.onclick = () => fileInput.click();
-        fileInput.onchange = (event) => {
-            const file = event.target.files[0];
-            if (file) handleFileImport(file);
-            event.target.value = null;
+        const parseAndCreateMap = async (csvContent, mapName) => {
+            const userId = auth.currentUser?.uid;
+            if (!userId) {
+                throw new Error("Devi essere loggato per importare.");
+            }
+            
+            let markersToCreate = [];
+            const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            if (lines.length < 2) throw new Error("Il file CSV deve contenere almeno una riga di intestazione e una di dati.");
+            
+            const delimiter = lines[0].includes(';') ? ';' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim().toUpperCase().replace(/"/g, ''));
+            
+            const findIndex = (possibleNames) => {
+                for (const name of possibleNames) {
+                    const index = headers.indexOf(name.toUpperCase());
+                    if (index !== -1) return index;
+                }
+                return -1;
+            };
+
+            const latIndex = findIndex(['LATITUDINE', 'LAT', 'LATITUDE']);
+            const lonIndex = findIndex(['LONGITUDINE', 'LON', 'LONGITUDE']);
+            const cityIndex = findIndex(['COMUNE', 'CITTA', 'CITTÀ']);
+            const streetIndex = findIndex(['VIA', 'INDIRIZZO']);
+            const numberIndex = findIndex(['NUMEROCIVICO', 'CIVICO', 'NUMERO CIVICO', 'N°']);
+            const extIndex = findIndex(['ESTENSIONE']);
+            const intIndex = findIndex(['INTERNO']);
+            const notesIndex = findIndex(['NOTE', 'NOTA']);
+
+            if (latIndex === -1 || lonIndex === -1 || cityIndex === -1 || streetIndex === -1 || numberIndex === -1 ) {
+                 throw new Error("Colonne CSV mancanti! Assicurati che ci siano almeno: COMUNE, VIA, NUMEROCIVICO, LATITUDINE, LONGITUDINE.");
+            }
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(delimiter).map(v => v.trim().replace(/"/g, ''));
+                if (values.length < headers.length) continue;
+                
+                let houseNumberParts = [];
+                if (values[numberIndex]) houseNumberParts.push(values[numberIndex].trim());
+                if (extIndex > -1 && values[extIndex] && values[extIndex].trim() !== '') houseNumberParts.push(values[extIndex].trim().toUpperCase());
+                if (intIndex > -1 && values[intIndex] && values[intIndex].trim() !== '') houseNumberParts.push(`int. ${values[intIndex].trim()}`);
+                
+                const houseNumber = houseNumberParts.join(' ') || 'SNC';
+                const notes = notesIndex !== -1 ? (values[notesIndex]?.trim() || '') : '';
+                
+                const latVal = values[latIndex] ? values[latIndex].trim() : '';
+                const lonVal = values[lonIndex] ? values[lonIndex].trim() : '';
+                const lat = parseFloat(latVal.replace(',', '.'));
+                const lon = parseFloat(lonVal.replace(',', '.'));
+
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    markersToCreate.push({
+                        latitude: lat,
+                        longitude: lon,
+                        city: values[cityIndex].toUpperCase(),
+                        street: values[streetIndex].toUpperCase(),
+                        houseNumber: houseNumber,
+                        notes: notes
+                    });
+                }
+            }
+            
+            if (markersToCreate.length === 0) {
+                throw new Error("Nessun indirizzo valido con coordinate trovato nel file.");
+            }
+
+            await createMapWithMarkers(mapName, markersToCreate);
+        };
+
+        const handleFileImport = async (file) => {
+            importFeedback.textContent = 'Lettura file...';
+            importFeedback.classList.remove('text-red-500', 'text-green-700');
+            try {
+                const mapName = file.name.replace(/\.(csv)$/i, '');
+                const csvContent = await file.text();
+                await parseAndCreateMap(csvContent, mapName);
+            } catch(error) {
+                console.error("Errore durante l'importazione:", error);
+                importFeedback.textContent = `Errore: ${error.message}`;
+                importFeedback.classList.add('text-red-500');
+                setTimeout(() => { importFeedback.textContent = ''; }, 5000);
+            }
         };
         
         const createMapWithMarkers = async (mapName, markers) => {
@@ -1999,95 +1922,7 @@
                 throw new Error("Impossibile salvare la mappa. Potresti aver superato la quota di scrittura. Riprova più tardi.");
             }
         };
-
-        const handleFileImport = async (file) => {
-            const userId = auth.currentUser?.uid;
-            if (!userId) {
-                importFeedback.textContent = "Devi essere loggato per importare.";
-                return;
-            }
-            importFeedback.textContent = 'Lettura file...';
-            importFeedback.classList.remove('text-red-500', 'text-green-700');
-
-            try {
-                let markersToCreate = [];
-                const mapName = file.name.replace(/\.(csv)$/i, '');
-
-                if (file.name.toLowerCase().endsWith('.csv')) {
-                    const csvContent = await file.text();
-                    const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
-                    if (lines.length < 2) throw new Error("Il file CSV deve contenere almeno una riga di intestazione e una di dati.");
-
-                    const delimiter = lines[0].includes(';') ? ';' : ',';
-                    const headers = lines[0].split(delimiter).map(h => h.trim().toUpperCase().replace(/"/g, ''));
-                    
-                    const findIndex = (possibleNames) => {
-                        for (const name of possibleNames) {
-                            const index = headers.indexOf(name.toUpperCase());
-                            if (index !== -1) return index;
-                        }
-                        return -1;
-                    };
-
-                    const latIndex = findIndex(['LATITUDINE', 'LAT', 'LATITUDE']);
-                    const lonIndex = findIndex(['LONGITUDINE', 'LON', 'LONGITUDE']);
-                    const cityIndex = findIndex(['COMUNE', 'CITTA', 'CITTÀ']);
-                    const streetIndex = findIndex(['VIA', 'INDIRIZZO']);
-                    const numberIndex = findIndex(['NUMEROCIVICO', 'CIVICO', 'NUMERO CIVICO', 'N°']);
-                    const extIndex = findIndex(['ESTENSIONE']);
-                    const intIndex = findIndex(['INTERNO']);
-                    const notesIndex = findIndex(['NOTE', 'NOTA']);
-
-                    if (latIndex === -1 || lonIndex === -1 || cityIndex === -1 || streetIndex === -1 || numberIndex === -1 ) {
-                         throw new Error("Colonne CSV mancanti! Assicurati che ci siano almeno: COMUNE, VIA, NUMEROCIVICO, LATITUDINE, LONGITUDINE.");
-                    }
-
-                    for (let i = 1; i < lines.length; i++) {
-                        const values = lines[i].split(delimiter).map(v => v.trim().replace(/"/g, ''));
-                        if (values.length < headers.length) continue;
-                        
-                        let houseNumberParts = [];
-                        if (values[numberIndex]) houseNumberParts.push(values[numberIndex].trim());
-                        if (extIndex > -1 && values[extIndex] && values[extIndex].trim() !== '') houseNumberParts.push(values[extIndex].trim().toUpperCase());
-                        if (intIndex > -1 && values[intIndex] && values[intIndex].trim() !== '') houseNumberParts.push(`int. ${values[intIndex].trim()}`);
-                        
-                        const houseNumber = houseNumberParts.join(' ') || 'SNC';
-                        const notes = notesIndex !== -1 ? (values[notesIndex]?.trim() || '') : '';
-                        
-                        const latVal = values[latIndex] ? values[latIndex].trim() : '';
-                        const lonVal = values[lonIndex] ? values[lonIndex].trim() : '';
-                        const lat = parseFloat(latVal.replace(',', '.'));
-                        const lon = parseFloat(lonVal.replace(',', '.'));
-
-                        if (!isNaN(lat) && !isNaN(lon)) {
-                            markersToCreate.push({
-                                latitude: lat,
-                                longitude: lon,
-                                city: values[cityIndex].toUpperCase(),
-                                street: values[streetIndex].toUpperCase(),
-                                houseNumber: houseNumber,
-                                notes: notes
-                            });
-                        }
-                    }
-                } else {
-                     throw new Error("Formato file non supportato. Per ora, usa solo file .CSV.");
-                }
-
-                if (markersToCreate.length === 0) {
-                    throw new Error("Nessun indirizzo valido con coordinate trovato nel file.");
-                }
-
-                await createMapWithMarkers(mapName, markersToCreate);
-
-            } catch (error) {
-                console.error("Errore durante l'importazione:", error);
-                importFeedback.textContent = `Errore: ${error.message}`;
-                importFeedback.classList.add('text-red-500');
-                setTimeout(() => { importFeedback.textContent = ''; }, 5000);
-            }
-        };
-
+        
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider).catch((error) => {
@@ -2270,7 +2105,6 @@
                 loggedInView.classList.remove('hidden');
                 loggedOutView.classList.add('hidden');
                 loadMapsList(user.uid);
-                loadMapRequests(user.uid); // NUOVO: Carica le richieste
                 startWatchingLocation();
                 loadSelectionFromStorage();
                 updateBusinessUI();
@@ -2282,7 +2116,6 @@
                 cleanupListeners();
                 if (unsubscribeMapsListListener) unsubscribeMapsListListener();
                 containers.mapList.innerHTML = '<p class="p-4 text-center">Devi accedere con Google per vedere le tue mappe.</p>';
-                containers.mapRequests.innerHTML = '';
                 stopWatchingLocation();
                 businessSelection = [];
                 updateBusinessUI();
@@ -2679,7 +2512,7 @@
         buttons.goToZoneMaps.onclick = () => showScreen('zoneMaps');
         buttons.backToMapListFromZone.onclick = () => showScreen('mapList');
         buttons.optimizeRoute.onclick = handleOptimizeRoute;
-        buttons.requestMap.onclick = openRequestMapModal; // NUOVO
     </script>
 </body>
 </html>
+
