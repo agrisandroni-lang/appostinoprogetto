@@ -1085,7 +1085,6 @@
             });
         };
 
-        // NUOVO: Funzioni per la richiesta mappa
         const loadMapRequests = (userId) => {
             if (unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
             const q = query(collection(db, `artifacts/${appId}/users/${userId}/mapRequests`), orderBy('createdAt', 'desc'));
@@ -1835,11 +1834,34 @@
         
         const startWatchingLocation = () => {
             if (navigator.geolocation && !locationWatcher) {
-                locationWatcher = navigator.geolocation.watchPosition(
-                    (position) => updateUserLocation(position.coords),
-                    (error) => console.error("Errore geolocalizzazione:", error.code, error.message),
-                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
+                const highAccuracyOptions = {
+                    enableHighAccuracy: true,
+                    timeout: 20000, 
+                    maximumAge: 10000
+                };
+
+                const lowAccuracyOptions = {
+                    enableHighAccuracy: false,
+                    timeout: 10000,
+                    maximumAge: 60000
+                };
+
+                const successCallback = (position) => updateUserLocation(position.coords);
+
+                const errorCallback = (error) => {
+                    console.error("Errore geolocalizzazione (alta precisione):", error.code, error.message);
+                    if (error.code === 3) { 
+                        console.log("Timeout con alta precisione, tento con precisione standard...");
+                        if (locationWatcher) {
+                            navigator.geolocation.clearWatch(locationWatcher);
+                        }
+                        locationWatcher = navigator.geolocation.watchPosition(successCallback, (err) => {
+                            console.error("Errore geolocalizzazione (anche in precisione standard):", err.code, err.message);
+                        }, lowAccuracyOptions);
+                    }
+                };
+
+                locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, highAccuracyOptions);
             }
         };
 
@@ -2005,12 +2027,15 @@
         };
 
         const handleRequestMap = async () => {
-            const comune = inputs.requestComune.value.trim();
+            const comuneInput = inputs.requestComune.value.trim();
             const provincia = inputs.requestProvincia.value.trim().toUpperCase();
-            if (!comune || !provincia) {
+            if (!comuneInput || !provincia) {
                 alert("Per favore, compila sia il comune che la provincia.");
                 return;
             }
+
+            // Standardizza il nome del comune
+            const comune = comuneInput.charAt(0).toUpperCase() + comuneInput.slice(1).toLowerCase();
 
             const userId = auth.currentUser.uid;
             const requestsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/mapRequests`);
@@ -2033,7 +2058,6 @@
             }
         };
         
-        // --- BLOCCO EVENT LISTENERS RIPRISTINATO ---
         buttons.signInGoogle.onclick = () => {
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider).catch((error) => {
@@ -2144,7 +2168,6 @@
                 }
             }
         });
-        // --- FINE BLOCCO EVENT LISTENERS RIPRISTINATO ---
 
         const handleToggleStreetSelection = (streetName) => {
             const streetMarkers = allMarkersForList.filter(m => m.street === streetName);
@@ -2217,7 +2240,6 @@
         inputs.street.addEventListener('input', forceUppercase);
         inputs.requestProvincia.addEventListener('input', forceUppercase);
 
-        // NUOVO: Listener per il pulsante Richiesta Mappa
         buttons.requestMap.onclick = () => {
             document.getElementById('request-map-modal').style.display = 'flex';
         };
@@ -2234,7 +2256,7 @@
                 loggedInView.classList.remove('hidden');
                 loggedOutView.classList.add('hidden');
                 loadMapsList(user.uid);
-                loadMapRequests(user.uid); // Carica le richieste
+                loadMapRequests(user.uid);
                 startWatchingLocation();
                 loadSelectionFromStorage();
                 updateBusinessUI();
@@ -2647,3 +2669,4 @@
     </script>
 </body>
 </html>
+
