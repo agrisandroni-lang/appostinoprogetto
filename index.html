@@ -422,16 +422,10 @@
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc, deleteField, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/modular/sortable.esm.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAghAxidhGMa5sQRZHrO0MFHHLtOWp_yX4",
-            authDomain: "mappapostino.firebaseapp.com",
-            projectId: "mappapostino",
-            storageBucket: "mappapostino.appspot.com",
-            messagingSenderId: "944815179156",
-            appId: "1:944815179156:web:0cd86ba2be9eb0f909fb81"
-        };
+        // CORREZIONE: Usa le variabili globali fornite dall'ambiente
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyA_FAKE_KEY", authDomain: "mappapostino.firebaseapp.com", projectId: "mappapostino" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 
-        const appId = firebaseConfig.appId;
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -2658,5 +2652,4 @@
     </script>
 </body>
 </html>
-`
 
