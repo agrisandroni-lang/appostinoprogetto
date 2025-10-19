@@ -1087,8 +1087,7 @@
 
         const loadMapRequests = (userId) => {
             if (unsubscribeMapRequestsListener) unsubscribeMapRequestsListener();
-            // MODIFICA: Ascolta la collezione pubblica, filtrando per userId
-            const q = query(collection(db, `artifacts/${appId}/public/data/mapRequests`), where("userId", "==", userId), orderBy('createdAt', 'desc'));
+            const q = query(collection(db, `artifacts/${appId}/users/${userId}/mapRequests`), orderBy('createdAt', 'desc'));
             unsubscribeMapRequestsListener = onSnapshot(q, (snapshot) => {
                 const requests = [];
                 snapshot.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
@@ -1146,8 +1145,7 @@
                 const reqId = deleteBtn.dataset.id;
                 const confirmed = await showConfirm("Eliminare questa richiesta?", "Non potrai più seguirne lo stato.");
                 if (confirmed) {
-                    // MODIFICA: Elimina dalla collezione pubblica
-                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/mapRequests`, reqId));
+                    await deleteDoc(doc(db, `artifacts/${appId}/users/${auth.currentUser.uid}/mapRequests`, reqId));
                 }
             }
 
@@ -2039,8 +2037,7 @@
             const comune = comuneInput.charAt(0).toUpperCase() + comuneInput.slice(1).toLowerCase();
 
             const userId = auth.currentUser.uid;
-            // MODIFICA: Salva nella collezione pubblica
-            const requestsCollectionRef = collection(db, `artifacts/${appId}/public/data/mapRequests`);
+            const requestsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/mapRequests`);
             
             try {
                 await addDoc(requestsCollectionRef, {
