@@ -224,7 +224,7 @@
                     <input type="search" id="search-source-markers" placeholder="Cerca via o civico da aggiungere..." class="w-full p-2 border rounded text-sm">
                  </div>
                 <div id="source-markers-list" class="overflow-y-auto p-2 bg-white flex-grow">
-                    <!-- L'elenco raggruppato per vie verrà inserito qui -->
+                    <!-- L'elenco raggruppato per vie verrà inserita qui -->
                 </div>
             </div>
         </div>
@@ -1136,6 +1136,7 @@
                     <div>
                         <p class="font-semibold">${req.comune} (${req.provincia})</p>
                         <p class="text-sm font-bold ${statusColor}">${statusText}</p>
+                        ${req.errorMessage ? `<p class="text-xs text-red-700 truncate" title="${req.errorMessage}">${req.errorMessage}</p>` : ''}
                     </div>
                     <div class="flex items-center gap-2">
                         ${buttonsHtml}
