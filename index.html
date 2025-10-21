@@ -575,7 +575,7 @@
         };
 
         const showScreen = (screenName) => {
-            if (screenName !== 'mapEditor' && screenName !== 'allMarkers' && screenName !== 'civiciOrder') {
+            if (screenName !== 'mapEditor' && screenName !== 'allMarkers' && screenName !== 'civiciOrder' && screenName !== 'scan') {
                 cleanupListeners();
             }
 
@@ -2849,8 +2849,10 @@
         const scanLoop = async () => {
             if (!isScanning) return;
 
-            if (isProcessingFrame) {
-                scanRequestId = requestAnimationFrame(scanLoop);
+            // Usa requestAnimationFrame per un ciclo più fluido ed efficiente
+            scanRequestId = requestAnimationFrame(scanLoop);
+
+            if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused || videoEl.ended) {
                 return;
             }
 
@@ -2859,12 +2861,32 @@
             
             try {
                 const canvas = document.createElement('canvas');
-                // Ridimensiona il canvas per migliorare le prestazioni
-                const scale = 0.5;
-                canvas.width = videoEl.videoWidth * scale;
-                canvas.height = videoEl.videoHeight * scale;
-                canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+                const ctx = canvas.getContext('2d');
                 
+                // --- LOGICA DI CROP MIGLIORATA ---
+                const videoWidth = videoEl.videoWidth;
+                const videoHeight = videoEl.videoHeight;
+                const viewWidth = videoEl.clientWidth;
+                const viewHeight = videoEl.clientHeight;
+
+                const scaleX = videoWidth / viewWidth;
+                const scaleY = videoHeight / viewHeight;
+
+                const overlayBox = document.querySelector('#scan-overlay > div');
+                const boxRect = overlayBox.getBoundingClientRect();
+                const videoRect = videoEl.getBoundingClientRect();
+
+                const cropX = (boxRect.left - videoRect.left) * scaleX;
+                const cropY = (boxRect.top - videoRect.top) * scaleY;
+                const cropWidth = boxRect.width * scaleX;
+                const cropHeight = boxRect.height * scaleY;
+
+                canvas.width = cropWidth;
+                canvas.height = cropHeight;
+
+                ctx.drawImage(videoEl, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+                // --- FINE LOGICA DI CROP ---
+
                 const { data: { text } } = await ocrWorker.recognize(canvas);
                 
                 const bestMatch = findBestMatch(text, allMarkersForList);
@@ -2883,7 +2905,9 @@
                         setTimeout(() => {
                             scanFeedback.classList.remove('bg-green-600', 'scan-found');
                         }, 1500);
-                        await new Promise(resolve => setTimeout(resolve, 2000)); // Pausa dopo aver trovato
+                        isScanning = false; // Stoppa la scansione dopo aver trovato
+                        setTimeout(stopScanner, 2000); // Torna indietro dopo 2 secondi
+                        return; // Esce dal loop
                     } else {
                          scanFeedback.textContent = 'Già selezionato!';
                          scanFeedback.classList.add('bg-yellow-500');
@@ -2895,44 +2919,52 @@
                 console.error("Errore OCR:", err);
                 scanFeedback.textContent = `Errore OCR. Riprova.`;
             } finally {
-                if(isScanning) scanFeedback.textContent = 'Inquadra un indirizzo...';
-                isProcessingFrame = false;
-                if (isScanning) {
-                    scanRequestId = requestAnimationFrame(scanLoop);
+                if(isScanning) {
+                    scanFeedback.textContent = 'Inquadra un indirizzo...';
+                    isProcessingFrame = false;
                 }
             }
         };
 
         // Funzione di "fuzzy search" per trovare la migliore corrispondenza
         const findBestMatch = (text, markers) => {
-            const cleanText = text.toUpperCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ');
+            const cleanText = text.toUpperCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!cleanText) return null;
+
             let bestMatch = null;
             let highestScore = 0;
+
+            const textWords = new Set(cleanText.split(' '));
+            const textNumbers = cleanText.match(/\d+/g) || [];
 
             for (const marker of markers) {
                 let score = 0;
                 const markerStreet = marker.street.toUpperCase();
-                const markerNumber = marker.houseNumber.toUpperCase().replace(/[/\\-]/g, ' '); // Pulisce i civici complessi
+                const markerNumberClean = marker.houseNumber.toUpperCase().replace(/[/\\-]/g, ' '); 
 
-                const textWords = new Set(cleanText.split(' '));
-                const markerNumberWords = markerNumber.split(' ');
+                const markerNumberParts = markerNumberClean.split(' ').filter(Boolean);
+                const markerStreetParts = markerStreet.split(' ').filter(p => p.length > 3 && isNaN(p));
 
-                // Cerca il numero civico nel testo (più robusto)
-                let numberMatch = markerNumberWords.every(word => textWords.has(word));
-                if (numberMatch) {
-                    score += 5; 
+                // 1. Punteggio per il numero civico (più importante)
+                let numberMatchCount = 0;
+                markerNumberParts.forEach(part => {
+                    if (textWords.has(part) || textNumbers.includes(part)) {
+                        numberMatchCount++;
+                    }
+                });
+                if (numberMatchCount > 0) {
+                    score += (numberMatchCount / markerNumberParts.length) * 6; 
                 }
 
-                // Cerca parti del nome della via
-                const streetParts = markerStreet.split(' ').filter(p => p.length > 3 && isNaN(p)); // Ignora parole brevi e numeri
-                if (streetParts.length > 0) {
-                    let matchedParts = 0;
-                    streetParts.forEach(part => {
+                // 2. Punteggio per la via (importante ma meno del numero)
+                if (markerStreetParts.length > 0) {
+                    let streetMatchCount = 0;
+                    markerStreetParts.forEach(part => {
                         if (cleanText.includes(part)) {
-                            matchedParts++;
+                            streetMatchCount++;
                         }
                     });
-                    score += (matchedParts / streetParts.length) * 5; 
+                    score += (streetMatchCount / streetStreetParts.length) * 4;
                 }
                 
                 if (score > highestScore) {
@@ -2941,7 +2973,19 @@
                 }
             }
             
-            return highestScore > 5 ? bestMatch : null; 
+            // Soglia più intelligente: richiede almeno una corrispondenza parziale del numero E della via
+            if (highestScore > 5 && bestMatch) {
+                 const markerNumberParts = bestMatch.houseNumber.toUpperCase().replace(/[/\\-]/g, ' ').split(' ').filter(Boolean);
+                 const numberFound = markerNumberParts.some(part => textWords.has(part) || textNumbers.includes(part));
+                 
+                 const streetParts = bestMatch.street.toUpperCase().split(' ').filter(p => p.length > 3 && isNaN(p));
+                 const streetFound = streetParts.length > 0 ? streetParts.some(part => cleanText.includes(part)) : true; // Se non ci sono parti lunghe nella via, non lo richiediamo
+
+                 if (numberFound && streetFound) {
+                     return bestMatch;
+                 }
+            }
+            return null;
         };
         
         buttons.goToScan.onclick = startScanner;
