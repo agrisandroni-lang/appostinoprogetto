@@ -96,6 +96,7 @@
         .details-arrow { transition: transform 0.2s; }
         details[open] > summary .details-arrow { transform: rotate(90deg); }
         .sortable-chosen { background: #f0f9ff; }
+
         .scan-found {
             animation: found-pulse 0.5s ease-out;
         }
@@ -160,7 +161,7 @@
                 <div></div> <!-- Spacer -->
             </div>
             <div class="flex-grow p-4 space-y-4 flex flex-col justify-center">
-                 <button id="go-to-business-maps-btn" class="w-full bg-gradient-to-br from-orange-400 to-orange-600 text-white font-bold py-4 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 text-lg">
+                <button id="go-to-business-maps-btn" class="w-full bg-gradient-to-br from-orange-400 to-orange-600 text-white font-bold py-4 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 text-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><line x1="16.5" y1="9.4" x2="7.5" y2="4.2"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     Linea Business/Mappe Temporanee
                 </button>
@@ -324,7 +325,7 @@
             <p id="info-text" class="text-center text-blue-600 italic mt-2 text-sm"></p>
         </div>
     </div>
-
+    
     <!-- Schermata 6: Scansione OCR -->
     <div id="scan-screen" class="screen bg-black justify-center items-center">
         <video id="scan-video" playsinline class="w-full h-full object-cover"></video>
@@ -334,7 +335,7 @@
         </div>
         <button id="back-from-scan" class="absolute top-4 left-4 z-10 bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">&lt; Elenco</button>
     </div>
-    
+
     <!-- Modale di Conferma Generica -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2000]">
         <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm mx-4 modal-content">
@@ -2264,7 +2265,7 @@
             if (parentContainer) {
                 if (parentContainer.id === 'business-maps-list-container') cameFromScreen = 'businessMaps';
                 else if (parentContainer.id === 'zone-maps-list-container') cameFromScreen = 'zoneMaps';
-                else cameFromScreen = 'general-maps-view'; // Updated
+                else cameFromScreen = 'mapList';
             }
 
             const mapId = target.dataset.id;
@@ -2771,6 +2772,21 @@
         let lastScanTime = 0;
         let scanTimeoutId = null;
 
+        const playBeep = () => {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.1);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        };
+
         const initializeOcr = async () => {
             scanFeedback.textContent = 'Caricamento motore OCR...';
             ocrWorker = await Tesseract.createWorker('ita', 1, {
@@ -2842,6 +2858,7 @@
                         updateBusinessUI();
                         renderAllMarkersList(allMarkersForList); // Aggiorna la lista per mostrare la selezione
 
+                        playBeep();
                         scanFeedback.textContent = `Trovato: ${bestMatch.street}, ${bestMatch.houseNumber}`;
                         scanFeedback.classList.add('bg-green-600', 'scan-found');
                         setTimeout(() => {
