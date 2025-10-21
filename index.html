@@ -2490,27 +2490,43 @@
             const querySnapshot = await getDocs(q);
 
             const allSelectedMarkers = [];
-            const mapsToFetch = new Map();
-            selection.forEach(item => {
-                if (!mapsToFetch.has(item.mapId)) { mapsToFetch.set(item.mapId, []); }
-                mapsToFetch.get(item.mapId).push(item.markerId);
-            });
+            const mapDataCache = new Map(); // Cache per i dati dei marker per mappa
 
-            for (const [mapId, markerIds] of mapsToFetch.entries()) {
-                 const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
-                 const markersSnapshot = await getDocs(query(collection(mapRef, 'markers'), orderBy('order')));
-                 const allMarkers = [];
-                 markersSnapshot.forEach(doc => allMarkers.push({ ...doc.data(), id: doc.id }));
+            // Itera sulla 'selection' che è GIÀ nell'ordine in cui l'utente ha cliccato
+            for (const sel of selection) {
+                const { mapId, markerId, count, type } = sel;
 
-                 const foundMarkers = allMarkers.filter(m => markerIds.includes(m.id));
-                 const markersWithCountAndType = foundMarkers.map(m => {
-                     const sel = selection.find(s => s.mapId === mapId && s.markerId === m.id);
-                     return {...m, count: sel ? sel.count : 1, type: sel ? sel.type : 'standard' };
-                });
-                allSelectedMarkers.push(...markersWithCountAndType);
+                // 1. Controlla se abbiamo già i dati di questa mappa
+                if (!mapDataCache.has(mapId)) {
+                    // Dati non in cache, carichiamoli da Firestore
+                    const mapRef = doc(db, `artifacts/${appId}/users/${userId}/maps`, mapId);
+                    const markersSnapshot = await getDocs(collection(mapRef, 'markers'));
+                    
+                    // Salviamo i marker in una Map per un accesso rapido (markerId -> markerData)
+                    const markersMap = new Map();
+                    markersSnapshot.forEach(doc => {
+                        markersMap.set(doc.id, { ...doc.data(), id: doc.id });
+                    });
+                    mapDataCache.set(mapId, markersMap); // Salva nella cache
+                }
+
+                // 2. Recupera il marker specifico dalla cache
+                const markerData = mapDataCache.get(mapId).get(markerId);
+
+                // 3. Aggiungilo alla lista finale con i dati business
+                if (markerData) {
+                    allSelectedMarkers.push({
+                        ...markerData, // Dati originali (lat, lon, via, etc.)
+                        count: count,   // Dati dalla selezione
+                        type: type      // Dati dalla selezione
+                    });
+                } else {
+                    console.warn(`Marker con ID ${markerId} non trovato nella mappa ${mapId} durante la creazione business.`);
+                }
             }
             
-            allSelectedMarkers.sort((a, b) => a.order - b.order);
+            // NON FACCIAMO IL SORT! La riga 'allSelectedMarkers.sort(...)' è stata rimossa.
+            // 'allSelectedMarkers' ora rispetta l'ordine di 'selection'.
             
             let feedbackMsg = '';
             try {
@@ -2677,4 +2693,3 @@
     </script>
 </body>
 </html>
-
