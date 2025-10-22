@@ -1920,24 +1920,28 @@
         
         const startWatchingLocation = () => {
             if (navigator.geolocation && !locationWatcher) {
+                // MODIFICA: Abbassato timeout e maximumAge per aggiornamenti più rapidi
                 const highAccuracyOptions = {
                     enableHighAccuracy: true,
-                    timeout: 20000, 
-                    maximumAge: 10000
+                    timeout: 5000, // Ridotto da 20000. Chiediamo un fix entro 5 secondi.
+                    maximumAge: 1000  // Ridotto da 10000. Vogliamo posizioni fresche (max 1 sec).
                 };
 
+                // MODIFICA: Abbassato maximumAge anche qui
                 const lowAccuracyOptions = {
                     enableHighAccuracy: false,
-                    timeout: 10000,
-                    maximumAge: 60000
+                    timeout: 10000, // Lasciato a 10s
+                    maximumAge: 5000 // Ridotto da 60000. Max 5 secondi di cache.
                 };
 
                 const successCallback = (position) => updateUserLocation(position.coords);
 
                 const errorCallback = (error) => {
                     console.error("Errore geolocalizzazione (alta precisione):", error.code, error.message);
+                    // Il codice di fallback che passa a lowAccuracyOptions in caso di TIMEOUT (code 3)
+                    // è ancora valido e ora interverrà più rapidamente (dopo 5s invece di 20s).
                     if (error.code === 3) { 
-                        console.log("Timeout con alta precisione, tento con precisione standard...");
+                        console.log("Timeout con alta precisione (5s), tento con precisione standard...");
                         if (locationWatcher) {
                             navigator.geolocation.clearWatch(locationWatcher);
                         }
@@ -2286,7 +2290,7 @@
             if (parentContainer) {
                 if (parentContainer.id === 'business-maps-list-container') cameFromScreen = 'businessMaps';
                 else if (parentContainer.id === 'zone-maps-list-container') cameFromScreen = 'zoneMaps';
-                else cameFromScreen = 'mapList';
+                else cameFromScreen = 'mapList'; // Specifico per general-maps-view
             }
 
             const mapId = target.dataset.id;
@@ -3093,4 +3097,3 @@
     </script>
 </body>
 </html>
-
