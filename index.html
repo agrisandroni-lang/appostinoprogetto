@@ -330,7 +330,7 @@
     <div id="scan-screen" class="screen bg-black justify-center items-center">
         <video id="scan-video" playsinline class="w-full h-full object-cover"></video>
         <div id="scan-overlay" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <div class="w-11/12 max-w-lg h-24 border-4 border-dashed border-white/50 rounded-lg shadow-lg"></div>
+            <div id="scan-box" class="w-11/12 max-w-lg h-24 border-4 border-dashed border-white/50 rounded-lg shadow-lg"></div>
             <p id="scan-feedback" class="mt-4 text-white font-bold text-lg bg-black/50 p-2 rounded transition-colors"></p>
         </div>
         <button id="back-from-scan" class="absolute top-4 left-4 z-10 bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">&lt; Elenco</button>
@@ -2766,6 +2766,7 @@
         const scanScreen = document.getElementById('scan-screen');
         const videoEl = document.getElementById('scan-video');
         const scanFeedback = document.getElementById('scan-feedback');
+        const scanBox = document.getElementById('scan-box'); // Reference to the scan box div
         let ocrWorker = null;
         let stream = null;
         let isScanning = false;
@@ -2800,20 +2801,28 @@
                         console.log(m);
                         if (m.status === 'loading language traineddata') {
                             scanFeedback.textContent = `Caricamento lingua: ${Math.round(m.progress * 100)}%`;
+                        } else if (m.status === 'recognizing text') {
+                           scanFeedback.textContent = `Analizzando... ${Math.round(m.progress * 100)}%`;
                         }
                     }
                 });
+                await ocrWorker.loadLanguage('ita');
+                await ocrWorker.initialize('ita');
                 scanFeedback.textContent = 'Pronto per la scansione!';
             } catch(e) {
                 console.error("Failed to initialize Tesseract:", e);
                 scanFeedback.textContent = 'Errore inizializzazione OCR.';
+                ocrWorker = null; // Reset worker if failed
             }
         };
 
         const startScanner = async () => {
             if (!ocrWorker) {
                 await initializeOcr();
-                if (!ocrWorker) return; // Exit if initialization failed
+                if (!ocrWorker) { // Check again if initialization failed
+                    alert("Impossibile caricare il motore OCR. Riprova più tardi.");
+                    return; 
+                }
             }
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
@@ -2822,7 +2831,7 @@
                     } 
                 });
                 videoEl.srcObject = stream;
-                await videoEl.play();
+                await videoEl.play(); // Wait for video to start playing
                 isScanning = true;
                 isProcessingFrame = false;
                 showScreen('scan');
@@ -2843,49 +2852,74 @@
                 stream = null;
             }
             videoEl.srcObject = null;
+            videoEl.pause(); // Ensure video stops
             showScreen('allMarkers'); // Torna all'elenco
         };
 
         const scanLoop = async () => {
             if (!isScanning) return;
 
-            // Usa requestAnimationFrame per un ciclo più fluido ed efficiente
+            // Use requestAnimationFrame for a smoother and more efficient loop
             scanRequestId = requestAnimationFrame(scanLoop);
 
-            if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused || videoEl.ended) {
+            if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused || videoEl.ended || !ocrWorker) {
+                 if(!ocrWorker) scanFeedback.textContent = 'Motore OCR non pronto...';
                 return;
             }
 
-            isProcessingFrame = true;
-            scanFeedback.textContent = 'Analizzando...';
+            isProcessingFrame = true; // Set processing flag
             
             try {
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true }); // Optimization hint
                 
-                // --- LOGICA DI CROP MIGLIORATA ---
+                // --- CORRECTED CROPPING LOGIC ---
                 const videoWidth = videoEl.videoWidth;
                 const videoHeight = videoEl.videoHeight;
                 const viewWidth = videoEl.clientWidth;
                 const viewHeight = videoEl.clientHeight;
 
+                // Calculate scaling factors
                 const scaleX = videoWidth / viewWidth;
                 const scaleY = videoHeight / viewHeight;
-
-                const overlayBox = document.querySelector('#scan-overlay > div');
-                const boxRect = overlayBox.getBoundingClientRect();
+                
+                // Get the bounding box of the visual scan box relative to the viewport
+                const boxRect = scanBox.getBoundingClientRect();
+                // Get the bounding box of the video element relative to the viewport
                 const videoRect = videoEl.getBoundingClientRect();
 
-                const cropX = (boxRect.left - videoRect.left) * scaleX;
-                const cropY = (boxRect.top - videoRect.top) * scaleY;
-                const cropWidth = boxRect.width * scaleX;
-                const cropHeight = boxRect.height * scaleY;
+                // Calculate the crop coordinates relative to the video's intrinsic size
+                // Ensure coordinates are within video bounds
+                const cropX = Math.max(0, (boxRect.left - videoRect.left) * scaleX);
+                const cropY = Math.max(0, (boxRect.top - videoRect.top) * scaleY);
+                let cropWidth = boxRect.width * scaleX;
+                let cropHeight = boxRect.height * scaleY;
+
+                // Adjust width/height if crop goes beyond video boundaries
+                if (cropX + cropWidth > videoWidth) {
+                    cropWidth = videoWidth - cropX;
+                }
+                 if (cropY + cropHeight > videoHeight) {
+                    cropHeight = videoHeight - cropY;
+                }
+                
+                // Ensure width and height are positive
+                if (cropWidth <= 0 || cropHeight <= 0) {
+                     console.error("Invalid crop dimensions:", cropWidth, cropHeight);
+                     isProcessingFrame = false; // Reset flag and try next frame
+                     return; 
+                }
 
                 canvas.width = cropWidth;
                 canvas.height = cropHeight;
 
-                ctx.drawImage(videoEl, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-                // --- FINE LOGICA DI CROP ---
+                // Draw the cropped portion of the video onto the canvas
+                ctx.drawImage(videoEl, 
+                              cropX, cropY,           // Source X, Y
+                              cropWidth, cropHeight,  // Source Width, Height
+                              0, 0,                  // Destination X, Y
+                              cropWidth, cropHeight); // Destination Width, Height
+                // --- END CORRECTED CROPPING LOGIC ---
 
                 const { data: { text } } = await ocrWorker.recognize(canvas);
                 
@@ -2905,28 +2939,30 @@
                         setTimeout(() => {
                             scanFeedback.classList.remove('bg-green-600', 'scan-found');
                         }, 1500);
-                        isScanning = false; // Stoppa la scansione dopo aver trovato
-                        setTimeout(stopScanner, 2000); // Torna indietro dopo 2 secondi
-                        return; // Esce dal loop
+                        isScanning = false; // Stop scanning after a match
+                        setTimeout(stopScanner, 2000); // Go back after 2 seconds
+                        return; // Exit loop explicitly
                     } else {
                          scanFeedback.textContent = 'Già selezionato!';
                          scanFeedback.classList.add('bg-yellow-500');
                          setTimeout(() => scanFeedback.classList.remove('bg-yellow-500'), 1000);
-                         await new Promise(resolve => setTimeout(resolve, 1000));
+                         await new Promise(resolve => setTimeout(resolve, 1500)); // Pause longer for already selected
                     }
+                } else {
+                    scanFeedback.textContent = 'Inquadra un indirizzo...'; // Reset feedback if no match
                 }
             } catch (err) {
                 console.error("Errore OCR:", err);
                 scanFeedback.textContent = `Errore OCR. Riprova.`;
+                 await new Promise(resolve => setTimeout(resolve, 1000)); // Pause on error
             } finally {
-                if(isScanning) {
-                    scanFeedback.textContent = 'Inquadra un indirizzo...';
-                    isProcessingFrame = false;
-                }
+                // Reset processing flag only after async operations and potential delays
+                isProcessingFrame = false; 
             }
         };
 
-        // Funzione di "fuzzy search" per trovare la migliore corrispondenza
+
+        // Funzione di "fuzzy search" più robusta
         const findBestMatch = (text, markers) => {
             const cleanText = text.toUpperCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
             if (!cleanText) return null;
@@ -2935,57 +2971,59 @@
             let highestScore = 0;
 
             const textWords = new Set(cleanText.split(' '));
-            const textNumbers = cleanText.match(/\d+/g) || [];
+            // Estrae tutti i numeri e le lettere singole dopo uno slash (per civici come 2/BIS)
+            const textNumbersAndSuffixes = (cleanText.match(/(\d+)\s*(\/[A-Z])?|\b[A-Z]\b/g) || []).map(n => n.replace('/', '')); 
+            const textNumberSet = new Set(textNumbersAndSuffixes);
 
             for (const marker of markers) {
-                let score = 0;
+                let currentScore = 0;
                 const markerStreet = marker.street.toUpperCase();
+                // Pulisce il numero civico in modo più granulare
                 const markerNumberClean = marker.houseNumber.toUpperCase().replace(/[/\\-]/g, ' '); 
+                const markerNumberParts = markerNumberClean.split(' ').filter(Boolean); // ["2", "BIS"]
 
-                const markerNumberParts = markerNumberClean.split(' ').filter(Boolean);
-                const markerStreetParts = markerStreet.split(' ').filter(p => p.length > 3 && isNaN(p));
+                const markerStreetParts = markerStreet.split(' ').filter(p => p.length > 2 && isNaN(p)); // Filtra via,v.,p.zza, numeri
 
-                // 1. Punteggio per il numero civico (più importante)
+                // 1. Punteggio Numero Civico (Peso maggiore)
                 let numberMatchCount = 0;
                 markerNumberParts.forEach(part => {
-                    if (textWords.has(part) || textNumbers.includes(part)) {
+                    if (textNumberSet.has(part)) {
                         numberMatchCount++;
                     }
                 });
                 if (numberMatchCount > 0) {
-                    score += (numberMatchCount / markerNumberParts.length) * 6; 
+                     // Punteggio più alto se TUTTE le parti del numero combaciano
+                    currentScore += (numberMatchCount === markerNumberParts.length) ? 7 : (numberMatchCount / markerNumberParts.length) * 5;
                 }
 
-                // 2. Punteggio per la via (importante ma meno del numero)
+                // 2. Punteggio Via (Peso minore)
                 if (markerStreetParts.length > 0) {
                     let streetMatchCount = 0;
                     markerStreetParts.forEach(part => {
-                        if (cleanText.includes(part)) {
-                            streetMatchCount++;
+                        // Cerca corrispondenze parziali o complete delle parole della via
+                        if (textWords.has(part) || Array.from(textWords).some(tw => tw.includes(part) || part.includes(tw))) {
+                             streetMatchCount++;
                         }
                     });
-                    score += (streetMatchCount / streetStreetParts.length) * 4;
+                     currentScore += (streetMatchCount / markerStreetParts.length) * 3; 
                 }
                 
-                if (score > highestScore) {
-                    highestScore = score;
+                // Aggiorna il miglior match
+                if (currentScore > highestScore) {
+                    highestScore = currentScore;
                     bestMatch = marker;
                 }
             }
             
-            // Soglia più intelligente: richiede almeno una corrispondenza parziale del numero E della via
-            if (highestScore > 5 && bestMatch) {
+            // Soglia più alta e richiede almeno una corrispondenza parziale del numero
+            if (highestScore > 7 && bestMatch) {
                  const markerNumberParts = bestMatch.houseNumber.toUpperCase().replace(/[/\\-]/g, ' ').split(' ').filter(Boolean);
-                 const numberFound = markerNumberParts.some(part => textWords.has(part) || textNumbers.includes(part));
-                 
-                 const streetParts = bestMatch.street.toUpperCase().split(' ').filter(p => p.length > 3 && isNaN(p));
-                 const streetFound = streetParts.length > 0 ? streetParts.some(part => cleanText.includes(part)) : true; // Se non ci sono parti lunghe nella via, non lo richiediamo
-
-                 if (numberFound && streetFound) {
+                 const numberFound = markerNumberParts.some(part => textNumberSet.has(part));
+                 if (numberFound) {
                      return bestMatch;
                  }
             }
-            return null;
+            return null; // Nessuna corrispondenza valida trovata
         };
         
         buttons.goToScan.onclick = startScanner;
