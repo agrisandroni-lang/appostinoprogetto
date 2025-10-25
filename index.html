@@ -2258,19 +2258,6 @@
         };
         // --- FINE NUOVA LOGICA ---
 
-            const comune = comuneInput.charAt(0).toUpperCase() + comuneInput.slice(1).toLowerCase();
-
-            const userId = auth.currentUser.uid;
-            const requestsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/mapRequests`);
-            
-            try {
-                await addDoc(requestsCollectionRef, {
-                    comune: comune,
-                    provincia: provincia,
-                    userId: userId,
-                    status: 'pending',
-                    createdAt: serverTimestamp()
-                });
                 document.getElementById('request-map-modal').style.display = 'none';
                 importFeedback.textContent = 'Richiesta inviata con successo!';
                 importFeedback.classList.add('text-green-700');
@@ -3236,3 +3223,4 @@
     </script>
 </body>
 </html>
+
