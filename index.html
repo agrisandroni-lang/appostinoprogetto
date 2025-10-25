@@ -486,6 +486,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, query, getDocs, where, writeBatch, getDoc, updateDoc, deleteField, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
         import { Sortable } from "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/modular/sortable.esm.js";
 
         const firebaseConfig = {
@@ -501,6 +502,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        const functions = getFunctions(app);
 
         const UNORDERED_START_INDEX = 10000;
         let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer, currentRouteControl;
@@ -525,6 +527,7 @@
         
         let mainSortable = null;
         let streetSortables = [];
+        let currentMapRequestInfo = {}; // Memorizza i dati della richiesta
 
         let routeInstructions = [];
         let nextInstructionIndex = 0;
@@ -2122,13 +2125,138 @@
             }
         };
 
-        const handleRequestMap = async () => {
+      // --- NUOVA LOGICA PER RICHIESTA MAPPA CON SELEZIONE VIE ---
+
+        const streetModal = document.getElementById('select-streets-modal');
+        const streetListContainer = document.getElementById('streets-list-container');
+        const streetSearchInput = document.getElementById('search-streets-input');
+
+        // Step 1: Il pulsante "Invia Richiesta" ora apre il selettore vie
+        buttons.confirmRequestMap.onclick = async () => {
             const comuneInput = inputs.requestComune.value.trim();
             const provincia = inputs.requestProvincia.value.trim().toUpperCase();
             if (!comuneInput || !provincia) {
                 alert("Per favore, compila sia il comune che la provincia.");
                 return;
             }
+
+            // Salva i dati per dopo
+            currentMapRequestInfo = {
+                comune: comuneInput.charAt(0).toUpperCase() + comuneInput.slice(1).toLowerCase(),
+                provincia: provincia
+            };
+            
+            // Mostra il modale di selezione vie e il feedback
+            document.getElementById('request-map-modal').style.display = 'none';
+            streetModal.style.display = 'flex';
+            document.getElementById('select-streets-comune').textContent = `Caricamento vie per ${currentMapRequestInfo.comune} (${currentMapRequestInfo.provincia})...`;
+            streetListContainer.innerHTML = '<div class="flex justify-center items-center h-full"><div class="spinner"></div></div>';
+
+            try {
+                // Chiama la nuova Cloud Function
+                const getStreets = httpsCallable(functions, 'getStreetsForComune');
+                const result = await getStreets({ 
+                    comune: currentMapRequestInfo.comune, 
+                    provincia: currentMapRequestInfo.provincia 
+                });
+                
+                const streets = result.data.streets;
+                if (!streets || streets.length === 0) {
+                    streetListContainer.innerHTML = '<p class="text-center text-red-500 p-4">Nessuna via trovata per questo comune.</p>';
+                    return;
+                }
+
+                // Popola la lista delle vie
+                streetListContainer.innerHTML = streets.map(street => `
+                    <label class="flex items-center p-2 hover:bg-gray-100 cursor-pointer">
+                        <input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-street-name="${street}">
+                        <span class="ml-3 text-gray-700">${street}</span>
+                    </label>
+                `).join('');
+
+            } catch (error) {
+                console.error("Errore nel caricare le vie:", error);
+                streetListContainer.innerHTML = `<p class="text-center text-red-500 p-4">Errore nel caricamento delle vie: ${error.message}</p>`;
+            }
+        };
+
+        // Step 2: La funzione che crea la mappa ora accetta le vie selezionate
+        const handleRequestMap = async (selectedStreets) => {
+            const { comune, provincia } = currentMapRequestInfo;
+            if (!comune || !provincia || !selectedStreets || selectedStreets.length === 0) {
+                alert("Dati della richiesta mancanti o nessuna via selezionata.");
+                return;
+            }
+
+            const userId = auth.currentUser.uid;
+            const requestsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/mapRequests`);
+            
+            try {
+                await addDoc(requestsCollectionRef, {
+                    comune: comune,
+                    provincia: provincia,
+                    userId: userId,
+                    status: 'pending',
+                    createdAt: serverTimestamp(),
+                    selectedStreets: selectedStreets // <-- ECCO IL DATO NUOVO!
+                });
+                
+                streetModal.style.display = 'none';
+                importFeedback.textContent = 'Richiesta inviata con successo!';
+                importFeedback.classList.add('text-green-700');
+                setTimeout(() => { importFeedback.textContent = ''; }, 3000);
+            
+            } catch(error) {
+                console.error("Errore invio richiesta:", error);
+                alert("Impossibile inviare la richiesta. Riprova.");
+            }
+        };
+
+        // Step 3: Listener per i pulsanti del NUOVO modale
+        document.getElementById('confirm-street-selection').onclick = () => {
+            const selectedStreets = [];
+            streetListContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedStreets.push(checkbox.dataset.streetName);
+            });
+
+            if (selectedStreets.length === 0) {
+                alert("Devi selezionare almeno una via per creare la mappa.");
+                return;
+            }
+            
+            handleRequestMap(selectedStreets);
+        };
+
+        document.getElementById('cancel-street-selection').onclick = () => {
+            streetModal.style.display = 'none';
+        };
+
+        // Filtro di ricerca per le vie
+        streetSearchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toUpperCase();
+            streetListContainer.querySelectorAll('label').forEach(label => {
+                const streetName = label.querySelector('span').textContent;
+                label.style.display = streetName.toUpperCase().includes(searchTerm) ? 'flex' : 'none';
+            });
+        });
+
+        // Seleziona/Deseleziona tutti
+        document.getElementById('select-all-streets-btn').onclick = () => {
+            streetListContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                if (checkbox.closest('label').style.display !== 'none') {
+                    checkbox.checked = true;
+                }
+            });
+        };
+        
+        document.getElementById('deselect-all-streets-btn').onclick = () => {
+            streetListContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                 if (checkbox.closest('label').style.display !== 'none') {
+                    checkbox.checked = false;
+                }
+            });
+        };
+        // --- FINE NUOVA LOGICA ---
 
             const comune = comuneInput.charAt(0).toUpperCase() + comuneInput.slice(1).toLowerCase();
 
@@ -2341,8 +2469,7 @@
         buttons.cancelRequestMap.onclick = () => {
             document.getElementById('request-map-modal').style.display = 'none';
         };
-        buttons.confirmRequestMap.onclick = handleRequestMap;
-
+       
         onAuthStateChanged(auth, (user) => {
             loadingView.classList.add('hidden');
             if (user && !user.isAnonymous) {
@@ -3109,5 +3236,6 @@
     </script>
 </body>
 </html>
+
 
 
