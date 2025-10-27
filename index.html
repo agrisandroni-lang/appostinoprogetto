@@ -2182,7 +2182,7 @@
 
             try {
                 // Chiama la nuova Cloud Function
-                const getStreets = httpsCallable(functions, 'getStreetsForComune');
+                const getStreets = httpsCallable(functions, 'getStreetsForComune', { region: 'europe-west1' });
                 const result = await getStreets({
                     comune: currentMapRequestInfo.comune,
                     provincia: currentMapRequestInfo.provincia
@@ -3241,3 +3241,4 @@
     </script>
 </body>
 </html>
+
