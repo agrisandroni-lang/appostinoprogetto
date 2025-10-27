@@ -530,7 +530,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const functions = getFunctions(app); // Aggiunto
+        const functions = getFunctions(app, 'europe-west1'); // Aggiunto E SPECIFICATA REGIONE
 
         const UNORDERED_START_INDEX = 10000;
         let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer, currentRouteControl;
@@ -3246,5 +3246,6 @@
     </script>
 </body>
 </html>
+
 
 
