@@ -2202,10 +2202,15 @@
                     </label>
                 `).join('');
 
-            } catch (error) {
-                console.error("Errore nel caricare le vie:", error);
-                streetListContainer.innerHTML = `<p class="text-center text-red-500 p-4">Errore nel caricamento delle vie: ${error.message}</p>`;
-            }
+           } catch (error) {
+        // !!! LOGGA TUTTO L'OGGETTO ERRORE !!!
+        console.error("--- Oggetto Errore Completo ---");
+        console.dir(error); // Usa console.dir per vedere la struttura completa
+        console.error("-------------------------------");
+        console.error("Errore DETTAGLIATO nel caricare le vie:", error.code, error.message, error.details); // Logga anche i dettagli se ci sono
+
+        streetListContainer.innerHTML = `<p class="text-center text-red-500 p-4">Errore nel caricamento delle vie: ${error.message} (Codice: ${error.code}). Vedi console per dettagli.</p>`;
+    }
         };
 
         // Step 2: La funzione che crea la mappa ora accetta le vie selezionate
@@ -3241,4 +3246,5 @@
     </script>
 </body>
 </html>
+
 
