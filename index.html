@@ -26,6 +26,7 @@
     <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
@@ -1953,40 +1954,36 @@
 
         const startWatchingLocation = () => {
             if (navigator.geolocation && !locationWatcher) {
-                // MODIFICA: Abbassato timeout e maximumAge per aggiornamenti più rapidi
-                const highAccuracyOptions = {
+                
+                // Opzioni OTTIMIZZATE:
+                const optimizedOptions = {
                     enableHighAccuracy: true,
-                    timeout: 5000, // Ridotto da 20000. Chiediamo un fix entro 5 secondi.
-                    maximumAge: 1000  // Ridotto da 10000. Vogliamo posizioni fresche (max 1 sec).
-                };
-
-                // MODIFICA: Abbassato maximumAge anche qui
-                const lowAccuracyOptions = {
-                    enableHighAccuracy: false,
-                    timeout: 10000, // Lasciato a 10s
-                    maximumAge: 5000 // Ridotto da 60000. Max 5 secondi di cache.
+                    // Aumentiamo il timeout a 10 secondi per dare tempo al GPS
+                    // di avviarsi (cold start) senza attivare l'errore.
+                    timeout: 10000, 
+                    // Manteniamo maximumAge basso per forzare dati FRESCHI
+                    // (non usare posizioni vecchie).
+                    maximumAge: 1000 
                 };
 
                 const successCallback = (position) => updateUserLocation(position.coords);
 
                 const errorCallback = (error) => {
-                    console.error("Errore geolocalizzazione (alta precisione):", error.code, error.message);
-                    // Il codice di fallback che passa a lowAccuracyOptions in caso di TIMEOUT (code 3)
-                    // è ancora valido e ora interverrà più rapidamente (dopo 5s invece di 20s).
-                    if (error.code === 3) {
-                        console.log("Timeout con alta precisione (5s), tento con precisione standard...");
-                        if (locationWatcher) {
-                            navigator.geolocation.clearWatch(locationWatcher);
-                        }
-                        locationWatcher = navigator.geolocation.watchPosition(successCallback, (err) => {
-                            console.error("Errore geolocalizzazione (anche in precisione standard):", err.code, err.message);
-                        }, lowAccuracyOptions);
+                    // Logghiamo l'errore, ma NON facciamo un fallback 
+                    // a 'lowAccuracy'. 'watchPosition' continuerà 
+                    // automaticamente a provare a ottenere un fix 
+                    // in alta precisione appena possibile.
+                    console.error("Errore geolocalizzazione:", error.code, error.message);
+                    // Se l'errore è "Permission Denied" (codice 1), lo comunichiamo.
+                    if (error.code === 1) {
+                         alert("Non hai dato il permesso per la geolocalizzazione.");
                     }
                 };
 
-                locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, highAccuracyOptions);
+                // Avviamo UN SOLO watcher con le opzioni ottimizzate.
+                locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, optimizedOptions);
             }
-        };
+        };                
 
         const stopWatchingLocation = () => {
             if (navigator.geolocation && locationWatcher) {
@@ -3005,7 +3002,7 @@ const stopScanner = () => {
     scanFeedback.textContent = ''; // Pulisce il feedback
 };
 
-// La NUOVA funzione che scatta la foto e chiama la Cloud Function
+// La NUOVA funzione che scatta la foto e chiama la Cloud Function (con Fuse.js)
 const handleScanSnapshot = async () => {
     if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused) {
         return;
@@ -3017,7 +3014,7 @@ const handleScanSnapshot = async () => {
     scanFeedback.classList.remove('bg-green-600', 'bg-red-600', 'scan-found');
 
     try {
-        // 1. Cattura il fotogramma (usando la stessa logica di crop che avevi)
+        // 1. Cattura il fotogramma (codice invariato)
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
@@ -3041,13 +3038,11 @@ const handleScanSnapshot = async () => {
         canvas.height = cropHeight;
         ctx.drawImage(videoEl, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
         
-        // 2. Converti in Base64
-        // Usiamo JPEG per ridurre le dimensioni, 0.9 è alta qualità
+        // 2. Converti in Base64 (codice invariato)
         const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9); 
-        // Rimuovi l'intestazione "data:image/jpeg;base64,"
         const imageBase64 = imageDataUrl.split(',')[1]; 
 
-        // 3. Chiama la tua Cloud Function
+        // 3. Chiama la tua Cloud Function (codice invariato)
         const processImage = httpsCallable(functions, 'processImageForOCR');
         const result = await processImage({ image: imageBase64 });
 
@@ -3058,11 +3053,38 @@ const handleScanSnapshot = async () => {
             throw new Error("Nessun testo trovato.");
         }
 
-        // 4. Cerca la corrispondenza (USANDO LA TUA FUNZIONE ESISTENTE!)
-        const bestMatch = findBestMatch(ocrText, allMarkersForList);
+        // --- INIZIO NUOVA LOGICA CON FUSE.JS ---
 
-        if (bestMatch) {
-            // Trovato! Aggiungilo alla selezione business
+        // 4. Pulisci il testo OCR per la ricerca
+        // Trasformiamo "Via G. Verdi, 2/BIS" in "Via G Verdi 2 BIS"
+        const cleanOcrText = ocrText.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
+
+        // 5. Configura Fuse.js per cercare nei nostri dati
+        const fuseOptions = {
+            includeScore: true, // Vogliamo sapere *quanto* è buona la corrispondenza
+            keys: [
+                { name: 'street', weight: 0.7 },    // Diamo più peso alla via
+                { name: 'houseNumber', weight: 0.3 } // Diamo peso (minore) al numero civico
+            ],
+            threshold: 0.5, // Sii permissivo: 0.0 = solo match esatti, 1.0 = qualsiasi cosa
+            ignoreLocation: true, // Cerca l'occorrenza ovunque nel testo
+        };
+
+        // 6. Diamo a Fuse l'elenco di tutti i possibili indirizzi (allMarkersForList)
+        const fuse = new Fuse(allMarkersForList, fuseOptions);
+
+        // 7. Esegui la ricerca!
+        const results = fuse.search(cleanOcrText);
+
+        console.log("Risultati di Fuse.js:", results); // Guarda la console per il debug
+
+        if (results && results.length > 0) {
+            // Prendiamo il risultato migliore (quello con lo 'score' più basso)
+            const bestMatch = results[0].item; 
+            
+            // --- FINE NUOVA LOGICA ---
+
+            // Trovato! Aggiungilo alla selezione business (codice invariato)
             const isAlreadySelected = businessSelection.some(item => item.mapId === currentMapData.id && item.markerId === bestMatch.id);
             if (!isAlreadySelected) {
                 businessSelection.push({ mapId: currentMapData.id, markerId: bestMatch.id, count: 1, type: 'pacco' });
@@ -3075,7 +3097,7 @@ const handleScanSnapshot = async () => {
             scanFeedback.textContent = `Aggiunto: ${bestMatch.street}, ${bestMatch.houseNumber}`;
             scanFeedback.classList.add('bg-green-600', 'scan-found');
 
-            // Pausa di successo, poi riattiva il pulsante
+            // Pausa di successo, poi riattiva il pulsante (codice invariato)
             setTimeout(() => {
                 scanFeedback.textContent = 'Inquadra un indirizzo...';
                 scanFeedback.classList.remove('bg-green-600', 'scan-found');
@@ -3093,7 +3115,7 @@ const handleScanSnapshot = async () => {
         scanFeedback.textContent = `Errore: ${err.message}. Riprova.`;
         scanFeedback.classList.add('bg-red-600');
         
-        // Pausa di errore, poi riattiva
+        // Pausa di errore, poi riattiva (codice invariato)
         setTimeout(() => {
             if (isScanning) { // Controlla se siamo ancora nella schermata
                 scanFeedback.textContent = 'Inquadra un indirizzo...';
@@ -3105,89 +3127,10 @@ const handleScanSnapshot = async () => {
     }
 };
 
-// Rimuovi la logica fuzzy di Tesseract.
-// LA TUA FUNZIONE 'findBestMatch' È GIÀ PRESENTE NEL TUO CODICE,
-// quindi non c'è bisogno di aggiungerla qui.
-
 // Nuovi listener per i pulsanti
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
-// Funzione di "fuzzy search" per trovare la corrispondenza
-// (Questa era nel vecchio modulo OCR e serve anche a quello nuovo)
-const findBestMatch = (text, markers) => {
-    const cleanText = text.toUpperCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!cleanText) return null;
-
-    let bestMatch = null;
-    let highestScore = 0;
-
-    const textWords = new Set(cleanText.split(' '));
-    // Estrae numeri e lettere singole dopo slash o trattino
-    const textNumbersAndSuffixes = (cleanText.match(/\d+([\/\\-][A-Z])?|\b[A-Z]\b/g) || []).map(n => n.replace(/[\/\\-]/, ''));
-    const textNumberSet = new Set(textNumbersAndSuffixes);
-
-    for (const marker of markers) {
-        let currentScore = 0;
-        const markerStreet = marker.street.toUpperCase();
-        const markerNumberClean = marker.houseNumber.toUpperCase().replace(/[/\\-]/g, ' ');
-        const markerNumberParts = markerNumberClean.split(' ').filter(Boolean); // Es: ["2", "BIS"]
-        // Considera anche il numero senza spazi (es. "2BIS")
-        const markerNumberNoSpace = markerNumberParts.join('');
-
-        const markerStreetParts = markerStreet.split(' ').filter(p => p.length > 2 && isNaN(p));
-
-        // 1. Punteggio Numero Civico (Peso maggiore)
-        let numberMatchCount = 0;
-        let exactNumberMatch = false;
-        markerNumberParts.forEach(part => {
-            if (textNumberSet.has(part)) {
-                numberMatchCount++;
-            }
-        });
-        // Controlla anche la corrispondenza esatta del numero senza spazi
-        if (textNumberSet.has(markerNumberNoSpace)) {
-            exactNumberMatch = true;
-        }
-
-        if (numberMatchCount > 0 || exactNumberMatch) {
-            currentScore += exactNumberMatch ? 8 : (numberMatchCount / markerNumberParts.length) * 6; // Punteggio più alto per corrispondenza esatta
-        }
-
-        // 2. Punteggio Via (Peso minore)
-        if (markerStreetParts.length > 0) {
-            let streetMatchCount = 0;
-            markerStreetParts.forEach(part => {
-                if (textWords.has(part) || Array.from(textWords).some(tw => tw.length > 3 && (tw.includes(part) || part.includes(tw)))) {
-                    streetMatchCount++;
-                }
-            });
-            // Richiede almeno una corrispondenza significativa della via
-            if (streetMatchCount > 0) {
-                currentScore += (streetMatchCount / markerStreetParts.length) * 4;
-            } else {
-                currentScore *= 0.5; // Penalizza se la via non combacia affatto
-            }
-        }
-
-        // Aggiorna il miglior match
-        if (currentScore > highestScore) {
-            highestScore = currentScore;
-            bestMatch = marker;
-        }
-    }
-
-    // Soglia più alta e richiede una buona corrispondenza del numero
-    console.log("Best score:", highestScore, "Match:", bestMatch?.street, bestMatch?.houseNumber); // Debug
-    if (highestScore > 8 && bestMatch) {
-        const markerNumberParts = bestMatch.houseNumber.toUpperCase().replace(/[/\\-]/g, ' ').split(' ').filter(Boolean);
-        const numberFound = markerNumberParts.some(part => textNumberSet.has(part)) || textNumberSet.has(markerNumberParts.join(''));
-        if (numberFound) {
-            return bestMatch;
-        }
-    }
-    return null; // Nessuna corrispondenza valida trovata
-};
 
 
     </script>
