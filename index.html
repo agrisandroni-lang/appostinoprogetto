@@ -3015,6 +3015,7 @@ const stopScanner = () => {
     scanFeedback.textContent = ''; // Pulisce il feedback
 };
 
+  
 // La NUOVA funzione che scatta la foto e chiama la Cloud Function (con Fuse.js e Modale)
 const handleScanSnapshot = async () => {
     if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused) {
@@ -3069,14 +3070,14 @@ const handleScanSnapshot = async () => {
         // 4. Pulisci il testo OCR per la ricerca (codice invariato)
         const cleanOcrText = ocrText.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
 
-        // 5. Configura Fuse.js (codice invariato)
+        // 5. Configura Fuse.js (con threshold 0.7)
         const fuseOptions = {
             includeScore: true, 
             keys: [
                 { name: 'street', weight: 0.7 },
                 { name: 'houseNumber', weight: 0.3 }
             ],
-            threshold: 0.75, // Usiamo 0.6 come abbiamo detto
+            threshold: 0.75, // Più permissivo
             ignoreLocation: true,
         };
 
@@ -3090,25 +3091,24 @@ const handleScanSnapshot = async () => {
 
         if (results && results.length > 0) {
             
-            // --- INIZIO LOGICA MODIFICATA ---
-            // Ora, invece di selezionare, popoliamo e mostriamo il modale
+            // --- BIP AGGIUNTO QUI ---
+            playBeep();
             
+            // Ora, popola e mostra il modale (codice invariato)
             const suggestionsContainer = document.getElementById('scan-suggestions-list');
             const modal = document.getElementById('scan-confirm-modal');
             
             suggestionsContainer.innerHTML = ''; // Pulisci la lista precedente
             
-            // Prendiamo i top 5 risultati (o meno, se ce ne sono pochi)
             const topResults = results.slice(0, 5); 
 
             topResults.forEach(result => {
                 const marker = result.item;
-                const score = result.score; // Punteggio di Fuse (più basso è, meglio è)
+                const score = result.score; 
                 
-                // Creiamo un pulsante per ogni suggerimento
                 const button = document.createElement('button');
                 button.className = 'w-full text-left p-3 bg-white hover:bg-blue-100 rounded-md border border-gray-200 shadow-sm';
-                button.dataset.markerId = marker.id; // Salviamo l'ID del marker sul pulsante
+                button.dataset.markerId = marker.id;
                 
                 button.innerHTML = `
                     <p class="font-bold text-blue-700">${marker.street}, ${marker.houseNumber}</p>
@@ -3119,18 +3119,13 @@ const handleScanSnapshot = async () => {
             
             modal.style.display = 'flex'; // Mostra il modale!
             
-            // NON selezioniamo più nulla automaticamente qui.
-            // Spostiamo la logica di selezione nel listener del modale (Passaggio 3)
-            
-            // --- FINE LOGICA MODIFICATA ---
-
         } else {
             // Non trovato (codice invariato)
             throw new Error("Testo trovato, ma nessuna corrispondenza.");
         }
 
     } catch (err) {
-        // Il Blocco CATCH resta invariato, riattiverà il pulsante in caso di errore
+        // Il Blocco CATCH resta invariato
         console.error("Errore durante la scansione:", err);
         scanFeedback.textContent = `Errore: ${err.message}. Riprova.`;
         scanFeedback.classList.add('bg-red-600');
@@ -3145,6 +3140,9 @@ const handleScanSnapshot = async () => {
         }, 2500);
     }
 };
+
+// BLOCCO 2: Il listener per il modale (deve essere subito dopo il blocco 1)
+
 // Listener per il nuovo modale di conferma scansione
 document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
     const modal = document.getElementById('scan-confirm-modal');
@@ -3157,7 +3155,7 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
         const marker = allMarkersForList.find(m => m.id === markerId);
         if (!marker) return; // Sicurezza
 
-        // Logica di selezione (quella che abbiamo tolto da handleScanSnapshot)
+        // Logica di selezione
         const isAlreadySelected = businessSelection.some(item => item.mapId === currentMapData.id && item.markerId === marker.id);
         if (!isAlreadySelected) {
             businessSelection.push({ mapId: currentMapData.id, markerId: marker.id, count: 1, type: 'pacco' });
@@ -3166,6 +3164,7 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
             renderAllMarkersList(allMarkersForList); // Aggiorna lista in background
         }
         
+        // Suona il "bip" di conferma (lo avevi già, lo rimettiamo)
         playBeep();
         scanFeedback.textContent = `Aggiunto: ${marker.street}, ${marker.houseNumber}`;
         scanFeedback.classList.add('bg-green-600', 'scan-found');
@@ -3190,8 +3189,7 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
     }
 });
 
-// I listener per i pulsanti goToScan, backFromScan, e scanShutterBtn 
-// restano qui sotto, invariati...
+// Listener per i pulsanti principali della scansione
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
