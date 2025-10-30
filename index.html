@@ -3016,6 +3016,7 @@ const stopScanner = () => {
 };
 
   
+
 // La NUOVA funzione che scatta la foto e chiama la Cloud Function (con Fuse.js e Modale)
 const handleScanSnapshot = async () => {
     if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused) {
@@ -3067,43 +3068,61 @@ const handleScanSnapshot = async () => {
             throw new Error("Nessun testo trovato.");
         }
 
-        // 4. Pulisci il testo OCR per la ricerca (codice invariato)
+        // 4. Pulisci il testo OCR (codice invariato)
         const cleanOcrText = ocrText.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
 
-        // 5. Configura Fuse.js (con threshold 0.7)
+        // --- INIZIO LOGICA FUSE.JS MODIFICATA ---
+
+        // 5. Prepara i dati per Fuse:
+        // Creiamo una lista "virtuale" per Fuse, combinando via e civico
+        // per ogni marker nella tua lista.
+        const fuseSearchList = allMarkersForList.map(marker => {
+            // Pulisci i dati del marker nello STESSO MODO in cui puliamo l'OCR
+            const cleanStreet = marker.street.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
+            const cleanNumber = marker.houseNumber.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
+            
+            return {
+                marker: marker, // Conserviamo l'oggetto marker originale
+                // Questo è il campo su cui Fuse cercherà
+                // Es: "VIA FRATELLI ROSSELLI 72"
+                searchableString: `${cleanStreet} ${cleanNumber}`.trim()
+            };
+        });
+
+        // 6. Configura Fuse.js per cercare nel nostro nuovo campo
         const fuseOptions = {
             includeScore: true, 
-            keys: [
-                { name: 'street', weight: 0.7 },
-                { name: 'houseNumber', weight: 0.3 }
-            ],
-            threshold: 0.75, // Più permissivo
-            ignoreLocation: true,
+            keys: ['searchableString'], // Cerca SOLO nel campo combinato
+            threshold: 0.6, // Torniamo a 0.6, la ricerca ora è più precisa
+            ignoreLocation: true, // Cerca l'occorrenza ovunque nel testo
         };
 
-        // 6. Diamo a Fuse l'elenco (codice invariato)
-        const fuse = new Fuse(allMarkersForList, fuseOptions);
+        // 7. Diamo a Fuse la nostra NUOVA lista
+        const fuse = new Fuse(fuseSearchList, fuseOptions);
 
-        // 7. Esegui la ricerca! (codice invariato)
+        // 8. Esegui la ricerca!
+        // Cerchiamo il testo OCR pulito (es. "VIA ROSSELLI 72...")
+        // all'interno della lista di "searchableString" (es. "VIA FRATELLI ROSSELLI 72")
         const results = fuse.search(cleanOcrText);
+        
+        // --- FINE LOGICA FUSE.JS MODIFICATA ---
 
         console.log("Risultati di Fuse.js:", results); 
 
         if (results && results.length > 0) {
             
-            // --- BIP AGGIUNTO QUI ---
             playBeep();
             
-            // Ora, popola e mostra il modale (codice invariato)
             const suggestionsContainer = document.getElementById('scan-suggestions-list');
             const modal = document.getElementById('scan-confirm-modal');
             
-            suggestionsContainer.innerHTML = ''; // Pulisci la lista precedente
+            suggestionsContainer.innerHTML = ''; 
             
             const topResults = results.slice(0, 5); 
 
             topResults.forEach(result => {
-                const marker = result.item;
+                // !!! IMPORTANTE: Il marker ora è dentro result.item.marker !!!
+                const marker = result.item.marker; 
                 const score = result.score; 
                 
                 const button = document.createElement('button');
@@ -3117,7 +3136,7 @@ const handleScanSnapshot = async () => {
                 suggestionsContainer.appendChild(button);
             });
             
-            modal.style.display = 'flex'; // Mostra il modale!
+            modal.style.display = 'flex';
             
         } else {
             // Non trovato (codice invariato)
@@ -3140,7 +3159,6 @@ const handleScanSnapshot = async () => {
         }, 2500);
     }
 };
-
 // BLOCCO 2: Il listener per il modale (deve essere subito dopo il blocco 1)
 
 // Listener per il nuovo modale di conferma scansione
