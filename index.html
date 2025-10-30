@@ -476,8 +476,21 @@
                 <button id="confirm-request-map" class="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700">Prosegui</button> <!-- Modificato testo -->
             </div>
         </div>
+</div>
+
+    <div id="scan-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2001]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-4 modal-content">
+            <h3 class="text-lg font-bold mb-4">Indirizzo Rilevato</h3>
+            <p class="text-sm text-gray-600 mb-4">Abbiamo trovato queste corrispondenze. Seleziona quella corretta:</p>
+            
+            <div id="scan-suggestions-list" class="flex flex-col space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
+                </div>
+            
+            <button id="cancel-scan-confirm" class="mt-6 w-full bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400">Annulla / Riprova</button>
+        </div>
     </div>
 
+    
     <!-- NUOVO MODALE: Selezione Vie per Richiesta Mappa -->
     <div id="select-streets-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-[2001]">
         <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg mx-4 flex flex-col modal-content" style="height: 90vh;">
@@ -3002,7 +3015,7 @@ const stopScanner = () => {
     scanFeedback.textContent = ''; // Pulisce il feedback
 };
 
-// La NUOVA funzione che scatta la foto e chiama la Cloud Function (con Fuse.js)
+// La NUOVA funzione che scatta la foto e chiama la Cloud Function (con Fuse.js e Modale)
 const handleScanSnapshot = async () => {
     if (isProcessingFrame || !videoEl.videoWidth || videoEl.paused) {
         return;
@@ -3053,71 +3066,77 @@ const handleScanSnapshot = async () => {
             throw new Error("Nessun testo trovato.");
         }
 
-        // --- INIZIO NUOVA LOGICA CON FUSE.JS ---
-
-        // 4. Pulisci il testo OCR per la ricerca
-        // Trasformiamo "Via G. Verdi, 2/BIS" in "Via G Verdi 2 BIS"
+        // 4. Pulisci il testo OCR per la ricerca (codice invariato)
         const cleanOcrText = ocrText.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
 
-        // 5. Configura Fuse.js per cercare nei nostri dati
+        // 5. Configura Fuse.js (codice invariato)
         const fuseOptions = {
-            includeScore: true, // Vogliamo sapere *quanto* è buona la corrispondenza
+            includeScore: true, 
             keys: [
-                { name: 'street', weight: 0.7 },    // Diamo più peso alla via
-                { name: 'houseNumber', weight: 0.3 } // Diamo peso (minore) al numero civico
+                { name: 'street', weight: 0.7 },
+                { name: 'houseNumber', weight: 0.3 }
             ],
-            threshold: 0.6, // Sii permissivo: 0.0 = solo match esatti, 1.0 = qualsiasi cosa
-            ignoreLocation: true, // Cerca l'occorrenza ovunque nel testo
+            threshold: 0.6, // Usiamo 0.6 come abbiamo detto
+            ignoreLocation: true,
         };
 
-        // 6. Diamo a Fuse l'elenco di tutti i possibili indirizzi (allMarkersForList)
+        // 6. Diamo a Fuse l'elenco (codice invariato)
         const fuse = new Fuse(allMarkersForList, fuseOptions);
 
-        // 7. Esegui la ricerca!
+        // 7. Esegui la ricerca! (codice invariato)
         const results = fuse.search(cleanOcrText);
 
-        console.log("Risultati di Fuse.js:", results); // Guarda la console per il debug
+        console.log("Risultati di Fuse.js:", results); 
 
         if (results && results.length > 0) {
-            // Prendiamo il risultato migliore (quello con lo 'score' più basso)
-            const bestMatch = results[0].item; 
             
-            // --- FINE NUOVA LOGICA ---
-
-            // Trovato! Aggiungilo alla selezione business (codice invariato)
-            const isAlreadySelected = businessSelection.some(item => item.mapId === currentMapData.id && item.markerId === bestMatch.id);
-            if (!isAlreadySelected) {
-                businessSelection.push({ mapId: currentMapData.id, markerId: bestMatch.id, count: 1, type: 'pacco' });
-                saveSelectionToStorage();
-                updateBusinessUI();
-                renderAllMarkersList(allMarkersForList); // Aggiorna lista in background
-            }
+            // --- INIZIO LOGICA MODIFICATA ---
+            // Ora, invece di selezionare, popoliamo e mostriamo il modale
             
-            playBeep();
-            scanFeedback.textContent = `Aggiunto: ${bestMatch.street}, ${bestMatch.houseNumber}`;
-            scanFeedback.classList.add('bg-green-600', 'scan-found');
+            const suggestionsContainer = document.getElementById('scan-suggestions-list');
+            const modal = document.getElementById('scan-confirm-modal');
+            
+            suggestionsContainer.innerHTML = ''; // Pulisci la lista precedente
+            
+            // Prendiamo i top 5 risultati (o meno, se ce ne sono pochi)
+            const topResults = results.slice(0, 5); 
 
-            // Pausa di successo, poi riattiva il pulsante (codice invariato)
-            setTimeout(() => {
-                scanFeedback.textContent = 'Inquadra un indirizzo...';
-                scanFeedback.classList.remove('bg-green-600', 'scan-found');
-                isProcessingFrame = false;
-                scanShutterBtn.disabled = false;
-            }, 2000);
+            topResults.forEach(result => {
+                const marker = result.item;
+                const score = result.score; // Punteggio di Fuse (più basso è, meglio è)
+                
+                // Creiamo un pulsante per ogni suggerimento
+                const button = document.createElement('button');
+                button.className = 'w-full text-left p-3 bg-white hover:bg-blue-100 rounded-md border border-gray-200 shadow-sm';
+                button.dataset.markerId = marker.id; // Salviamo l'ID del marker sul pulsante
+                
+                button.innerHTML = `
+                    <p class="font-bold text-blue-700">${marker.street}, ${marker.houseNumber}</p>
+                    <p class="text-xs text-gray-500">Somiglianza: ${((1 - score) * 100).toFixed(0)}%</p>
+                `;
+                suggestionsContainer.appendChild(button);
+            });
+            
+            modal.style.display = 'flex'; // Mostra il modale!
+            
+            // NON selezioniamo più nulla automaticamente qui.
+            // Spostiamo la logica di selezione nel listener del modale (Passaggio 3)
+            
+            // --- FINE LOGICA MODIFICATA ---
 
         } else {
-            // Non trovato
+            // Non trovato (codice invariato)
             throw new Error("Testo trovato, ma nessuna corrispondenza.");
         }
 
     } catch (err) {
+        // Il Blocco CATCH resta invariato, riattiverà il pulsante in caso di errore
         console.error("Errore durante la scansione:", err);
         scanFeedback.textContent = `Errore: ${err.message}. Riprova.`;
         scanFeedback.classList.add('bg-red-600');
         
-        // Pausa di errore, poi riattiva (codice invariato)
         setTimeout(() => {
-            if (isScanning) { // Controlla se siamo ancora nella schermata
+            if (isScanning) { 
                 scanFeedback.textContent = 'Inquadra un indirizzo...';
                 scanFeedback.classList.remove('bg-red-600');
                 isProcessingFrame = false;
@@ -3126,12 +3145,56 @@ const handleScanSnapshot = async () => {
         }, 2500);
     }
 };
+// Listener per il nuovo modale di conferma scansione
+document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
+    const modal = document.getElementById('scan-confirm-modal');
+    const selectedButton = e.target.closest('[data-marker-id]');
+    const cancelButton = e.target.closest('#cancel-scan-confirm');
 
-// Nuovi listener per i pulsanti
+    // Caso 1: L'utente ha cliccato su un suggerimento
+    if (selectedButton) {
+        const markerId = selectedButton.dataset.markerId;
+        const marker = allMarkersForList.find(m => m.id === markerId);
+        if (!marker) return; // Sicurezza
+
+        // Logica di selezione (quella che abbiamo tolto da handleScanSnapshot)
+        const isAlreadySelected = businessSelection.some(item => item.mapId === currentMapData.id && item.markerId === marker.id);
+        if (!isAlreadySelected) {
+            businessSelection.push({ mapId: currentMapData.id, markerId: marker.id, count: 1, type: 'pacco' });
+            saveSelectionToStorage();
+            updateBusinessUI();
+            renderAllMarkersList(allMarkersForList); // Aggiorna lista in background
+        }
+        
+        playBeep();
+        scanFeedback.textContent = `Aggiunto: ${marker.street}, ${marker.houseNumber}`;
+        scanFeedback.classList.add('bg-green-600', 'scan-found');
+
+        modal.style.display = 'none'; // Chiudi il modale
+
+        // Pausa di successo, poi riattiva il pulsante di scatto
+        setTimeout(() => {
+            scanFeedback.textContent = 'Inquadra un indirizzo...';
+            scanFeedback.classList.remove('bg-green-600', 'scan-found');
+            isProcessingFrame = false;
+            scanShutterBtn.disabled = false;
+        }, 2000);
+        
+    } 
+    // Caso 2: L'utente ha cliccato su "Annulla / Riprova"
+    else if (cancelButton) {
+        modal.style.display = 'none';
+        isProcessingFrame = false;
+        scanShutterBtn.disabled = false; // Riattiva il pulsante di scatto
+        scanFeedback.textContent = 'Inquadra un indirizzo...';
+    }
+});
+
+// I listener per i pulsanti goToScan, backFromScan, e scanShutterBtn 
+// restano qui sotto, invariati...
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
-
 
     </script>
 </body>
