@@ -3068,42 +3068,51 @@ const handleScanSnapshot = async () => {
             throw new Error("Nessun testo trovato.");
         }
 
-        // 4. Pulisci il testo OCR (codice invariato)
+        // --- INIZIO LOGICA FUSE.JS MODIFICATA (Approccio Invertito) ---
+
+        // 4. Pulisci il testo OCR (in cui cercare)
+        // Es: "ANDREA SANDRONI VIA ROSSELLI 72 60030..."
         const cleanOcrText = ocrText.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
 
-        // --- INIZIO LOGICA FUSE.JS MODIFICATA ---
+        // 5. Crea l'indice Fuse SUL TESTO OCR
+        // L'array in cui cercare ha UN solo elemento: il testo letto dall'etichetta
+        const fuse = new Fuse([cleanOcrText], {
+            includeScore: true,
+            threshold: 0.6, // Possiamo tenerlo più stretto ora
+            ignoreLocation: true, // Cerca ovunque nel testo
+            minMatchCharLength: 5 // Ignora parole troppo corte
+        });
 
-        // 5. Prepara i dati per Fuse:
-        // Creiamo una lista "virtuale" per Fuse, combinando via e civico
-        // per ogni marker nella tua lista.
-        const fuseSearchList = allMarkersForList.map(marker => {
-            // Pulisci i dati del marker nello STESSO MODO in cui puliamo l'OCR
+        // 6. Itera su tutti i marker e CERCA OGNUNO DI ESSI nel testo OCR
+        const allMatches = [];
+        allMarkersForList.forEach(marker => {
+            // Pulisci i dati del marker per creare il "termine di ricerca"
             const cleanStreet = marker.street.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
             const cleanNumber = marker.houseNumber.toUpperCase().replace(/[,.\/\\-]/g, ' ').replace(/\s+/g, ' ');
             
-            return {
-                marker: marker, // Conserviamo l'oggetto marker originale
-                // Questo è il campo su cui Fuse cercherà
-                // Es: "VIA FRATELLI ROSSELLI 72"
-                searchableString: `${cleanStreet} ${cleanNumber}`.trim()
-            };
+            // Termine di ricerca (es: "VIA FRATELLI ROSSELLI 72")
+            const searchTermComplete = `${cleanStreet} ${cleanNumber}`;
+            
+            // Cerca il nostro indirizzo pulito DENTRO il testo dell'etichetta
+            const resultsComplete = fuse.search(searchTermComplete);
+            
+            if (resultsComplete.length > 0) {
+                // Trovato! Aggiungi il marker e il suo punteggio
+                allMatches.push({
+                    marker: marker,
+                    score: resultsComplete[0].score // Punteggio di somiglianza
+                });
+            }
         });
 
-        // 6. Configura Fuse.js per cercare nel nostro nuovo campo
-        const fuseOptions = {
-            includeScore: true, 
-            keys: ['searchableString'], // Cerca SOLO nel campo combinato
-            threshold: 0.6, // Torniamo a 0.6, la ricerca ora è più precisa
-            ignoreLocation: true, // Cerca l'occorrenza ovunque nel testo
-        };
-
-        // 7. Diamo a Fuse la nostra NUOVA lista
-        const fuse = new Fuse(fuseSearchList, fuseOptions);
-
-        // 8. Esegui la ricerca!
-        // Cerchiamo il testo OCR pulito (es. "VIA ROSSELLI 72...")
-        // all'interno della lista di "searchableString" (es. "VIA FRATELLI ROSSELLI 72")
-        const results = fuse.search(cleanOcrText);
+        // 7. Filtra e ordina i risultati
+        // Rimuovi duplicati (se un marker ha matchato più volte)
+        const uniqueMatches = Array.from(new Map(allMatches.map(item => [item.marker.id, item])).values());
+        
+        // Ordina per punteggio (score più basso = migliore)
+        uniqueMatches.sort((a, b) => a.score - b.score);
+        
+        const results = uniqueMatches; // Rinomina per il codice successivo
         
         // --- FINE LOGICA FUSE.JS MODIFICATA ---
 
@@ -3121,8 +3130,8 @@ const handleScanSnapshot = async () => {
             const topResults = results.slice(0, 5); 
 
             topResults.forEach(result => {
-                // !!! IMPORTANTE: Il marker ora è dentro result.item.marker !!!
-                const marker = result.item.marker; 
+                // !!! IMPORTANTE: Il marker ora è dentro result.marker !!!
+                const marker = result.marker; 
                 const score = result.score; 
                 
                 const button = document.createElement('button');
@@ -3159,6 +3168,7 @@ const handleScanSnapshot = async () => {
         }, 2500);
     }
 };
+
 // BLOCCO 2: Il listener per il modale (deve essere subito dopo il blocco 1)
 
 // Listener per il nuovo modale di conferma scansione
@@ -3215,6 +3225,3 @@ scanShutterBtn.onclick = handleScanSnapshot;
     </script>
 </body>
 </html>
-
-
-
