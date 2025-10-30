@@ -3093,7 +3093,7 @@ const handleScanSnapshot = async () => {
         const fuseOptions = {
             includeScore: true, 
             keys: ['searchableString'], // Cerca SOLO nel campo combinato
-            threshold: 0.6, // Torniamo a 0.6, la ricerca ora è più precisa
+            threshold: 0.7, // Torniamo a 0.6, la ricerca ora è più precisa
             ignoreLocation: true, // Cerca l'occorrenza ovunque nel testo
         };
 
@@ -3215,3 +3215,4 @@ scanShutterBtn.onclick = handleScanSnapshot;
     </script>
 </body>
 </html>
+
