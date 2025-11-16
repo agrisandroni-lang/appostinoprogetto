@@ -817,30 +817,42 @@ printMap: document.getElementById('print-map-button'),
                 if (editBtn) editBtn.onclick = () => openEditModal(editBtn.dataset.markerId);
             });
 
-// !!! REINCOLLA IL BLOCCO DI STAMPA QUI !!!
-            printController = L.control.browserPrint({
-                title: 'Stampa la mappa',
-                printModes: [
-                    // --- MODIFICA QUI SOTTO ---
-                    L.control.browserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
-                    L.control.browserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
-                    // --- FINE MODIFICA ---
-                ],
-                closeAfterPrint: true,
-                manualMode: false // Vogliamo che gestisca l'anteprima
-            });
+// !!! INIZIO BLOCCO STAMPA MODIFICATO E SICURO !!!
             
+            // Funzione per configurare la stampa in modo sicuro
+            const setupPrintControl = () => {
+                // Controlla se il plugin (L.control.browserPrint) è stato caricato
+                if (L.control.browserPrint) {
+                    
+                    // SE È CARICATO: crea il controller
+                    printController = L.control.browserPrint({
+                        title: 'Stampa la mappa',
+                        printModes: [
+                            L.control.browserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
+                            L.control.browserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
+                        ],
+                        closeAfterPrint: true,
+                        manualMode: false 
+                    });
+                    
+                    printController.addTo(map);
 
-            printController.addTo(map);
-            
-
-            // Colleghiamo il nostro pulsante personalizzato
-            buttons.printMap.onclick = (e) => {
-                if (e) e.stopPropagation(); // Ferma il click dal raggiungere la mappa
-                // Avvia la modalità di stampa (l'anteprima a tutto schermo)
-                printController.print(L.control.browserPrint.Mode.Landscape("A4"));
+                    buttons.printMap.onclick = (e) => {
+                        if (e) e.stopPropagation();
+                        printController.print(L.control.browserPrint.Mode.Landscape("A4"));
+                    };
+                    
+                } else {
+                    // SE NON È CARICATO: aspetta 100ms e riprova
+                    console.warn("Plugin di stampa non ancora pronto, riprovo tra 100ms...");
+                    setTimeout(setupPrintControl, 100);
+                }
             };
-            // !!! FINE BLOCCO REINCOLLATO !!!
+
+            // Avvia il primo tentativo di configurazione
+            setupPrintControl();
+
+// !!! FINE BLOCCO STAMPA MODIFICATO !!!
         };
 
         const speak = (text) => {
