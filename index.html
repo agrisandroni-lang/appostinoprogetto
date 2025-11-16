@@ -24,7 +24,23 @@
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.browser.print@1.0.6/dist/leaflet.browser.print.min.css" />
 <script src="https://unpkg.com/leaflet.browser.print@1.0.6/dist/leaflet.browser.print.min.js"></script>
-
+<script>
+        // Questo codice viene eseguito APPENA il plugin sopra è stato caricato.
+        // Dice a Leaflet di aggiungere il pulsante di stampa a QUALSIASI mappa
+        // venga creata d'ora in poi.
+        L.Map.addInitHook(function () {
+            if (this.options.printControl) {
+                L.control.browserPrint({
+                    title: 'Stampa la mappa',
+                    printModes: [
+                        L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
+                        L.BrowserPrint.Mode.Portrait("A4", {title: "Stampa A4 Verticale"})
+                    ]
+                }).addTo(this);
+            }
+        });
+    </script>
+    
         <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
@@ -747,7 +763,7 @@
                 map.setView([coords.latitude, coords.longitude], 16);
                 return;
             };
-            map = L.map('map-container', {maxZoom: 20}).setView([coords.latitude, coords.longitude], 16);
+            map = L.map('map-container', {maxZoom: 20, printControl: true}).setView([coords.latitude, coords.longitude], 16);
 
             map.createPane('userPane');
             map.getPane('userPane').style.zIndex = 650;
@@ -758,24 +774,7 @@
                 maxNativeZoom: 19
             }).addTo(map);
 
-// NUOVO BLOCCO: Aggiungi il controllo di stampa
-            // Ritardiamo l'aggiunta per dare al plugin il tempo di caricarsi
-            setTimeout(() => {
-                if (L.BrowserPrint) {
-                    L.control.browserPrint({
-                        title: 'Stampa la mappa',
-                        printModes: [
-                            L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
-                            L.BrowserPrint.Mode.Portrait("A4", 
-{title: "Stampa A4 Verticale"})
-                        ]
-                    }).addTo(map);
-                } else {
-                    console.error("ERRORE: Plugin di stampa (L.BrowserPrint) non caricato dopo 1 secondo.");
-                    alert("Errore: La funzione di stampa non si è caricata. Riprova a ricaricare la pagina.");
-                }
-            }, 1000); // Aspetta 1 secondo
-// FINE NUOVO BLOCCO
+
 
             markerClusterGroup = L.markerClusterGroup();
             individualMarkersLayer = L.layerGroup();
@@ -1375,12 +1374,20 @@ if (markerClusterGroup) {
                 containers.gitaMode.classList.remove('hidden');
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
-            } else {
+           } else {
                 map.removeLayer(markerClusterGroup);
                 map.addLayer(individualMarkersLayer);
-                containers.gitaMode.classList.add('hidden');
+containers.gitaMode.classList.add('hidden');
                 containers.form.style.display = hideForm ? 'none' : 'block'; // MODIFICATO
-                buttons.backToMapListFromView.classList.add('hidden');
+                
+                // --- MODIFICA QUI ---
+                // Mostra il pulsante "Indietro" in alto se il form è nascosto
+                if (hideForm) {
+                    buttons.backToMapListFromView.classList.remove('hidden');
+                } else {
+                    buttons.backToMapListFromView.classList.add('hidden');
+                }
+                // --- FINE MODIFICA ---
                 inputs.mapName.style.display = (mode === 'create') ? 'block' : 'none';
                 currentGitaIndex = -1;
             }
