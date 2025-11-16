@@ -22,26 +22,8 @@
     <!-- Leaflet Routing Machine JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.browser.print@1.0.6/dist/leaflet.browser.print.min.css" />
-<script src="https://unpkg.com/leaflet.browser.print@1.0.6/dist/leaflet.browser.print.min.js"></script>
-<script>
-        // Questo codice viene eseguito APPENA il plugin sopra è stato caricato.
-        // Dice a Leaflet di aggiungere il pulsante di stampa a QUALSIASI mappa
-        // venga creata d'ora in poi.
-        L.Map.addInitHook(function () {
-            if (this.options.printControl) {
-                L.control.browserPrint({
-                    title: 'Stampa la mappa',
-                    printModes: [
-                        L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
-                        L.BrowserPrint.Mode.Portrait("A4", {title: "Stampa A4 Verticale"})
-                    ]
-                }).addTo(this);
-            }
-        });
-    </script>
-    
-        <!-- LIBRERIE PER IMPORTAZIONE -->
+
+    <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
@@ -55,9 +37,7 @@
         #map-container { flex-grow: 1; position: relative; background-color: #e0e0e0; }
 
         .leaflet-routing-container { display: none !important; }
-.leaflet-control-browser-print {
-            z-index: 1100 !important;
-        }
+
         .custom-marker-label {
             color: black; padding: 2px 6px; border-radius: 10px;
             font-weight: bold; font-size: 12px; text-align: center;
@@ -763,7 +743,7 @@
                 map.setView([coords.latitude, coords.longitude], 16);
                 return;
             };
-            map = L.map('map-container', {maxZoom: 20, printControl: true}).setView([coords.latitude, coords.longitude], 16);
+            map = L.map('map-container', {maxZoom: 20}).setView([coords.latitude, coords.longitude], 16);
 
             map.createPane('userPane');
             map.getPane('userPane').style.zIndex = 650;
@@ -773,8 +753,6 @@
                 maxZoom: 20,
                 maxNativeZoom: 19
             }).addTo(map);
-
-
 
             markerClusterGroup = L.markerClusterGroup();
             individualMarkersLayer = L.layerGroup();
@@ -988,13 +966,9 @@
         const renderMarkers = (markersToRender, useClustering = true) => {
             if (!map) return;
 
-if (markerClusterGroup) {
-        markerClusterGroup.clearLayers();
-             }
-    if (individualMarkersLayer) {
-        individualMarkersLayer.clearLayers();
-             }       
-     currentMarkers = [];
+            markerClusterGroup.clearLayers();
+            individualMarkersLayer.clearLayers();
+            currentMarkers = [];
 
             const targetLayer = useClustering ? markerClusterGroup : individualMarkersLayer;
 
@@ -1033,19 +1007,15 @@ if (markerClusterGroup) {
                 currentMarkers.push(marker);
             });
 
-          // --- INIZIO MODIFICA ---
-            // Aggiungiamo un controllo per assicurarsi che targetLayer esista
-            if (targetLayer) { 
-    if (targetLayer.addLayers) { // MarkerClusterGroup has this method
-                    targetLayer.addLayers(currentMarkers);
-    } else { // LayerGroup does not, so iterate
-                    currentMarkers.forEach(marker => {
-                        targetLayer.addLayer(marker);
-                    });
-                }
+            if (targetLayer.addLayers) { // MarkerClusterGroup has this method
+                targetLayer.addLayers(currentMarkers);
+            } else { // LayerGroup does not, so iterate
+                currentMarkers.forEach(marker => {
+                    targetLayer.addLayer(marker);
+                });
             }
-            // --- FINE MODIFICA ---
-};
+        };
+
         const updateGitaMarkerStyles = () => {
              const markersOnMap = allMarkersForList;
             if (!markersOnMap || markersOnMap.length === 0 || currentGitaIndex < 0) return;
@@ -1174,12 +1144,9 @@ if (markerClusterGroup) {
                 mapDiv.innerHTML = `
                     ${selectionCount > 0 ? `<div class="absolute top-2 right-2 bg-orange-500 text-white text-xs font-bold rounded-lg p-1 text-center pointer-events-none"><div>Fermate: ${selectionCount}</div><div>Oggetti: ${totalItems}</div></div>` : ''}
                     <h3 class="text-xl font-bold mb-3 pr-24">${map.name}</h3>
-
-
-                   <div class="flex justify-around flex-wrap gap-2 items-center border-t pt-3 mt-3">
+                    <div class="flex justify-around flex-wrap gap-2 items-center border-t pt-3 mt-3">
                         <button data-id="${map.id}" class="edit-btn flex items-center gap-2 bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>Modifica</button>
                         <button data-id="${map.id}" class="show-all-btn flex items-center gap-2 bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>Visualizza</button>
-                        <button data-id="${map.id}" class="print-btn flex items-center gap-2 bg-gray-500 text-white font-semibold py-1 px-3 rounded hover:bg-gray-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Stampa</button>
                         <button data-id="${map.id}" data-name="${map.name}" class="delete-btn flex items-center gap-2 bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>Elimina</button>
                     </div>`;
                 containers.mapList.appendChild(mapDiv);
@@ -1191,16 +1158,13 @@ if (markerClusterGroup) {
                 mapDiv.className = 'bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow mb-3';
                 mapDiv.innerHTML = `<h3 class="text-xl font-bold mb-3">${map.name}</h3>
                 <div class="flex justify-around flex-wrap gap-2 items-center">
-             
-       <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
+                    <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
                 </div>
                 <div class="border-t mt-3 pt-3 flex justify-end gap-2">
                     <button data-id="${map.id}" class="show-all-btn flex items-center gap-2 bg-blue-500 text-white text-xs font-semibold py-1 px-2 rounded hover:bg-blue-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>Visualizza</button>
                     <button data-id="${map.id}" data-name="${map.name}" class="archive-btn flex items-center gap-2 bg-teal-500 text-white text-xs font-semibold py-1 px-2 rounded hover:bg-teal-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>Archivia</button>
-                    <button data-id="${map.id}" class="print-btn flex items-center gap-2 bg-gray-500 text-white text-xs font-semibold py-1 px-2 rounded hover:bg-gray-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></button>
                     <button data-id="${map.id}" data-name="${map.name}" class="delete-btn flex items-center gap-2 bg-red-500 text-white text-xs font-semibold py-1 px-2 rounded hover:bg-red-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>Elimina</button>
                 </div>`;
-
                 containers.businessMapList.appendChild(mapDiv);
             });
 
@@ -1215,14 +1179,11 @@ if (markerClusterGroup) {
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
                 </div>
-
-
                 <div class="flex justify-around flex-wrap gap-2 items-center">
-                    <button data-id="${map.id}" class="view-btn ...">Vai in gita!</button>
-                    <button data-id="${map.id}" class="edit-btn ...">Modifica</button>
-                    <button data-id="${map.id}" class="show-all-btn ...">Visualizza</button>
-                    <button data-id="${map.id}" class="print-btn flex items-center gap-2 bg-gray-500 text-white font-semibold py-1 px-3 rounded hover:bg-gray-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Stampa</button>
-                    <button data-id="${map.id}" data-name="${map.name}" class="delete-btn ...">Elimina</button>
+                    <button data-id="${map.id}" class="view-btn bg-green-500 text-white font-bold py-2 px-4 rounded-full hover:bg-green-600 shadow-lg">Vai in gita!</button>
+                    <button data-id="${map.id}" class="edit-btn flex items-center gap-2 bg-yellow-400 text-black font-semibold py-1 px-3 rounded hover:bg-yellow-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>Modifica</button>
+                    <button data-id="${map.id}" class="show-all-btn flex items-center gap-2 bg-blue-500 text-white font-semibold py-1 px-3 rounded hover:bg-blue-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>Visualizza</button>
+                    <button data-id="${map.id}" data-name="${map.name}" class="delete-btn flex items-center gap-2 bg-red-500 text-white font-semibold py-1 px-3 rounded hover:bg-red-600 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>Elimina</button>
                 </div>`;
                 containers.zoneMapList.appendChild(mapDiv);
             });
@@ -1339,7 +1300,7 @@ if (markerClusterGroup) {
             }
         });
 
-        const openMapEditor = (mode, mapId = null, focusMarkerId = null, hideForm = false) => {
+        const openMapEditor = (mode, mapId = null, focusMarkerId = null) => {
             allMarkersForList = [];
             currentMarkers = [];
             if (map) {
@@ -1374,20 +1335,12 @@ if (markerClusterGroup) {
                 containers.gitaMode.classList.remove('hidden');
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
-           } else {
+            } else {
                 map.removeLayer(markerClusterGroup);
                 map.addLayer(individualMarkersLayer);
-containers.gitaMode.classList.add('hidden');
-                containers.form.style.display = hideForm ? 'none' : 'block'; // MODIFICATO
-                
-                // --- MODIFICA QUI ---
-                // Mostra il pulsante "Indietro" in alto se il form è nascosto
-                if (hideForm) {
-                    buttons.backToMapListFromView.classList.remove('hidden');
-                } else {
-                    buttons.backToMapListFromView.classList.add('hidden');
-                }
-                // --- FINE MODIFICA ---
+                containers.gitaMode.classList.add('hidden');
+                containers.form.style.display = 'block';
+                buttons.backToMapListFromView.classList.add('hidden');
                 inputs.mapName.style.display = (mode === 'create') ? 'block' : 'none';
                 currentGitaIndex = -1;
             }
@@ -2492,21 +2445,9 @@ containers.gitaMode.classList.add('hidden');
 
             const mapId = target.dataset.id;
             const mapName = target.dataset.name;
-
-            if (target.classList.contains('view-btn')) {
-                openMapEditor('view', mapId);
-            }
-            
-            if (target.classList.contains('edit-btn')) {
-                openMapEditor('edit', mapId, null, false); // false = NON nascondere il form
-            }
-
-            if (target.classList.contains('print-btn')) {
-                openMapEditor('edit', mapId, null, true); // true = NASCONDI il form
-            }
-            
+            if (target.classList.contains('view-btn')) openMapEditor('view', mapId);
+            if (target.classList.contains('edit-btn')) openMapEditor('edit', mapId);
             if (target.classList.contains('archive-btn')) {
-// ...
                 openRenameModal(mapId, mapName);
             }
             if (target.classList.contains('rename-zone-map-btn')) {
