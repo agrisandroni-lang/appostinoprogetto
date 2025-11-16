@@ -2065,7 +2065,7 @@ printMap: document.getElementById('print-map-button'),
 
                 // Avviamo UN SOLO watcher con le opzioni ottimizzate.
                 locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, optimizedOptions);
-                
+            }    
 	};
 
         const stopWatchingLocation = () => {
