@@ -1382,12 +1382,12 @@ printController = L.control.browserPrint({
                 // Avvia la modalità di stampa (l'anteprima a tutto schermo)
                 printController.print(L.BrowserPrint.Mode.Landscape("A4")); 
             };
-           
+            // !!! FINE BLOCCO INCOLLATO !!!
+
+[riga 1089]     toggleWakeLock(mode === 'view');
 
 
-
-            toggleWakeLock(mode === 'view');
-
+            
            if (mode === 'view') { // Modalità GITA
                 map.removeLayer(markerClusterGroup);
                 map.addLayer(individualMarkersLayer);
