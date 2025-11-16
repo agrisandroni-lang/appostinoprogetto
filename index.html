@@ -977,9 +977,13 @@
         const renderMarkers = (markersToRender, useClustering = true) => {
             if (!map) return;
 
-            markerClusterGroup.clearLayers();
-            individualMarkersLayer.clearLayers();
-            currentMarkers = [];
+if (markerClusterGroup) {
+        markerClusterGroup.clearLayers();
+             }
+    if (individualMarkersLayer) {
+        individualMarkersLayer.clearLayers();
+             }       
+     currentMarkers = [];
 
             const targetLayer = useClustering ? markerClusterGroup : individualMarkersLayer;
 
