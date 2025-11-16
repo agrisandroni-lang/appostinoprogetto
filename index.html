@@ -816,22 +816,6 @@ printMap: document.getElementById('print-map-button'),
                 const editBtn = popupNode.querySelector('.edit-marker-btn');
                 if (editBtn) editBtn.onclick = () => openEditModal(editBtn.dataset.markerId);
             });
-printController = L.control.browserPrint({
-            title: 'Stampa la mappa',
-            printModes: [
-                L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
-                L.BrowserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
-            ],
-            closeAfterPrint: true,
-            manualMode: false // Vogliamo che gestisca l'anteprima
-        });
-        
-        // Colleghiamo il nostro pulsante personalizzato
-        buttons.printMap.onclick = (e) => {
-            if (e) e.stopPropagation(); // Ferma il click dal raggiungere la mappa
-            // Avvia la modalità di stampa (l'anteprima a tutto schermo)
-            printController.print(L.BrowserPrint.Mode.Landscape("A4")); 
-        };
 
         };
 
@@ -1381,6 +1365,26 @@ printController = L.control.browserPrint({
             if (temporaryMarker && map) { map.removeLayer(temporaryMarker); temporaryMarker = null; }
             cleanupListeners();
             if (!map) initMap({ latitude: 43.464, longitude: 13.074 });
+
+printController = L.control.browserPrint({
+                title: 'Stampa la mappa',
+                printModes: [
+                    L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
+                    L.BrowserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
+                ],
+                closeAfterPrint: true,
+                manualMode: false // Vogliamo che gestisca l'anteprima
+            });
+            
+            // Colleghiamo il nostro pulsante personalizzato
+            buttons.printMap.onclick = (e) => {
+                if (e) e.stopPropagation(); // Ferma il click dal raggiungere la mappa
+                // Avvia la modalità di stampa (l'anteprima a tutto schermo)
+                printController.print(L.BrowserPrint.Mode.Landscape("A4")); 
+            };
+           
+
+
 
             toggleWakeLock(mode === 'view');
 
