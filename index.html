@@ -1384,7 +1384,7 @@ printController = L.control.browserPrint({
             };
             // !!! FINE BLOCCO INCOLLATO !!!
 
-[riga 1089]     toggleWakeLock(mode === 'view');
+    toggleWakeLock(mode === 'view');
 
 
             
@@ -2064,7 +2064,7 @@ printController = L.control.browserPrint({
                 // Avviamo UN SOLO watcher con le opzioni ottimizzate.
                 locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, optimizedOptions);
             }
-        };                
+       
 
         const stopWatchingLocation = () => {
             if (navigator.geolocation && locationWatcher) {
