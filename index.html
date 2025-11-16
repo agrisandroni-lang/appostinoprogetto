@@ -756,14 +756,19 @@
             }).addTo(map);
 
 // NUOVO BLOCCO: Aggiungi il controllo di stampa
-            L.control.browserPrint({
-                title: 'Stampa la mappa',
-                printModes: [
-                    L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
-                    L.BrowserPrint.Mode.Portrait("A4", {title: "Stampa A4 Verticale"})
-                ]
-            }).addTo(map);
-            // FINE NUOVO BLOCCO
+            if (L.BrowserPrint) { // <-- AGGIUNGI QUESTO CONTROLLO
+                L.control.browserPrint({
+                    title: 'Stampa la mappa',
+                    printModes: [
+                        L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
+                        L.BrowserPrint.Mode.Portrait("A4", 
+{title: "Stampa A4 Verticale"})
+                    ]
+                }).addTo(map);
+            } else {
+                console.warn("Plugin di stampa (L.BrowserPrint) non ancora caricato.");
+            }
+// FINE NUOVO BLOCCO
 
             markerClusterGroup = L.markerClusterGroup();
             individualMarkersLayer = L.layerGroup();
@@ -1022,15 +1027,18 @@ if (markerClusterGroup) {
                 currentMarkers.push(marker);
             });
 
-            if (targetLayer.addLayers) { // MarkerClusterGroup has this method
-                targetLayer.addLayers(currentMarkers);
-            } else { // LayerGroup does not, so iterate
-                currentMarkers.forEach(marker => {
-                    targetLayer.addLayer(marker);
-                });
+          // --- INIZIO MODIFICA ---
+            if (targetLayer) { // <-- AGGIUNGI QUESTO CONTROLLO
+    if (targetLayer.addLayers) { // MarkerClusterGroup has this method
+                    targetLayer.addLayers(currentMarkers);
+    } else { // LayerGroup does not, so iterate
+                    currentMarkers.forEach(marker => {
+                        targetLayer.addLayer(marker);
+                    });
+                }
             }
-        };
-
+            // --- FINE MODIFICA ---
+};
         const updateGitaMarkerStyles = () => {
              const markersOnMap = allMarkersForList;
             if (!markersOnMap || markersOnMap.length === 0 || currentGitaIndex < 0) return;
