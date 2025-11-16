@@ -838,7 +838,7 @@ printMap: document.getElementById('print-map-button'),
             buttons.printMap.onclick = (e) => {
                 if (e) e.stopPropagation(); // Ferma il click dal raggiungere la mappa
                 // Avvia la modalità di stampa (l'anteprima a tutto schermo)
-                printController.print(L.BrowserPrint.Mode.Landscape("A4"));
+                printController.print(L.control.browserPrint.Mode.Landscape("A4"));
             };
             // !!! FINE BLOCCO REINCOLLATO !!!
         };
