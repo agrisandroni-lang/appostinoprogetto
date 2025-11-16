@@ -759,18 +759,22 @@
             }).addTo(map);
 
 // NUOVO BLOCCO: Aggiungi il controllo di stampa
-            if (L.BrowserPrint) { // <-- AGGIUNGI QUESTO CONTROLLO
-                L.control.browserPrint({
-                    title: 'Stampa la mappa',
-                    printModes: [
-                        L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
-                        L.BrowserPrint.Mode.Portrait("A4", 
+            // Ritardiamo l'aggiunta per dare al plugin il tempo di caricarsi
+            setTimeout(() => {
+                if (L.BrowserPrint) {
+                    L.control.browserPrint({
+                        title: 'Stampa la mappa',
+                        printModes: [
+                            L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa A4 Orizzontale"}),
+                            L.BrowserPrint.Mode.Portrait("A4", 
 {title: "Stampa A4 Verticale"})
-                    ]
-                }).addTo(map);
-            } else {
-                console.warn("Plugin di stampa (L.BrowserPrint) non ancora caricato.");
-            }
+                        ]
+                    }).addTo(map);
+                } else {
+                    console.error("ERRORE: Plugin di stampa (L.BrowserPrint) non caricato dopo 1 secondo.");
+                    alert("Errore: La funzione di stampa non si è caricata. Riprova a ricaricare la pagina.");
+                }
+            }, 1000); // Aspetta 1 secondo
 // FINE NUOVO BLOCCO
 
             markerClusterGroup = L.markerClusterGroup();
@@ -1031,7 +1035,8 @@ if (markerClusterGroup) {
             });
 
           // --- INIZIO MODIFICA ---
-            if (targetLayer) { // <-- AGGIUNGI QUESTO CONTROLLO
+            // Aggiungiamo un controllo per assicurarsi che targetLayer esista
+            if (targetLayer) { 
     if (targetLayer.addLayers) { // MarkerClusterGroup has this method
                     targetLayer.addLayers(currentMarkers);
     } else { // LayerGroup does not, so iterate
