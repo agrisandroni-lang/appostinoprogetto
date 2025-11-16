@@ -821,17 +821,18 @@ printMap: document.getElementById('print-map-button'),
             printController = L.control.browserPrint({
                 title: 'Stampa la mappa',
                 printModes: [
-                    L.BrowserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
-                    L.BrowserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
+                    // --- MODIFICA QUI SOTTO ---
+                    L.control.browserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
+                    L.control.browserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
+                    // --- FINE MODIFICA ---
                 ],
                 closeAfterPrint: true,
                 manualMode: false // Vogliamo che gestisca l'anteprima
             });
+            
 
-            // **********************************
-            // !!! ECCO LA RIGA DA AGGIUNGERE !!!
             printController.addTo(map);
-            // **********************************
+            
 
             // Colleghiamo il nostro pulsante personalizzato
             buttons.printMap.onclick = (e) => {
