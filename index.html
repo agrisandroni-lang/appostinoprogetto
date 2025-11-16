@@ -11,25 +11,22 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Leaflet JS & CSS -->
-   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-          integrity="sha256-p4NxAoJBhJINCMvKInRkEawUOIjI6P/BiQGgIYfBOQo=" 
-          crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-        integrity="sha256-20XpSgyjHqb/zUUPsOHYddoklpIqcS2ESZkNAGmeESS=" 
-        crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
+    <!-- Leaflet MarkerCluster JS & CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/MarkerCluster.Default.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.1/leaflet.markercluster.js"></script>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <!-- Leaflet Routing Machine JS & CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
-<script src="https://unpkg.com/leaflet-browser-print/dist/leaflet.browser.print.min.js"></script>
-
+    <!-- LIBRERIE PER IMPORTAZIONE -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
@@ -96,28 +93,7 @@
         details > summary::-webkit-details-marker { display: none; }
         .details-arrow { transition: transform 0.2s; }
         details[open] > summary .details-arrow { transform: rotate(90deg); }
-        /* ... (altre regole CSS) ... */
-       .sortable-chosen { background: #f0f9ff; }
-
-        /* !!! AGGIUNGI QUESTE REGOLE PER LA STAMPA !!! */
-        @media print {
-            /* Nascondi tutto il corpo tranne il contenitore della mappa di stampa */
-            body > * {
-                display: none !important;
-            }
-            
-            /* Mostra solo il contenitore della mappa di stampa (il plugin lo gestisce) */
-            body > .leaflet-browser-print-container {
-                display: block !important;
-            }
-        }
-        
-        /* Stile per i controlli dell'anteprima di stampa */
-        .leaflet-browser-print-modal-header {
-             background-color: #3b82f6 !important; /* Blu come la tua app */
-             color: white !important;
-        }
-        /* !!! FINE AGGIUNTE CSS !!! */
+        .sortable-chosen { background: #f0f9ff; }
 
         .scan-found {
             animation: found-pulse 0.5s ease-out;
@@ -307,26 +283,10 @@
     <div id="map-editor-screen" class="screen">
         <div id="map-container">
             <button id="back-to-map-list-from-view" class="hidden absolute top-4 left-4 z-[1000] bg-white text-blue-600 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-100">&lt; Elenco Mappe</button>
-
-
-  <div class="absolute top-4 right-4 z-[1000] flex gap-2">
-                
-                <button id="print-map-button" title="Stampa Mappa" class="bg-white/80 p-2 rounded-full shadow-md hover:bg-white" style="display: none;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
-                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                        <rect x="6" y="14" width="12" height="8"></rect>
-                    </svg>
-                </button>
-                
-                <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
-                    <svg class="w-10 h-10 p-2 text-yellow-500 bg-white/80 rounded-full shadow-md" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
-                </div>
-
+            <div id="wake-lock-status" class="hidden" title="Lo schermo rimarrà acceso">
+                <svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 14.95a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zm.464-10.607a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100-2H2a1 1 0 100 2h1z"></path></svg>
             </div>
         </div>
-
-
 
         <!-- Contenitore per Gita Mode -->
         <div id="gita-mode-container" class="hidden flex-shrink-0 flex-col bg-gray-100" style="height: 45vh;">
@@ -586,7 +546,6 @@
 
         const UNORDERED_START_INDEX = 10000;
         let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer, currentRouteControl;
-let printController = null; // <-- !!! AGGIUNGI QUESTA !!!
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -637,7 +596,6 @@ let printController = null; // <-- !!! AGGIUNGI QUESTA !!!
             backToAllMarkersList: document.getElementById('back-to-all-markers-list'),
             saveMarker: document.getElementById('save-marker-button'),
             goToOrder: document.getElementById('go-to-order-btn'),
-printMap: document.getElementById('print-map-button'),
             saveOrder: document.getElementById('save-order-button'),
             prevGita: document.getElementById('prev-gita-btn'),
             nextGita: document.getElementById('next-gita-btn'),
@@ -818,43 +776,6 @@ printMap: document.getElementById('print-map-button'),
                 const editBtn = popupNode.querySelector('.edit-marker-btn');
                 if (editBtn) editBtn.onclick = () => openEditModal(editBtn.dataset.markerId);
             });
-
-// !!! INIZIO BLOCCO STAMPA MODIFICATO E SICURO !!!
-            
-            // Funzione per configurare la stampa in modo sicuro
-            const setupPrintControl = () => {
-                // Controlla se il plugin (L.control.browserPrint) è stato caricato
-                if (L.control.browserPrint) {
-                    
-                    // SE È CARICATO: crea il controller
-                    printController = L.control.browserPrint({
-                        title: 'Stampa la mappa',
-                        printModes: [
-                            L.control.browserPrint.Mode.Landscape("A4", {title: "Stampa Orizzontale (A4)"}),
-                            L.control.browserPrint.Mode.Portrait("A4", {title: "Stampa Verticale (A4)"}),
-                        ],
-                        closeAfterPrint: true,
-                        manualMode: false 
-                    });
-                    
-                    printController.addTo(map);
-
-                    buttons.printMap.onclick = (e) => {
-                        if (e) e.stopPropagation();
-                        printController.print(L.control.browserPrint.Mode.Landscape("A4"));
-                    };
-                    
-                } else {
-                    // SE NON È CARICATO: aspetta 100ms e riprova
-                    console.warn("Plugin di stampa non ancora pronto, riprovo tra 100ms...");
-                    setTimeout(setupPrintControl, 100);
-                }
-            };
-
-            // Avvia il primo tentativo di configurazione
-            setupPrintControl();
-
-// !!! FINE BLOCCO STAMPA MODIFICATO !!!
         };
 
         const speak = (text) => {
@@ -1404,12 +1325,9 @@ printMap: document.getElementById('print-map-button'),
             cleanupListeners();
             if (!map) initMap({ latitude: 43.464, longitude: 13.074 });
 
-
             toggleWakeLock(mode === 'view');
 
-
-            
-           if (mode === 'view') { // Modalità GITA
+            if (mode === 'view') {
                 map.removeLayer(markerClusterGroup);
                 map.addLayer(individualMarkersLayer);
                 const mapData = mapsListData.get(mapId);
@@ -1417,11 +1335,7 @@ printMap: document.getElementById('print-map-button'),
                 containers.gitaMode.classList.remove('hidden');
                 containers.form.style.display = 'none';
                 buttons.backToMapListFromView.classList.remove('hidden');
-
-                // Nascondi il pulsante Stampa
-                if (buttons.printMap) buttons.printMap.style.display = 'none'; 
-
-            } else { // Modalità MODIFICA o CREA
+            } else {
                 map.removeLayer(markerClusterGroup);
                 map.addLayer(individualMarkersLayer);
                 containers.gitaMode.classList.add('hidden');
@@ -1429,9 +1343,6 @@ printMap: document.getElementById('print-map-button'),
                 buttons.backToMapListFromView.classList.add('hidden');
                 inputs.mapName.style.display = (mode === 'create') ? 'block' : 'none';
                 currentGitaIndex = -1;
-
-                // Mostra il pulsante Stampa
-                if (buttons.printMap) buttons.printMap.style.display = 'block'; 
             }
 
             if (mode === 'create') {
@@ -2084,8 +1995,8 @@ printMap: document.getElementById('print-map-button'),
 
                 // Avviamo UN SOLO watcher con le opzioni ottimizzate.
                 locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, optimizedOptions);
-            }    
-	};
+            }
+        };                
 
         const stopWatchingLocation = () => {
             if (navigator.geolocation && locationWatcher) {
@@ -3314,4 +3225,3 @@ scanShutterBtn.onclick = handleScanSnapshot;
     </script>
 </body>
 </html>
-
