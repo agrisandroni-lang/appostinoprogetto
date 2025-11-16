@@ -2063,8 +2063,8 @@ printController = L.control.browserPrint({
 
                 // Avviamo UN SOLO watcher con le opzioni ottimizzate.
                 locationWatcher = navigator.geolocation.watchPosition(successCallback, errorCallback, optimizedOptions);
-            }
-       
+            }       
+	};
 
         const stopWatchingLocation = () => {
             if (navigator.geolocation && locationWatcher) {
