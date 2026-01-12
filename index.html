@@ -3429,12 +3429,13 @@ scanShutterBtn.onclick = handleScanSnapshot;
         photoModal.classList.add('flex');
     };
 
-    const loadDeliveryHistory = async () => {
+
+const loadDeliveryHistory = async () => {
         const listContainer = document.getElementById('delivery-history-list');
         listContainer.innerHTML = '<div class="spinner mx-auto"></div>';
-        const userId = auth.currentUser.uid;
         
-        // Query ultimi 30 pacchi
+        const userId = auth.currentUser.uid;
+        // Query: Ordina per data decrescente (dal più recente)
         const q = query(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), orderBy("timestamp", "desc"));
         
         try {
@@ -3442,41 +3443,71 @@ scanShutterBtn.onclick = handleScanSnapshot;
             listContainer.innerHTML = '';
             
             if (snapshot.empty) { 
-                listContainer.innerHTML = '<p class="text-center text-gray-500">Nessuna consegna registrata.</p>'; 
+                listContainer.innerHTML = '<p class="text-center text-gray-500 mt-4">Nessuna consegna registrata.</p>'; 
                 return; 
             }
 
             snapshot.forEach(doc => {
                 const data = doc.data();
+                
+                // Formatta la data
                 const date = data.timestamp ? data.timestamp.toDate().toLocaleString('it-IT') : '-';
                 
+                // Gestione Coordinate
+                let locationHtml = '<span class="text-xs text-red-400 italic">⚠️ Posizione non rilevata</span>';
+                
+                if (data.location && data.location.lat && data.location.lng) {
+                    // Arrotonda le coordinate per non avere numeri lunghissimi
+                    const lat = Number(data.location.lat).toFixed(5);
+                    const lng = Number(data.location.lng).toFixed(5);
+                    
+                    // Link ufficiale per aprire Google Maps (o Waze/altri)
+                    // NOTA: Qui uso il simbolo del dollaro corretto ${}
+                    locationHtml = `
+                        <a href="https://www.google.com/maps/search/?api=1&query=${data.location.lat},${data.location.lng}" 
+                           target="_blank" 
+                           class="inline-flex items-center gap-1 mt-1 text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100">
+                           📍 ${lat}, ${lng} ↗
+                        </a>
+                    `;
+                }
+
                 const item = document.createElement('div');
-                item.className = "bg-white p-3 rounded shadow border-l-4 border-indigo-500 mb-2";
+                item.className = "bg-white p-3 rounded-lg shadow-sm border border-gray-200 mb-3 flex justify-between items-start";
+                
                 item.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div class="overflow-hidden">
-                            <p class="font-bold text-lg text-indigo-700 truncate">${data.barcode}</p>
-                            <p class="text-xs text-gray-500">${date}</p>
-                            ${data.location ? `<a href="http://maps.google.com/maps?q=${data.location.lat},${data.location.lng}" target="_blank" class="text-xs text-blue-500 underline flex items-center gap-1">📍 Vedi posizione</a>` : ''}
-                        </div>
-                        ${data.photo ? `<img src="${data.photo}" class="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity" onclick="openPhotoViewer(this.src)">` : '<div class="w-20 h-20 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Foto</div>'}
-                    </div>`;
+                    <div class="flex-grow min-w-0 pr-2">
+                        <p class="font-black text-lg text-gray-800 break-all leading-tight">${data.barcode}</p>
+                        <p class="text-xs text-gray-500 mb-1">${date}</p>
+                        ${locationHtml}
+                    </div>
+                    
+                    <div class="flex-shrink-0">
+                        ${data.photo 
+                            ? `<img src="${data.photo}" class="w-20 h-20 object-cover rounded-md border border-gray-300 shadow-sm cursor-pointer" onclick="openPhotoViewer(this.src)">` 
+                            : '<div class="w-20 h-20 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 text-xs border border-gray-200">No Foto</div>'
+                        }
+                    </div>
+                `;
                 listContainer.appendChild(item);
             });
 
-            // Filtro ricerca
+            // Riattiva il filtro di ricerca
             document.getElementById('search-delivery-input').oninput = (e) => {
                 const term = e.target.value.toLowerCase();
                 Array.from(listContainer.children).forEach(div => {
-                    div.style.display = div.innerText.toLowerCase().includes(term) ? 'block' : 'none';
+                    // Cerca nel testo del div (codice o data)
+                    div.style.display = div.innerText.toLowerCase().includes(term) ? 'flex' : 'none';
                 });
             };
 
         } catch (error) { 
             console.error(error);
-            listContainer.innerHTML = '<p class="text-red-500 text-center">Errore caricamento storico.</p>'; 
+            listContainer.innerHTML = '<p class="text-red-500 text-center mt-4">Errore nel caricamento dello storico.</p>'; 
         }
     };
+
+
     
 
 
