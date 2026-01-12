@@ -3286,9 +3286,10 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
-// --- MODULO CONSEGNA SICURA (AGGIORNATO) ---
+// --- MODULO CONSEGNA SICURA (CORRETTO) ---
     let html5QrCode = null;
     let scannedBarcode = null;
+    let isTakingPhoto = false; // <--- NUOVA VARIABILE FONDAMENTALE
 
     // Riferimenti ai modali
     const barcodeModal = document.getElementById('barcode-confirm-modal');
@@ -3303,23 +3304,26 @@ scanShutterBtn.onclick = handleScanSnapshot;
     buttons.startDeliveryProof.onclick = () => {
         showScreen('deliveryProof');
         scannedBarcode = null;
+        isTakingPhoto = false; // Reset
         document.getElementById('proof-feedback').textContent = "Inquadra il codice a barre...";
         document.getElementById('proof-feedback').className = "bg-black/70 text-white px-4 py-2 rounded text-center";
         buttons.proofCapture.classList.add('hidden'); 
 
-        // Se c'era una vecchia istanza, pulisci
+        // Nascondi overlay foto e mostra box scansione se necessario
+        // (Qui lasciamo semplice, ci basiamo sul feedback testo)
+
         if(html5QrCode) { try { html5QrCode.clear(); } catch(e){} }
 
         html5QrCode = new Html5Qrcode("qr-reader");
-        
-        // Riduciamo l'area di scansione per essere più precisi (qrbox più piccolo)
         const config = { fps: 10, qrbox: { width: 200, height: 100 }, aspect: 1.0 };
         
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText, decodedResult) => {
-            // 1. CODICE TROVATO -> PAUSA SCANNER
+            // SE STO FACENDO LA FOTO, IGNORA TUTTO!
+            if (isTakingPhoto) return;
+
+            // ALTRIMENTI: CODICE TROVATO -> PAUSA
             html5QrCode.pause(); 
             
-            // 2. MOSTRA MODALE DI CONFERMA
             scannedBarcode = decodedText;
             barcodeDisplay.textContent = scannedBarcode;
             barcodeModal.classList.remove('hidden');
@@ -3330,65 +3334,47 @@ scanShutterBtn.onclick = handleScanSnapshot;
         });
     };
 
-    // Logica pulsanti conferma codice
+    // CONFERMA: "Sì, è giusto"
     btnConfirmBarcode.onclick = () => {
-        // L'utente ha confermato: Chiudi modale e abilita foto
         barcodeModal.classList.add('hidden');
         barcodeModal.classList.remove('flex');
         
+        // Attiviamo la modalità foto: lo scanner continuerà a girare per farci vedere il video,
+        // ma ignorerà i codici grazie all'if(isTakingPhoto) return;
+        isTakingPhoto = true; 
+        
         const feedbackEl = document.getElementById('proof-feedback');
-        feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Ora scatta la foto al pacco!`;
-        feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg animate-pulse";
+        feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Scatta la foto!`;
+        feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg";
         
         buttons.proofCapture.classList.remove('hidden');
         
-        // IMPORTANTE: Non riprendiamo la scansione (resume), lasciamo la camera accesa per la foto!
-        // Ma Html5QrCode in pausa potrebbe freezare il video. 
-        // Trucco: Facciamo resume ma ignoriamo i callback finché non scatta? 
-        // Meglio: Usiamo resume() ma siccome abbiamo già il codice, non facciamo nulla nel callback.
+        // Riattiva il video (ma ignorerà i codici)
         html5QrCode.resume();
     };
 
+    // RIPROVA: "No, sbagliato"
     btnRetryBarcode.onclick = () => {
-        // L'utente ha rifiutato: Chiudi modale e riprendi scansione
         barcodeModal.classList.add('hidden');
         barcodeModal.classList.remove('flex');
         scannedBarcode = null;
-        html5QrCode.resume();
+        isTakingPhoto = false;
+        html5QrCode.resume(); // Ricomincia a scansionare
     };
 
-   // Funzione helper per ottenere la posizione al volo (Promessa)
-    const getPositionPromise = () => {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject("Geolocalizzazione non supportata");
-            } else {
-                // Timeout breve (3 sec) e alta precisione disattivata per fare prima (usa Wi-Fi/Celle)
-                navigator.geolocation.getCurrentPosition(resolve, reject, { 
-                    enableHighAccuracy: false, 
-                    timeout: 3000, 
-                    maximumAge: 0 
-                });
-            }
-        });
-    };
-
+    // SCATTA FOTO
     buttons.proofCapture.onclick = async () => {
         if (!scannedBarcode || !auth.currentUser) return;
         
-        // Mette in pausa lo scanner
-        if(html5QrCode) html5QrCode.pause();
-
+        html5QrCode.pause(); // Ferma tutto per lo scatto
         buttons.proofCapture.disabled = true;
         
-        // Feedback utente: stiamo cercando il GPS
         const feedbackEl = document.getElementById('proof-feedback');
-        const originalText = feedbackEl.textContent; // Salva il testo "Codice: XYZ..."
+        const originalText = feedbackEl.textContent;
         feedbackEl.textContent = "📍 Cerco posizione...";
         feedbackEl.className = "bg-yellow-500 text-white px-4 py-2 rounded text-center animate-pulse";
 
         try {
-            // 1. CATTURA FOTO
             const videoElement = document.querySelector("#qr-reader video");
             const canvas = document.createElement("canvas");
             canvas.width = videoElement.videoWidth; 
@@ -3397,35 +3383,29 @@ scanShutterBtn.onclick = handleScanSnapshot;
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); 
 
-            // 2. RECUPERA POSIZIONE (LOGICA MIGLIORATA)
+            // LOGICA POSIZIONE MIGLIORATA
             let location = null;
-            
-            // TENTATIVO A: Usa il marker sulla mappa (se c'è, è il più preciso)
             if (userMarker) {
                 const ll = userMarker.getLatLng();
                 location = { lat: ll.lat, lng: ll.lng };
             } 
-            
-            // TENTATIVO B: Se il marker non c'è (es. appena aperto, o al chiuso), forza una richiesta GPS
             if (!location) {
                 try {
                     const pos = await getPositionPromise();
                     location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 } catch (e) {
-                    console.warn("Impossibile recuperare GPS forzato:", e);
-                    // Pazienza, salveremo senza coordinate
+                    console.warn("No GPS:", e);
                 }
             }
 
             feedbackEl.textContent = "Salvataggio...";
             feedbackEl.className = "bg-blue-600 text-white px-4 py-2 rounded text-center";
 
-            // 3. SALVA SU FIREBASE
             const userId = auth.currentUser.uid;
             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), {
                 barcode: scannedBarcode, 
                 photo: photoBase64, 
-                location: location, // Ora dovrebbe esserci quasi sempre!
+                location: location,
                 timestamp: serverTimestamp(), 
                 notes: "Consegna Sicura Appostino"
             });
@@ -3434,14 +3414,13 @@ scanShutterBtn.onclick = handleScanSnapshot;
             stopProofScanner();
 
         } catch (error) {
-            alert("Errore salvataggio: " + error.message);
+            alert("Errore: " + error.message);
             buttons.proofCapture.disabled = false;
-            if(html5QrCode) html5QrCode.resume();
-            feedbackEl.textContent = originalText; // Ripristina testo se fallisce
-            feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg";
+            html5QrCode.resume();
+            feedbackEl.innerHTML = originalText; 
+            feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center";
         }
     };
-
 
 
 
@@ -3508,7 +3487,7 @@ const loadDeliveryHistory = async () => {
                     
                     // Link ufficiale per aprire Google Maps (o Waze/altri)
                     // NOTA: Qui uso il simbolo del dollaro corretto ${}
-                    locationHtml = `
+          locationHtml = `
                         <a href="https://www.google.com/maps/search/?api=1&query=${data.location.lat},${data.location.lng}" 
                            target="_blank" 
                            class="inline-flex items-center gap-1 mt-1 text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100">
