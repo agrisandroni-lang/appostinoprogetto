@@ -548,7 +548,29 @@
         </div>
     </div>
 
-    
+   <div id="barcode-confirm-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-[3000] flex-col p-4">
+    <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm text-center">
+        <h3 class="text-lg font-bold text-gray-700 mb-2">Codice Rilevato</h3>
+        <p id="detected-barcode-display" class="text-2xl font-mono font-black text-blue-600 bg-blue-50 p-3 rounded mb-6 break-all">...</p>
+        
+        <div class="flex flex-col gap-3">
+            <button id="btn-confirm-barcode" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow hover:bg-green-700">
+                ✅ SÌ, è Giusto
+            </button>
+            <button id="btn-retry-barcode" class="w-full bg-red-100 text-red-700 font-bold py-3 px-4 rounded-lg border border-red-200 hover:bg-red-200">
+                ❌ NO, Riprova
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="photo-viewer-modal" class="fixed inset-0 bg-black z-[4000] hidden flex flex-col justify-center items-center" onclick="this.classList.add('hidden')">
+    <button class="absolute top-4 right-4 text-white bg-gray-800/50 rounded-full p-2 hover:bg-gray-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+    </button>
+    <img id="photo-viewer-img" src="" class="max-h-[90vh] max-w-[95vw] object-contain shadow-2xl rounded-lg">
+    <p class="text-white mt-4 text-sm">Tocca ovunque per chiudere</p>
+</div> 
 
 
     <datalist id="cities-list"></datalist>
@@ -3264,43 +3286,97 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
-let html5QrCode = null;
+// --- MODULO CONSEGNA SICURA (AGGIORNATO) ---
+    let html5QrCode = null;
     let scannedBarcode = null;
+
+    // Riferimenti ai modali
+    const barcodeModal = document.getElementById('barcode-confirm-modal');
+    const barcodeDisplay = document.getElementById('detected-barcode-display');
+    const btnConfirmBarcode = document.getElementById('btn-confirm-barcode');
+    const btnRetryBarcode = document.getElementById('btn-retry-barcode');
+    
+    // Riferimenti visualizzatore foto
+    const photoModal = document.getElementById('photo-viewer-modal');
+    const photoImg = document.getElementById('photo-viewer-img');
 
     buttons.startDeliveryProof.onclick = () => {
         showScreen('deliveryProof');
         scannedBarcode = null;
-        document.getElementById('proof-feedback').textContent = "Inquadra il codice a barre del pacco...";
+        document.getElementById('proof-feedback').textContent = "Inquadra il codice a barre...";
         document.getElementById('proof-feedback').className = "bg-black/70 text-white px-4 py-2 rounded text-center";
         buttons.proofCapture.classList.add('hidden'); 
 
+        // Se c'era una vecchia istanza, pulisci
+        if(html5QrCode) { try { html5QrCode.clear(); } catch(e){} }
+
         html5QrCode = new Html5Qrcode("qr-reader");
-        const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspect: 1.0 };
+        
+        // Riduciamo l'area di scansione per essere più precisi (qrbox più piccolo)
+        const config = { fps: 10, qrbox: { width: 200, height: 100 }, aspect: 1.0 };
         
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText, decodedResult) => {
-            scannedBarcode = decodedText;
+            // 1. CODICE TROVATO -> PAUSA SCANNER
             html5QrCode.pause(); 
-            const feedbackEl = document.getElementById('proof-feedback');
-            feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Ora scatta la foto al pacco!`;
-            feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg animate-pulse";
-            buttons.proofCapture.classList.remove('hidden');
+            
+            // 2. MOSTRA MODALE DI CONFERMA
+            scannedBarcode = decodedText;
+            barcodeDisplay.textContent = scannedBarcode;
+            barcodeModal.classList.remove('hidden');
+            barcodeModal.classList.add('flex');
+
         }, (errorMessage) => {}).catch(err => {
-            console.error(err); alert("Errore fotocamera."); showScreen('home');
+            console.error(err); alert("Errore fotocamera: " + err); showScreen('home');
         });
+    };
+
+    // Logica pulsanti conferma codice
+    btnConfirmBarcode.onclick = () => {
+        // L'utente ha confermato: Chiudi modale e abilita foto
+        barcodeModal.classList.add('hidden');
+        barcodeModal.classList.remove('flex');
+        
+        const feedbackEl = document.getElementById('proof-feedback');
+        feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Ora scatta la foto al pacco!`;
+        feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg animate-pulse";
+        
+        buttons.proofCapture.classList.remove('hidden');
+        
+        // IMPORTANTE: Non riprendiamo la scansione (resume), lasciamo la camera accesa per la foto!
+        // Ma Html5QrCode in pausa potrebbe freezare il video. 
+        // Trucco: Facciamo resume ma ignoriamo i callback finché non scatta? 
+        // Meglio: Usiamo resume() ma siccome abbiamo già il codice, non facciamo nulla nel callback.
+        html5QrCode.resume();
+    };
+
+    btnRetryBarcode.onclick = () => {
+        // L'utente ha rifiutato: Chiudi modale e riprendi scansione
+        barcodeModal.classList.add('hidden');
+        barcodeModal.classList.remove('flex');
+        scannedBarcode = null;
+        html5QrCode.resume();
     };
 
     buttons.proofCapture.onclick = async () => {
         if (!scannedBarcode || !auth.currentUser) return;
+        
+        // Ferma lo scanner per evitare di scansionare altro mentre scatti
+        html5QrCode.pause();
+
         buttons.proofCapture.disabled = true;
         document.getElementById('proof-feedback').textContent = "Salvataggio...";
+
         try {
+            // Cattura Foto dal video
             const videoElement = document.querySelector("#qr-reader video");
             const canvas = document.createElement("canvas");
-            canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
+            canvas.width = videoElement.videoWidth; 
+            canvas.height = videoElement.videoHeight;
             const ctx = canvas.getContext("2d");
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            const photoBase64 = canvas.toDataURL("image/jpeg", 0.5); 
+            const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); // Qualità media
 
+            // Prendi GPS
             let location = null;
             if (userMarker) {
                 const ll = userMarker.getLatLng();
@@ -3309,14 +3385,20 @@ let html5QrCode = null;
 
             const userId = auth.currentUser.uid;
             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), {
-                barcode: scannedBarcode, photo: photoBase64, location: location,
-                timestamp: serverTimestamp(), notes: "Consegna Sicura Appostino"
+                barcode: scannedBarcode, 
+                photo: photoBase64, 
+                location: location,
+                timestamp: serverTimestamp(), 
+                notes: "Consegna Sicura Appostino"
             });
+
             alert("Consegna registrata!");
             stopProofScanner();
+
         } catch (error) {
             alert("Errore salvataggio: " + error.message);
             buttons.proofCapture.disabled = false;
+            html5QrCode.resume(); // Riprendi se errore
         }
     };
 
@@ -3326,48 +3408,79 @@ let html5QrCode = null;
         }
         showScreen('home');
         buttons.proofCapture.disabled = false;
+        buttons.proofCapture.classList.add('hidden');
+        barcodeModal.classList.add('hidden'); // Sicurezza
     };
     buttons.closeProofScreen.onclick = stopProofScanner;
 
+
+    // --- MODULO STORICO (AGGIORNATO CON VISUALIZZATORE) ---
+    
     buttons.viewHistory.onclick = () => {
         showScreen('deliveryHistory');
         loadDeliveryHistory();
     };
     buttons.backFromHistory.onclick = () => showScreen('home');
 
+    // Funzione helper per aprire la foto
+    window.openPhotoViewer = (src) => {
+        photoImg.src = src;
+        photoModal.classList.remove('hidden');
+        photoModal.classList.add('flex');
+    };
+
     const loadDeliveryHistory = async () => {
         const listContainer = document.getElementById('delivery-history-list');
         listContainer.innerHTML = '<div class="spinner mx-auto"></div>';
         const userId = auth.currentUser.uid;
+        
+        // Query ultimi 30 pacchi
         const q = query(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), orderBy("timestamp", "desc"));
+        
         try {
             const snapshot = await getDocs(q);
             listContainer.innerHTML = '';
-            if (snapshot.empty) { listContainer.innerHTML = '<p class="text-center text-gray-500">Nessuna consegna.</p>'; return; }
+            
+            if (snapshot.empty) { 
+                listContainer.innerHTML = '<p class="text-center text-gray-500">Nessuna consegna registrata.</p>'; 
+                return; 
+            }
+
             snapshot.forEach(doc => {
                 const data = doc.data();
                 const date = data.timestamp ? data.timestamp.toDate().toLocaleString('it-IT') : '-';
+                
                 const item = document.createElement('div');
                 item.className = "bg-white p-3 rounded shadow border-l-4 border-indigo-500 mb-2";
                 item.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div>
-                            <p class="font-bold text-lg text-indigo-700">${data.barcode}</p>
+                        <div class="overflow-hidden">
+                            <p class="font-bold text-lg text-indigo-700 truncate">${data.barcode}</p>
                             <p class="text-xs text-gray-500">${date}</p>
-                            ${data.location ? `<a href="https://www.google.com/maps?q=${data.location.lat},${data.location.lng}" target="_blank" class="text-xs text-blue-500 underline">Vedi posizione</a>` : ''}
+                            ${data.location ? `<a href="http://maps.google.com/maps?q=${data.location.lat},${data.location.lng}" target="_blank" class="text-xs text-blue-500 underline flex items-center gap-1">📍 Vedi posizione</a>` : ''}
                         </div>
-                        ${data.photo ? `<img src="${data.photo}" class="w-16 h-16 object-cover rounded border cursor-pointer" onclick="this.requestFullscreen()">` : ''}
+                        ${data.photo ? `<img src="${data.photo}" class="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity" onclick="openPhotoViewer(this.src)">` : '<div class="w-20 h-20 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Foto</div>'}
                     </div>`;
                 listContainer.appendChild(item);
             });
+
+            // Filtro ricerca
             document.getElementById('search-delivery-input').oninput = (e) => {
                 const term = e.target.value.toLowerCase();
                 Array.from(listContainer.children).forEach(div => {
-                    div.style.display = div.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+                    div.style.display = div.innerText.toLowerCase().includes(term) ? 'block' : 'none';
                 });
             };
-        } catch (error) { listContainer.innerHTML = '<p class="text-red-500 text-center">Errore storico.</p>'; }
+
+        } catch (error) { 
+            console.error(error);
+            listContainer.innerHTML = '<p class="text-red-500 text-center">Errore caricamento storico.</p>'; 
+        }
     };
+    
+
+
+
     </script>
 </body>
 </html>
