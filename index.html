@@ -3357,37 +3357,75 @@ scanShutterBtn.onclick = handleScanSnapshot;
         html5QrCode.resume();
     };
 
+   // Funzione helper per ottenere la posizione al volo (Promessa)
+    const getPositionPromise = () => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject("Geolocalizzazione non supportata");
+            } else {
+                // Timeout breve (3 sec) e alta precisione disattivata per fare prima (usa Wi-Fi/Celle)
+                navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                    enableHighAccuracy: false, 
+                    timeout: 3000, 
+                    maximumAge: 0 
+                });
+            }
+        });
+    };
+
     buttons.proofCapture.onclick = async () => {
         if (!scannedBarcode || !auth.currentUser) return;
         
-        // Ferma lo scanner per evitare di scansionare altro mentre scatti
-        html5QrCode.pause();
+        // Mette in pausa lo scanner
+        if(html5QrCode) html5QrCode.pause();
 
         buttons.proofCapture.disabled = true;
-        document.getElementById('proof-feedback').textContent = "Salvataggio...";
+        
+        // Feedback utente: stiamo cercando il GPS
+        const feedbackEl = document.getElementById('proof-feedback');
+        const originalText = feedbackEl.textContent; // Salva il testo "Codice: XYZ..."
+        feedbackEl.textContent = "📍 Cerco posizione...";
+        feedbackEl.className = "bg-yellow-500 text-white px-4 py-2 rounded text-center animate-pulse";
 
         try {
-            // Cattura Foto dal video
+            // 1. CATTURA FOTO
             const videoElement = document.querySelector("#qr-reader video");
             const canvas = document.createElement("canvas");
             canvas.width = videoElement.videoWidth; 
             canvas.height = videoElement.videoHeight;
             const ctx = canvas.getContext("2d");
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); // Qualità media
+            const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); 
 
-            // Prendi GPS
+            // 2. RECUPERA POSIZIONE (LOGICA MIGLIORATA)
             let location = null;
+            
+            // TENTATIVO A: Usa il marker sulla mappa (se c'è, è il più preciso)
             if (userMarker) {
                 const ll = userMarker.getLatLng();
                 location = { lat: ll.lat, lng: ll.lng };
+            } 
+            
+            // TENTATIVO B: Se il marker non c'è (es. appena aperto, o al chiuso), forza una richiesta GPS
+            if (!location) {
+                try {
+                    const pos = await getPositionPromise();
+                    location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                } catch (e) {
+                    console.warn("Impossibile recuperare GPS forzato:", e);
+                    // Pazienza, salveremo senza coordinate
+                }
             }
 
+            feedbackEl.textContent = "Salvataggio...";
+            feedbackEl.className = "bg-blue-600 text-white px-4 py-2 rounded text-center";
+
+            // 3. SALVA SU FIREBASE
             const userId = auth.currentUser.uid;
             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), {
                 barcode: scannedBarcode, 
                 photo: photoBase64, 
-                location: location,
+                location: location, // Ora dovrebbe esserci quasi sempre!
                 timestamp: serverTimestamp(), 
                 notes: "Consegna Sicura Appostino"
             });
@@ -3398,9 +3436,16 @@ scanShutterBtn.onclick = handleScanSnapshot;
         } catch (error) {
             alert("Errore salvataggio: " + error.message);
             buttons.proofCapture.disabled = false;
-            html5QrCode.resume(); // Riprendi se errore
+            if(html5QrCode) html5QrCode.resume();
+            feedbackEl.textContent = originalText; // Ripristina testo se fallisce
+            feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg";
         }
     };
+
+
+
+
+
 
     const stopProofScanner = () => {
         if (html5QrCode) {
