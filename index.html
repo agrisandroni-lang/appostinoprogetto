@@ -22,6 +22,7 @@
     <!-- Leaflet Routing Machine JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <!-- LIBRERIE PER IMPORTAZIONE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -145,6 +146,13 @@
                 </button>
                  <button id="request-map-button" class="w-full bg-teal-500 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-teal-600 transition-colors mt-4">
                     Richiedi Mappa da Comune
+                </button>
+<button id="start-delivery-proof-btn" class="w-full bg-indigo-600 text-white text-lg font-bold py-3 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors mt-4 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                    Consegna Sicura (Scan)
+                </button>
+                <button id="view-delivery-history-btn" class="w-full bg-gray-600 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-700 transition-colors mt-2">
+                    Vedi Storico Pacchi
                 </button>
                 <input type="file" id="file-input" class="hidden" accept=".csv">
                 <p id="import-feedback" class="text-center text-sm h-4 mt-4"></p>
@@ -517,6 +525,30 @@
             </div>
         </div>
     </div>
+ <div id="delivery-proof-screen" class="screen bg-black flex-col items-center justify-center relative">
+        <div id="qr-reader" class="w-full max-w-lg h-64 bg-black"></div>
+        <div id="proof-ui-controls" class="absolute bottom-10 w-full flex flex-col items-center gap-4 z-20">
+            <p id="proof-feedback" class="bg-black/70 text-white px-4 py-2 rounded text-center">Inquadra il codice a barre</p>
+            <button id="proof-capture-btn" class="hidden bg-white text-blue-600 font-bold w-20 h-20 rounded-full shadow-lg border-4 border-blue-300 flex items-center justify-center">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
+            <button id="close-proof-screen" class="bg-red-600 text-white font-bold py-2 px-6 rounded shadow-lg">Annulla</button>
+        </div>
+    </div>
+
+    <div id="delivery-history-screen" class="screen bg-gray-100 flex-col">
+        <div class="p-4 bg-white shadow-md flex justify-between items-center">
+            <button id="back-from-history" class="text-blue-600 font-semibold">< Menu</button>
+            <h2 class="text-xl font-bold">Storico Consegne</h2>
+            <div></div>
+        </div>
+        <div class="p-4">
+            <input type="search" id="search-delivery-input" placeholder="Cerca codice a barre..." class="w-full p-3 border rounded-lg shadow-sm mb-4">
+            <div id="delivery-history-list" class="space-y-3 overflow-y-auto" style="max-height: 80vh;"></div>
+        </div>
+    </div>
+
+    
 
 
     <datalist id="cities-list"></datalist>
@@ -585,7 +617,11 @@
 
         const SELECTION_STORAGE_KEY = 'appostinoBusinessSelection';
 
-        const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen'), zoneMaps: document.getElementById('zone-maps-screen'), scan: document.getElementById('scan-screen') };
+        const screens = { home: document.getElementById('home-screen'), mapList: document.getElementById('map-list-screen'), mapEditor: document.getElementById('map-editor-screen'), allMarkers: document.getElementById('all-markers-list-screen'), civiciOrder: document.getElementById('civici-order-screen'), businessMaps: document.getElementById('business-maps-screen'), zoneMaps: document.getElementById('zone-maps-screen'), scan: document.getElementById('scan-screen'),
+
+deliveryProof: document.getElementById('delivery-proof-screen'),
+            deliveryHistory: document.getElementById('delivery-history-screen')
+ };
         const buttons = {
             signInGoogle: document.getElementById('sign-in-google'), signOut: document.getElementById('sign-out-button'),
             goToCreate: document.getElementById('go-to-create'), goToList: document.getElementById('go-to-list'),
@@ -618,7 +654,14 @@
             backToCategoriesFromGeneral: document.getElementById('back-to-categories-from-general'),
             goToScan: document.getElementById('go-to-scan-btn'),
             backFromScan: document.getElementById('back-from-scan'),
-            clearBusinessCategories: document.getElementById('clear-business-categories-btn'), // NUOVO: Aggiunto ID bottone
+            clearBusinessCategories: document.getElementById('clear-business-categories-btn'),
+
+startDeliveryProof: document.getElementById('start-delivery-proof-btn'),
+            closeProofScreen: document.getElementById('close-proof-screen'),
+            proofCapture: document.getElementById('proof-capture-btn'),
+            viewHistory: document.getElementById('view-delivery-history-btn'),
+            backFromHistory: document.getElementById('back-from-history')
+ // NUOVO: Aggiunto ID bottone
         };
         const inputs = { mapName: document.getElementById('map-name-input'), city: document.getElementById('city-input'), street: document.getElementById('street-input'), houseNumber: document.getElementById('house-number-input'), notes: document.getElementById('notes-input'), searchMarkers: document.getElementById('search-markers-input'), coordsPaste: document.getElementById('coords-paste-input'), searchSourceMarkers: document.getElementById('search-source-markers'), requestComune: document.getElementById('request-comune-input'), requestProvincia: document.getElementById('request-provincia-input')};
         const containers = { mapList: document.getElementById('maps-list-container'), gitaMode: document.getElementById('gita-mode-container'), allMarkersList: document.getElementById('all-markers-list'), civiciOrderList: document.getElementById('civici-order-list'), form: document.getElementById('form-container'), businessMapList: document.getElementById('business-maps-list-container'), zoneMapList: document.getElementById('zone-maps-list-container'), mapRequestsContainer: document.getElementById('map-requests-container') };
@@ -3221,7 +3264,111 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
+let html5QrCode = null;
+    let scannedBarcode = null;
 
+    buttons.startDeliveryProof.onclick = () => {
+        showScreen('deliveryProof');
+        scannedBarcode = null;
+        document.getElementById('proof-feedback').textContent = "Inquadra il codice a barre del pacco...";
+        document.getElementById('proof-feedback').className = "bg-black/70 text-white px-4 py-2 rounded text-center";
+        buttons.proofCapture.classList.add('hidden'); 
+
+        html5QrCode = new Html5Qrcode("qr-reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspect: 1.0 };
+        
+        html5QrCode.start({ facingMode: "environment" }, config, (decodedText, decodedResult) => {
+            scannedBarcode = decodedText;
+            html5QrCode.pause(); 
+            const feedbackEl = document.getElementById('proof-feedback');
+            feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Ora scatta la foto al pacco!`;
+            feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg animate-pulse";
+            buttons.proofCapture.classList.remove('hidden');
+        }, (errorMessage) => {}).catch(err => {
+            console.error(err); alert("Errore fotocamera."); showScreen('home');
+        });
+    };
+
+    buttons.proofCapture.onclick = async () => {
+        if (!scannedBarcode || !auth.currentUser) return;
+        buttons.proofCapture.disabled = true;
+        document.getElementById('proof-feedback').textContent = "Salvataggio...";
+        try {
+            const videoElement = document.querySelector("#qr-reader video");
+            const canvas = document.createElement("canvas");
+            canvas.width = videoElement.videoWidth; canvas.height = videoElement.videoHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            const photoBase64 = canvas.toDataURL("image/jpeg", 0.5); 
+
+            let location = null;
+            if (userMarker) {
+                const ll = userMarker.getLatLng();
+                location = { lat: ll.lat, lng: ll.lng };
+            }
+
+            const userId = auth.currentUser.uid;
+            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), {
+                barcode: scannedBarcode, photo: photoBase64, location: location,
+                timestamp: serverTimestamp(), notes: "Consegna Sicura Appostino"
+            });
+            alert("Consegna registrata!");
+            stopProofScanner();
+        } catch (error) {
+            alert("Errore salvataggio: " + error.message);
+            buttons.proofCapture.disabled = false;
+        }
+    };
+
+    const stopProofScanner = () => {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(e => console.error(e));
+        }
+        showScreen('home');
+        buttons.proofCapture.disabled = false;
+    };
+    buttons.closeProofScreen.onclick = stopProofScanner;
+
+    buttons.viewHistory.onclick = () => {
+        showScreen('deliveryHistory');
+        loadDeliveryHistory();
+    };
+    buttons.backFromHistory.onclick = () => showScreen('home');
+
+    const loadDeliveryHistory = async () => {
+        const listContainer = document.getElementById('delivery-history-list');
+        listContainer.innerHTML = '<div class="spinner mx-auto"></div>';
+        const userId = auth.currentUser.uid;
+        const q = query(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), orderBy("timestamp", "desc"));
+        try {
+            const snapshot = await getDocs(q);
+            listContainer.innerHTML = '';
+            if (snapshot.empty) { listContainer.innerHTML = '<p class="text-center text-gray-500">Nessuna consegna.</p>'; return; }
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const date = data.timestamp ? data.timestamp.toDate().toLocaleString('it-IT') : '-';
+                const item = document.createElement('div');
+                item.className = "bg-white p-3 rounded shadow border-l-4 border-indigo-500 mb-2";
+                item.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-bold text-lg text-indigo-700">${data.barcode}</p>
+                            <p class="text-xs text-gray-500">${date}</p>
+                            ${data.location ? `<a href="https://www.google.com/maps?q=${data.location.lat},${data.location.lng}" target="_blank" class="text-xs text-blue-500 underline">Vedi posizione</a>` : ''}
+                        </div>
+                        ${data.photo ? `<img src="${data.photo}" class="w-16 h-16 object-cover rounded border cursor-pointer" onclick="this.requestFullscreen()">` : ''}
+                    </div>`;
+                listContainer.appendChild(item);
+            });
+            document.getElementById('search-delivery-input').oninput = (e) => {
+                const term = e.target.value.toLowerCase();
+                Array.from(listContainer.children).forEach(div => {
+                    div.style.display = div.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+                });
+            };
+        } catch (error) { listContainer.innerHTML = '<p class="text-red-500 text-center">Errore storico.</p>'; }
+    };
     </script>
 </body>
 </html>
+
