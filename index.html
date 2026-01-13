@@ -600,6 +600,7 @@
 
         const UNORDERED_START_INDEX = 10000;
         let map, userMarker, temporaryMarker, markerClusterGroup, individualMarkersLayer, currentRouteControl;
+let lastKnownLocation = null;
         let currentMarkers = [];
         let streetColorMap = new Map();
         let currentHue = Math.random() * 360;
@@ -988,9 +989,16 @@ startDeliveryProof: document.getElementById('start-delivery-proof-btn'),
             });
         };
 
-        const updateUserLocation = (coords) => {
+        
+const updateUserLocation = (coords) => {
+            // 1. SALVA SEMPRE LA POSIZIONE (anche se la mappa è chiusa!)
+            lastKnownLocation = { lat: coords.latitude, lng: coords.longitude };
+
+            // 2. Se la mappa non c'è, ci fermiamo qui (non disegniamo il pallino)
             if (!map) return;
+            
             const latLng = L.latLng(coords.latitude, coords.longitude);
+
 
             if (!userMarker) {
                 const userIcon = L.divIcon({
@@ -3383,20 +3391,26 @@ scanShutterBtn.onclick = handleScanSnapshot;
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); 
 
-            // LOGICA POSIZIONE MIGLIORATA
+           // 2. RECUPERA POSIZIONE (AGGIORNATA)
             let location = null;
-            if (userMarker) {
-                const ll = userMarker.getLatLng();
-                location = { lat: ll.lat, lng: ll.lng };
+            
+            // TENTATIVO A: Usa l'ultima posizione nota salvata in background
+            if (lastKnownLocation) {
+                location = lastKnownLocation;
             } 
+            
+            // TENTATIVO B: Se proprio è vuota (es. GPS spento), prova a forzare una lettura al volo
             if (!location) {
                 try {
                     const pos = await getPositionPromise();
                     location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    // Aggiorniamo anche la variabile globale già che ci siamo
+                    lastKnownLocation = location;
                 } catch (e) {
                     console.warn("No GPS:", e);
                 }
             }
+
 
             feedbackEl.textContent = "Salvataggio...";
             feedbackEl.className = "bg-blue-600 text-white px-4 py-2 rounded text-center";
