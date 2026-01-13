@@ -529,6 +529,7 @@
         <div id="qr-reader" class="w-full max-w-lg h-64 bg-black"></div>
         <div id="proof-ui-controls" class="absolute bottom-10 w-full flex flex-col items-center gap-4 z-20">
             <p id="proof-feedback" class="bg-black/70 text-white px-4 py-2 rounded text-center">Inquadra il codice a barre</p>
+<textarea id="proof-notes-input" class="hidden w-64 p-2 rounded text-black text-sm shadow-lg mb-2 opacity-90" placeholder="Scrivi una nota (es. Lasciato su richiesta)..." rows="2"></textarea>
             <button id="proof-capture-btn" class="hidden bg-white text-blue-600 font-bold w-20 h-20 rounded-full shadow-lg border-4 border-blue-300 flex items-center justify-center">
                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
@@ -3294,10 +3295,10 @@ document.getElementById('scan-confirm-modal').addEventListener('click', (e) => {
 buttons.goToScan.onclick = startScanner;
 buttons.backFromScan.onclick = stopScanner;
 scanShutterBtn.onclick = handleScanSnapshot;
-// --- MODULO CONSEGNA SICURA (CORRETTO) ---
+// --- MODULO CONSEGNA SICURA (Aggiornato con Note ed Elimina) ---
     let html5QrCode = null;
     let scannedBarcode = null;
-    let isTakingPhoto = false; // <--- NUOVA VARIABILE FONDAMENTALE
+    let isTakingPhoto = false;
 
     // Riferimenti ai modali
     const barcodeModal = document.getElementById('barcode-confirm-modal');
@@ -3305,20 +3306,22 @@ scanShutterBtn.onclick = handleScanSnapshot;
     const btnConfirmBarcode = document.getElementById('btn-confirm-barcode');
     const btnRetryBarcode = document.getElementById('btn-retry-barcode');
     
-    // Riferimenti visualizzatore foto
+    // Riferimenti visualizzatore foto e note
     const photoModal = document.getElementById('photo-viewer-modal');
     const photoImg = document.getElementById('photo-viewer-img');
+    const notesInput = document.getElementById('proof-notes-input'); // Riferimento al campo note
 
     buttons.startDeliveryProof.onclick = () => {
         showScreen('deliveryProof');
         scannedBarcode = null;
-        isTakingPhoto = false; // Reset
+        isTakingPhoto = false;
+        
+        // Reset UI
         document.getElementById('proof-feedback').textContent = "Inquadra il codice a barre...";
         document.getElementById('proof-feedback').className = "bg-black/70 text-white px-4 py-2 rounded text-center";
         buttons.proofCapture.classList.add('hidden'); 
-
-        // Nascondi overlay foto e mostra box scansione se necessario
-        // (Qui lasciamo semplice, ci basiamo sul feedback testo)
+        notesInput.classList.add('hidden'); // Nascondi note all'inizio
+        notesInput.value = ''; // Pulisci note vecchie
 
         if(html5QrCode) { try { html5QrCode.clear(); } catch(e){} }
 
@@ -3326,12 +3329,9 @@ scanShutterBtn.onclick = handleScanSnapshot;
         const config = { fps: 10, qrbox: { width: 200, height: 100 }, aspect: 1.0 };
         
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText, decodedResult) => {
-            // SE STO FACENDO LA FOTO, IGNORA TUTTO!
             if (isTakingPhoto) return;
 
-            // ALTRIMENTI: CODICE TROVATO -> PAUSA
             html5QrCode.pause(); 
-            
             scannedBarcode = decodedText;
             barcodeDisplay.textContent = scannedBarcode;
             barcodeModal.classList.remove('hidden');
@@ -3342,39 +3342,38 @@ scanShutterBtn.onclick = handleScanSnapshot;
         });
     };
 
-    // CONFERMA: "Sì, è giusto"
+    // CONFERMA CODICE
     btnConfirmBarcode.onclick = () => {
         barcodeModal.classList.add('hidden');
         barcodeModal.classList.remove('flex');
         
-        // Attiviamo la modalità foto: lo scanner continuerà a girare per farci vedere il video,
-        // ma ignorerà i codici grazie all'if(isTakingPhoto) return;
         isTakingPhoto = true; 
         
         const feedbackEl = document.getElementById('proof-feedback');
         feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Scatta la foto!`;
         feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg";
         
+        // Mostra tasto scatto e campo note
         buttons.proofCapture.classList.remove('hidden');
+        notesInput.classList.remove('hidden'); 
+        notesInput.focus(); // Metti il cursore lì così puoi scrivere subito se vuoi
         
-        // Riattiva il video (ma ignorerà i codici)
         html5QrCode.resume();
     };
 
-    // RIPROVA: "No, sbagliato"
     btnRetryBarcode.onclick = () => {
         barcodeModal.classList.add('hidden');
         barcodeModal.classList.remove('flex');
         scannedBarcode = null;
         isTakingPhoto = false;
-        html5QrCode.resume(); // Ricomincia a scansionare
+        html5QrCode.resume();
     };
 
-    // SCATTA FOTO
+    // SCATTA E SALVA
     buttons.proofCapture.onclick = async () => {
         if (!scannedBarcode || !auth.currentUser) return;
         
-        html5QrCode.pause(); // Ferma tutto per lo scatto
+        html5QrCode.pause();
         buttons.proofCapture.disabled = true;
         
         const feedbackEl = document.getElementById('proof-feedback');
@@ -3391,26 +3390,23 @@ scanShutterBtn.onclick = handleScanSnapshot;
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); 
 
-           // 2. RECUPERA POSIZIONE (AGGIORNATA)
+            // Leggi le note scritte
+            const notesText = notesInput.value.trim() || "Consegna Sicura";
+
+            // LOGICA POSIZIONE
             let location = null;
-            
-            // TENTATIVO A: Usa l'ultima posizione nota salvata in background
-            if (lastKnownLocation) {
+            if (lastKnownLocation) { // Usa la variabile globale "scatola nera"
                 location = lastKnownLocation;
             } 
-            
-            // TENTATIVO B: Se proprio è vuota (es. GPS spento), prova a forzare una lettura al volo
             if (!location) {
                 try {
                     const pos = await getPositionPromise();
                     location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    // Aggiorniamo anche la variabile globale già che ci siamo
                     lastKnownLocation = location;
                 } catch (e) {
                     console.warn("No GPS:", e);
                 }
             }
-
 
             feedbackEl.textContent = "Salvataggio...";
             feedbackEl.className = "bg-blue-600 text-white px-4 py-2 rounded text-center";
@@ -3421,7 +3417,7 @@ scanShutterBtn.onclick = handleScanSnapshot;
                 photo: photoBase64, 
                 location: location,
                 timestamp: serverTimestamp(), 
-                notes: "Consegna Sicura Appostino"
+                notes: notesText // Salva le note inserite
             });
 
             alert("Consegna registrata!");
@@ -3436,10 +3432,6 @@ scanShutterBtn.onclick = handleScanSnapshot;
         }
     };
 
-
-
-
-
     const stopProofScanner = () => {
         if (html5QrCode) {
             html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(e => console.error(e));
@@ -3447,12 +3439,13 @@ scanShutterBtn.onclick = handleScanSnapshot;
         showScreen('home');
         buttons.proofCapture.disabled = false;
         buttons.proofCapture.classList.add('hidden');
-        barcodeModal.classList.add('hidden'); // Sicurezza
+        notesInput.classList.add('hidden'); // Nascondi note
+        barcodeModal.classList.add('hidden');
     };
     buttons.closeProofScreen.onclick = stopProofScanner;
 
 
-    // --- MODULO STORICO (AGGIORNATO CON VISUALIZZATORE) ---
+    // --- MODULO STORICO (CON DELETE E NOTE) ---
     
     buttons.viewHistory.onclick = () => {
         showScreen('deliveryHistory');
@@ -3460,20 +3453,17 @@ scanShutterBtn.onclick = handleScanSnapshot;
     };
     buttons.backFromHistory.onclick = () => showScreen('home');
 
-    // Funzione helper per aprire la foto
     window.openPhotoViewer = (src) => {
         photoImg.src = src;
         photoModal.classList.remove('hidden');
         photoModal.classList.add('flex');
     };
 
-
-const loadDeliveryHistory = async () => {
+    const loadDeliveryHistory = async () => {
         const listContainer = document.getElementById('delivery-history-list');
         listContainer.innerHTML = '<div class="spinner mx-auto"></div>';
         
         const userId = auth.currentUser.uid;
-        // Query: Ordina per data decrescente (dal più recente)
         const q = query(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), orderBy("timestamp", "desc"));
         
         try {
@@ -3487,22 +3477,17 @@ const loadDeliveryHistory = async () => {
 
             snapshot.forEach(doc => {
                 const data = doc.data();
-                
-                // Formatta la data
+                const docId = doc.id; // ID del documento per cancellarlo
                 const date = data.timestamp ? data.timestamp.toDate().toLocaleString('it-IT') : '-';
+                const note = data.notes || '';
                 
-                // Gestione Coordinate
                 let locationHtml = '<span class="text-xs text-red-400 italic">⚠️ Posizione non rilevata</span>';
                 
                 if (data.location && data.location.lat && data.location.lng) {
-                    // Arrotonda le coordinate per non avere numeri lunghissimi
                     const lat = Number(data.location.lat).toFixed(5);
                     const lng = Number(data.location.lng).toFixed(5);
-                    
-                    // Link ufficiale per aprire Google Maps (o Waze/altri)
-                    // NOTA: Qui uso il simbolo del dollaro corretto ${}
-          locationHtml = `
-                        <a href="https://www.google.com/maps/search/?api=1&query=${data.location.lat},${data.location.lng}" 
+                    locationHtml = `
+                        <a href="google.com/maps/search/...${data.location.lat},${data.location.lng}" 
                            target="_blank" 
                            class="inline-flex items-center gap-1 mt-1 text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100">
                            📍 ${lat}, ${lng} ↗
@@ -3515,26 +3500,48 @@ const loadDeliveryHistory = async () => {
                 
                 item.innerHTML = `
                     <div class="flex-grow min-w-0 pr-2">
-                        <p class="font-black text-lg text-gray-800 break-all leading-tight">${data.barcode}</p>
+                        <div class="flex items-center gap-2">
+                            <p class="font-black text-lg text-gray-800 break-all leading-tight">${data.barcode}</p>
+                        </div>
                         <p class="text-xs text-gray-500 mb-1">${date}</p>
+                        ${note ? `<p class="text-sm text-gray-700 italic bg-yellow-50 p-1 rounded border border-yellow-100 mb-1">📝 ${note}</p>` : ''}
                         ${locationHtml}
                     </div>
                     
-                    <div class="flex-shrink-0">
+                    <div class="flex flex-col gap-2 items-end">
                         ${data.photo 
-                            ? `<img src="${data.photo}" class="w-20 h-20 object-cover rounded-md border border-gray-300 shadow-sm cursor-pointer" onclick="openPhotoViewer(this.src)">` 
+                            ? `<img src="${data.photo}" class="w-20 h-20 object-cover rounded-md border border-gray-300 shadow-sm cursor-pointer hover:opacity-80" onclick="openPhotoViewer(this.src)">` 
                             : '<div class="w-20 h-20 bg-gray-100 rounded-md flex items-center justify-center text-gray-400 text-xs border border-gray-200">No Foto</div>'
                         }
+                        <button class="delete-delivery-btn text-xs text-red-500 font-bold border border-red-200 px-2 py-1 rounded hover:bg-red-50 flex items-center gap-1" data-id="${docId}">
+                            🗑️ Elimina
+                        </button>
                     </div>
                 `;
                 listContainer.appendChild(item);
             });
 
-            // Riattiva il filtro di ricerca
+            // Gestione Click per Elimina
+            listContainer.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.delete-delivery-btn');
+                if (btn) {
+                    const docId = btn.dataset.id;
+                    const confirmed = await showConfirm("Eliminare questa consegna?", "Non potrai più recuperare la foto.");
+                    if (confirmed) {
+                        try {
+                            await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/deliveries`, docId));
+                            loadDeliveryHistory(); // Ricarica la lista
+                        } catch (err) {
+                            alert("Errore eliminazione: " + err);
+                        }
+                    }
+                }
+            });
+
+            // Filtro di ricerca
             document.getElementById('search-delivery-input').oninput = (e) => {
                 const term = e.target.value.toLowerCase();
                 Array.from(listContainer.children).forEach(div => {
-                    // Cerca nel testo del div (codice o data)
                     div.style.display = div.innerText.toLowerCase().includes(term) ? 'flex' : 'none';
                 });
             };
@@ -3544,7 +3551,6 @@ const loadDeliveryHistory = async () => {
             listContainer.innerHTML = '<p class="text-red-500 text-center mt-4">Errore nel caricamento dello storico.</p>'; 
         }
     };
-
 
     
 
