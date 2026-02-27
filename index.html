@@ -528,9 +528,24 @@
  <div id="delivery-proof-screen" class="screen bg-black flex-col items-center justify-center relative">
         <div id="qr-reader" class="w-full max-w-lg h-64 bg-black"></div>
         <div id="proof-ui-controls" class="absolute bottom-10 w-full flex flex-col items-center gap-4 z-20">
-            <p id="proof-feedback" class="bg-black/70 text-white px-4 py-2 rounded text-center">Inquadra il codice a barre</p>
-<textarea id="proof-notes-input" class="hidden w-64 p-2 rounded text-black text-sm shadow-lg mb-2 opacity-90" placeholder="Scrivi una nota (es. Lasciato su richiesta)..." rows="2"></textarea>
-            <button id="proof-capture-btn" class="hidden bg-white text-blue-600 font-bold w-20 h-20 rounded-full shadow-lg border-4 border-blue-300 flex items-center justify-center">
+       
+<p id="proof-feedback" class="bg-black/70 text-white px-4 py-2 rounded text-center">Inquadra il codice a barre</p>
+        
+        <div id="proof-form-container" class="hidden flex-col items-center gap-2 w-64 z-30 mb-2">
+            <select id="proof-status-select" class="w-full p-2 rounded text-black text-sm shadow-lg font-bold opacity-95">
+                <option value="LASCIATO">Lasciato</option>
+                <option value="RICHIESTA CITOFONO">Richiesta Citofono</option>
+                <option value="RICHIESTA TELEFONO">Richiesta Telefono</option>
+                <option value="RICHIESTA CARTELLO">Richiesta Cartello</option>
+                <option value="SMS">SMS</option>
+                <option value="ALTRO">Altro...</option>
+            </select>
+            <textarea id="proof-notes-input" class="w-full p-2 rounded text-black text-sm shadow-lg opacity-95" placeholder="Scrivi una nota aggiuntiva..." rows="2"></textarea>
+            <button id="proof-save-btn" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded shadow-lg hover:bg-green-600">Salva Definitivo</button>
+        </div>
+        <button id="proof-capture-btn" class="hidden bg-white text-blue-600 font-bold w-20 h-20 rounded-full shadow-lg border-4 border-blue-300 flex items-center justify-center z-30">
+
+
                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
             <button id="close-proof-screen" class="bg-red-600 text-white font-bold py-2 px-6 rounded shadow-lg">Annulla</button>
@@ -3307,21 +3322,35 @@ scanShutterBtn.onclick = handleScanSnapshot;
     const btnRetryBarcode = document.getElementById('btn-retry-barcode');
     
     // Riferimenti visualizzatore foto e note
-    const photoModal = document.getElementById('photo-viewer-modal');
+   
+const photoModal = document.getElementById('photo-viewer-modal');
     const photoImg = document.getElementById('photo-viewer-img');
-    const notesInput = document.getElementById('proof-notes-input'); // Riferimento al campo note
+    
+    // NUOVE VARIABILI AGGIUNTE QUI
+    const notesInput = document.getElementById('proof-notes-input'); 
+    const statusSelect = document.getElementById('proof-status-select');
+    const proofFormContainer = document.getElementById('proof-form-container');
+    const btnProofSave = document.getElementById('proof-save-btn');
+    let capturedPhotoBase64 = null; // Memoria temporanea per la foto
 
     buttons.startDeliveryProof.onclick = () => {
+
+
         showScreen('deliveryProof');
         scannedBarcode = null;
         isTakingPhoto = false;
         
         // Reset UI
         document.getElementById('proof-feedback').textContent = "Inquadra il codice a barre...";
-        document.getElementById('proof-feedback').className = "bg-black/70 text-white px-4 py-2 rounded text-center";
+       document.getElementById('proof-feedback').className = "bg-black/70 text-white px-4 py-2 rounded text-center";
         buttons.proofCapture.classList.add('hidden'); 
-        notesInput.classList.add('hidden'); // Nascondi note all'inizio
-        notesInput.value = ''; // Pulisci note vecchie
+        
+        // RESET DEL NUOVO FORM
+        proofFormContainer.classList.add('hidden'); 
+        proofFormContainer.classList.remove('flex');
+        notesInput.value = '';
+        statusSelect.selectedIndex = 0; 
+        if(btnProofSave) btnProofSave.disabled = false;
 
         if(html5QrCode) { try { html5QrCode.clear(); } catch(e){} }
 
@@ -3351,14 +3380,16 @@ scanShutterBtn.onclick = handleScanSnapshot;
         
         const feedbackEl = document.getElementById('proof-feedback');
         feedbackEl.innerHTML = `Codice: <b>${scannedBarcode}</b><br>Scatta la foto!`;
-        feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg";
+       
+feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center shadow-lg";
         
-        // Mostra tasto scatto e campo note
+        // MOSTRA SOLO IL TASTO SCATTO PER ORA
         buttons.proofCapture.classList.remove('hidden');
-        notesInput.classList.remove('hidden'); 
-        notesInput.focus(); // Metti il cursore lì così puoi scrivere subito se vuoi
+        proofFormContainer.classList.add('hidden'); 
+        proofFormContainer.classList.remove('flex');
         
         html5QrCode.resume();
+
     };
 
     btnRetryBarcode.onclick = () => {
@@ -3369,33 +3400,44 @@ scanShutterBtn.onclick = handleScanSnapshot;
         html5QrCode.resume();
     };
 
-    // SCATTA E SALVA
-    buttons.proofCapture.onclick = async () => {
+// 1. SCATTA LA FOTO E MOSTRA IL FORM
+    buttons.proofCapture.onclick = () => {
         if (!scannedBarcode || !auth.currentUser) return;
         
-        html5QrCode.pause();
-        buttons.proofCapture.disabled = true;
+        html5QrCode.pause(); 
+        buttons.proofCapture.classList.add('hidden'); 
         
         const feedbackEl = document.getElementById('proof-feedback');
-        const originalText = feedbackEl.textContent;
-        feedbackEl.textContent = "📍 Cerco posizione...";
+        feedbackEl.textContent = "Foto acquisita! Seleziona l'esito.";
+        feedbackEl.className = "bg-blue-600 text-white px-4 py-2 rounded text-center shadow-lg";
+
+        const videoElement = document.querySelector("#qr-reader video");
+        const canvas = document.createElement("canvas");
+        canvas.width = videoElement.videoWidth; 
+        canvas.height = videoElement.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        capturedPhotoBase64 = canvas.toDataURL("image/jpeg", 0.6); 
+
+        // Mostra il form per lo stato e le note
+        proofFormContainer.classList.remove('hidden');
+        proofFormContainer.classList.add('flex');
+    };
+
+    // 2. SALVA TUTTO NEL DATABASE
+    btnProofSave.onclick = async () => {
+        btnProofSave.disabled = true;
+        const feedbackEl = document.getElementById('proof-feedback');
+        feedbackEl.textContent = "📍 Salvataggio in corso...";
         feedbackEl.className = "bg-yellow-500 text-white px-4 py-2 rounded text-center animate-pulse";
 
         try {
-            const videoElement = document.querySelector("#qr-reader video");
-            const canvas = document.createElement("canvas");
-            canvas.width = videoElement.videoWidth; 
-            canvas.height = videoElement.videoHeight;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            const photoBase64 = canvas.toDataURL("image/jpeg", 0.6); 
+            const selectedStatus = statusSelect.value;
+            const extraNotes = notesInput.value.trim();
+            const finalNoteText = extraNotes ? `${selectedStatus} - ${extraNotes}` : selectedStatus;
 
-            // Leggi le note scritte
-            const notesText = notesInput.value.trim() || "Consegna Sicura";
-
-            // LOGICA POSIZIONE
             let location = null;
-            if (lastKnownLocation) { // Usa la variabile globale "scatola nera"
+            if (lastKnownLocation) { 
                 location = lastKnownLocation;
             } 
             if (!location) {
@@ -3408,39 +3450,43 @@ scanShutterBtn.onclick = handleScanSnapshot;
                 }
             }
 
-            feedbackEl.textContent = "Salvataggio...";
-            feedbackEl.className = "bg-blue-600 text-white px-4 py-2 rounded text-center";
-
             const userId = auth.currentUser.uid;
             await addDoc(collection(db, `artifacts/${appId}/users/${userId}/deliveries`), {
                 barcode: scannedBarcode, 
-                photo: photoBase64, 
+                photo: capturedPhotoBase64, 
                 location: location,
                 timestamp: serverTimestamp(), 
-                notes: notesText // Salva le note inserite
+                notes: finalNoteText 
             });
 
             alert("Consegna registrata!");
             stopProofScanner();
-
         } catch (error) {
             alert("Errore: " + error.message);
-            buttons.proofCapture.disabled = false;
-            html5QrCode.resume();
-            feedbackEl.innerHTML = originalText; 
-            feedbackEl.className = "bg-green-600 text-white px-4 py-2 rounded text-center";
+            btnProofSave.disabled = false;
+            feedbackEl.textContent = "Errore, riprova.";
+            feedbackEl.className = "bg-red-600 text-white px-4 py-2 rounded text-center";
         }
     };
 
-    const stopProofScanner = () => {
+    const stopProofScanner = () => {    
+
+
         if (html5QrCode) {
             html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(e => console.error(e));
         }
-        showScreen('home');
+        
+
+showScreen('home');
         buttons.proofCapture.disabled = false;
         buttons.proofCapture.classList.add('hidden');
-        notesInput.classList.add('hidden'); // Nascondi note
+        
+        // CHIUDI IL NUOVO FORM
+        proofFormContainer.classList.add('hidden');
+        proofFormContainer.classList.remove('flex');
+        
         barcodeModal.classList.add('hidden');
+
     };
     buttons.closeProofScreen.onclick = stopProofScanner;
 
